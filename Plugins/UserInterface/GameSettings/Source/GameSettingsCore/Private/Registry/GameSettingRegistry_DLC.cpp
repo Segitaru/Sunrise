@@ -10,9 +10,10 @@
 #include "Kismet/GameplayStatics.h"
 #include "Messaging/CommonGameDialog.h"
 #include "Messaging/CommonMessagingSubsystem.h"
+#if UE_VERSION_5_8_x
 #include "PlatformDLC.h"
 #include "PlatformDLCModule.h"
-
+#endif
 #define LOCTEXT_NAMESPACE "Game"
 
 static constexpr float DLCStatusTickRate = 0.1f;
@@ -43,7 +44,7 @@ namespace
 	private:
 		bool bReady = false;
 	};
-
+#if UE_VERSION_5_8_x
 	static TSharedPtr<IPlatformDLC> GetPlatformDLC()
 	{
 		IPlatformDLCModule* PlatformDLCModule = FModuleManager::GetModulePtr<IPlatformDLCModule>(TEXT("PlatformDLC"));
@@ -69,10 +70,12 @@ namespace
 		}
 		return FText::FromString(FString::Printf(TEXT("Status: %s"), *LexToString(State)));
 	}
+#endif
 } // namespace
 
 void UGameSettingRegistry::AddDLCPage(UGameSettingCollection* Screen, ULocalPlayer* InLocalPlayer)
 {
+#if UE_VERSION_5_8_x
 	if (!CVarShowDLCMenu.GetValueOnGameThread())
 	{
 		return;
@@ -253,6 +256,7 @@ void UGameSettingRegistry::AddDLCPage(UGameSettingCollection* Screen, ULocalPlay
 			InitCondition->SetReady();
 			LocalPage->RefreshEditableState();
 		});
+#endif
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -77,7 +77,11 @@ void UEFCameraMode_ThirdPerson::UpdateForTarget(float DeltaTime)
 
 	if (const ACharacter* TargetCharacter = Cast<ACharacter>(GetTargetActor()))
 	{
+#if UE_VERSION_5_8_x
 		if (TargetCharacter->IsCrouched())
+#else
+		if (TargetCharacter->bIsCrouched)
+#endif
 		{
 			const ACharacter* TargetCharacterCDO = TargetCharacter->GetClass()->GetDefaultObject<ACharacter>();
 			const float CrouchedHeightAdjustment = TargetCharacterCDO->CrouchedEyeHeight - TargetCharacterCDO->BaseEyeHeight;

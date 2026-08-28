@@ -512,6 +512,7 @@ void ULoadingScreenManager::ShowLoadingScreen()
 		TSubclassOf<UUserWidget> LoadingScreenWidgetClass = Settings->LoadingScreenWidget.TryLoadClass<UUserWidget>();
 		UGameViewportClient* GameViewportClient = LocalGameInstance->GetGameViewportClient();
 
+#if UE_VERSION_5_8_x
 		if (GameViewportClient->bEnablePlayersSplitRT)
 		{
 			for (ULocalPlayer* Player : LocalGameInstance->GetLocalPlayers())
@@ -536,6 +537,7 @@ void ULoadingScreenManager::ShowLoadingScreen()
 			}
 		}
 		else
+#endif
 		{
 			if (UUserWidget* UserWidget = UUserWidget::CreateWidgetInstance(*LocalGameInstance, LoadingScreenWidgetClass, NAME_None))
 			{
@@ -605,11 +607,12 @@ void ULoadingScreenManager::RemoveWidgetFromViewport()
 	bool bUseSplitRT = false;
 	UGameViewportClient* GameViewportClient = LocalGameInstance->GetGameViewportClient();
 
+#if UE_VERSION_5_8_x
 	if (GameViewportClient && GameViewportClient->bEnablePlayersSplitRT)
 	{
 		bUseSplitRT = true;
 	}
-
+#endif
 	if (bUseSplitRT)
 	{
 		if (GameViewportClient)

@@ -30,7 +30,11 @@ public:
 	virtual void ShutdownGameFeatureManager() override;
 	virtual TArray<FPrimaryAssetId> GetPreloadAssetListForGameFeature(
 		const UGameFeatureData* GameFeatureToLoad, bool bIncludeLoadedAssets = false) const override;
+#if UE_VERSION_5_8_x
 	virtual bool IsPluginAllowed(const FString& PluginURL, FString* OutReason) const override;
+#else
+	virtual bool IsPluginAllowed(const FString& PluginURL) const override;
+#endif
 	virtual const TArray<FName> GetPreloadBundleStateForGameFeature() const override;
 	virtual void GetGameFeatureLoadingMode(bool& bLoadClientData, bool& bLoadServerData) const override;
 	//~End of UGameFeaturesProjectPolicies interface

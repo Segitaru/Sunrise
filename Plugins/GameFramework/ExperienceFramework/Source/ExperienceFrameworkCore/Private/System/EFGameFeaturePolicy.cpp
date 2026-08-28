@@ -24,7 +24,11 @@ void UEFGameFeaturePolicy::InitGameFeatureManager()
 	UGameFeaturesSubsystem& Subsystem = UGameFeaturesSubsystem::Get();
 	for (UObject* Observer : Observers)
 	{
+#if UE_VERSION_5_8_x
 		Subsystem.AddObserver(Observer, UGameFeaturesSubsystem::EObserverPluginStateUpdateMode::CurrentAndFuture);
+#else
+		Subsystem.AddObserver(Observer);
+#endif
 	}
 
 	Super::InitGameFeatureManager();
@@ -60,11 +64,17 @@ void UEFGameFeaturePolicy::GetGameFeatureLoadingMode(bool& bLoadClientData, bool
 	bLoadServerData = !IsRunningClientOnly();
 }
 
+#if UE_VERSION_5_8_x
 bool UEFGameFeaturePolicy::IsPluginAllowed(const FString& PluginURL, FString* OutReason) const
 {
 	return Super::IsPluginAllowed(PluginURL, OutReason);
 }
-
+#else
+bool UEFGameFeaturePolicy::IsPluginAllowed(const FString& PluginURL) const
+{
+	return Super::IsPluginAllowed(PluginURL);
+}
+#endif
 //////////////////////////////////////////////////////////////////////
 //
 

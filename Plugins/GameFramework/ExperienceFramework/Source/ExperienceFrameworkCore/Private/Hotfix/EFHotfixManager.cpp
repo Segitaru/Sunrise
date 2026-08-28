@@ -202,6 +202,7 @@ void UEFHotfixManager::RequestPatchAssetsFromIniFiles()
 
 void UEFHotfixManager::StartHotfixProcess()
 {
+#if UE_VERSION_5_8_x
 	if (GIsEditor)
 	{
 		UE_LOG(LogHotfixManager, Display, TEXT("Hotfixing skipped in development mode."));
@@ -211,6 +212,7 @@ void UEFHotfixManager::StartHotfixProcess()
 
 #if ENABLE_SHARED_MEMORY_TRACKER
 	FSharedMemoryTracker::PrintMemoryDiff(TEXT("StartHotfixProcess"));
+#endif
 #endif
 
 	Super::StartHotfixProcess();

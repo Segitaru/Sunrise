@@ -29,7 +29,11 @@ public class CommonLoadingScreen : ModuleRules
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
-			
+
+		PublicDefinitions.AddRange(new string[]
+		{
+			"UE_VERSION_5_8_x=0"
+		});
 		
 		PrivateDependencyModuleNames.AddRange(
 			new string[]

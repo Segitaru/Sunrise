@@ -64,7 +64,13 @@ UEnhancedPlayerMappableKeyProfile* UGameSettingKeyboardInput::FindMappableKeyPro
 {
 	if (UEnhancedInputUserSettings* Settings = GetUserSettings())
 	{
+#if UE_VERSION_5_8_x
 		return Settings->GetKeyProfileWithId(ProfileIdentifier);
+#else
+		FGameplayTag ProfileTag;
+		ProfileTag.FromExportString(ProfileIdentifier);
+		return Settings->GetKeyProfileWithIdentifier(ProfileTag);;
+#endif
 	}
 
 	ensure(false);
@@ -108,8 +114,11 @@ void UGameSettingKeyboardInput::InitializeInputData(const UEnhancedPlayerMappabl
 	const FPlayerMappableKeyQueryOptions& InQueryOptions)
 {
 	check(KeyProfile);
-
+#if UE_VERSION_5_8_x
 	ProfileIdentifier = KeyProfile->GetProfileIdString();
+#else
+	ProfileIdentifier = KeyProfile->GetProfileIdentifer().ToString();
+#endif
 	QueryOptions = InQueryOptions;
 
 	for (const FPlayerKeyMapping& Mapping : MappingData.Mappings)

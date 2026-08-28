@@ -153,8 +153,10 @@ UGameSettingCollection* UGameSettingRegistry::InitializeVideoSettings(ULocalPlay
 	UGameSettingValueDiscrete_Display* DisplaySetting = nullptr;
 #endif
 	UGameSettingValueDiscrete_Resolution* ResolutionSetting = nullptr;
+#if UE_VERSION_5_8_x
 #if PLATFORM_USES_DYNAMIC_HDR_SETTING
 	UGameSettingValueDiscreteDynamic_Bool* AllowHDRSetting = nullptr;
+#endif
 #endif
 	UGameSetting* MobileFPSType = nullptr;
 
@@ -240,6 +242,7 @@ UGameSettingCollection* UGameSettingRegistry::InitializeVideoSettings(ULocalPlay
 		{
 			if (UGameViewportClient* ViewportClient = GameInstance->GetGameViewportClient())
 			{
+				#if UE_VERSION_5_8_x
 				ViewportClient->OnWindowDisplayChanged().AddWeakLambda(Display,
 					[DisplaySetting]()
 					{
@@ -248,6 +251,7 @@ UGameSettingCollection* UGameSettingRegistry::InitializeVideoSettings(ULocalPlay
 							DisplaySetting->RefreshEditableState();
 						}
 					});
+#endif
 				ViewportClient->OnToggleFullscreen().AddWeakLambda(Display,
 					[WindowModeSetting, DisplaySetting, ResolutionSetting](bool bIsFullscreen)
 					{
@@ -267,6 +271,7 @@ UGameSettingCollection* UGameSettingRegistry::InitializeVideoSettings(ULocalPlay
 			}
 			if (UGameSettingsLocal* GameUserSettings = UGameSettingsLocal::Get())
 			{
+#if UE_VERSION_5_8_x
 				GameUserSettings->OnGameUserSettingsVideoRevert.AddWeakLambda(Display,
 					[WindowModeSetting, DisplaySetting, ResolutionSetting]()
 					{
@@ -283,6 +288,7 @@ UGameSettingCollection* UGameSettingRegistry::InitializeVideoSettings(ULocalPlay
 							ResolutionSetting->RefreshEditableState();
 						}
 					});
+#endif
 			}
 		}
 #endif
@@ -361,6 +367,7 @@ UGameSettingCollection* UGameSettingRegistry::InitializeVideoSettings(ULocalPlay
 			Graphics->AddSetting(Setting);
 		}
 		//----------------------------------------------------------------------------------
+#if UE_VERSION_5_8_x
 #if PLATFORM_USES_DYNAMIC_HDR_SETTING
 		{
 			UGameSettingValueDiscreteDynamic_Bool* Setting = NewObject<UGameSettingValueDiscreteDynamic_Bool>();
@@ -443,6 +450,7 @@ UGameSettingCollection* UGameSettingRegistry::InitializeVideoSettings(ULocalPlay
 
 			Graphics->AddSetting(Setting);
 		}
+#endif
 #endif
 		//----------------------------------------------------------------------------------
 		{

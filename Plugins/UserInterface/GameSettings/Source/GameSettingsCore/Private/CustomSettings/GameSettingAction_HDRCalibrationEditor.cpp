@@ -11,6 +11,7 @@
 
 UGameSettingAction_HDRCalibrationEditor::UGameSettingAction_HDRCalibrationEditor()
 {
+#if UE_VERSION_5_8_x
 	HDRCalibrationValueSetting = NewObject<UGameSettingValueScalarDynamic>();
 	HDRCalibrationValueSetting->SetDevName(TEXT("HDRCalibrationValue"));
 	HDRCalibrationValueSetting->SetDisplayName(LOCTEXT("HDRCalibrationValue_Name", "HDR Max Luminance"));
@@ -25,6 +26,7 @@ UGameSettingAction_HDRCalibrationEditor::UGameSettingAction_HDRCalibrationEditor
 			return FText::AsNumber(SourceValue);
 		});
 	HDRCalibrationValueSetting->SetSettingParent(this);
+#endif
 }
 
 TArray<UGameSetting*> UGameSettingAction_HDRCalibrationEditor::GetChildSettings()

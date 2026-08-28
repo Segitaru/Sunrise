@@ -111,9 +111,14 @@ void UGameSettingValueDiscrete_Resolution::OnDisplayMetricsChanged(const FDispla
 const FMonitorInfo* UGameSettingValueDiscrete_Resolution::GetCurrentMonitor() const
 {
 	const UGameUserSettings* const UserSettings = GEngine->GetGameUserSettings();
+#if UE_VERSION_5_8_x
 	const FString DisplayID = UserSettings->GetDisplayID();
 	const int32 DisplayIndex = UserSettings->GetDisplayIndex();
 	const int32 MonitorIndex = CurrentDisplayMetrics.GetClosestMonitorFromIDAndIndex(DisplayID, DisplayIndex);
+#else
+	const int32 MonitorIndex = 0;
+#endif
+	
 	return CurrentDisplayMetrics.MonitorInfo.IsValidIndex(MonitorIndex) ? &CurrentDisplayMetrics.MonitorInfo[MonitorIndex] : nullptr;
 }
 
@@ -125,11 +130,13 @@ void UGameSettingValueDiscrete_Resolution::InitializeResolutions()
 
 	const FMonitorInfo* const Monitor = GetCurrentMonitor();
 	FScreenResolutionArray ResArray;
+#if UE_VERSION_5_8_x
 	if (Monitor)
 	{
 		RHIGetAvailableResolutionsForDisplay(ResArray, true, Monitor->NativeHandle);
 	}
 	else
+#endif
 	{
 		RHIGetAvailableResolutions(ResArray, true);
 	}

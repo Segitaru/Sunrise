@@ -25,7 +25,10 @@ void ASunriseUnitAIController::OnPossess(APawn* InPawn)
 		{
 			StateTreeComponent->StopLogic(TEXT("Sunrise unit repossessed"));
 		}
+#if UE_VERSION_5_8_x		
 		StateTreeComponent->SetStateTree(DecisionStateTree);
+#endif
+		
 		StateTreeComponent->StartLogic();
 	}
 

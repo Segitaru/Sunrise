@@ -259,6 +259,7 @@ UGameSettingCollection* UGameSettingRegistry::InitializeGamepadSettings(ULocalPl
 			const TSharedRef<FWhenCondition> WhenPlatformSupportsChangingGamepadAPI = MakeShared<FWhenCondition>(
 				[](const ULocalPlayer*, FGameSettingEditableState& InOutEditState)
 				{
+#if UE_VERSION_5_8_x
 					// GameInput is unavailable on WinArm64 now, this is expected to change by mid 2026.
 					if (!PLATFORM_WINDOWS || (PLATFORM_CPU_ARM_FAMILY && !PLATFORM_WINDOWS_ARM64EC))
 					{
@@ -271,6 +272,7 @@ UGameSettingCollection* UGameSettingRegistry::InitializeGamepadSettings(ULocalPl
 						InOutEditState.Kill(TEXT("Project does not have bEnablePreferredInputAPIPreferences enabled."));
 					}
 					PRAGMA_ENABLE_DEPRECATION_WARNINGS
+#endif
 				});
 
 			Setting->AddEditCondition(WhenPlatformSupportsChangingGamepadAPI);

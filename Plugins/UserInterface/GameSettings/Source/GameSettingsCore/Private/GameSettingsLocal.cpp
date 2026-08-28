@@ -337,6 +337,7 @@ namespace GameSettingsHelpers
 
 UGameSettingsLocal::UGameSettingsLocal()
 {
+#if UE_VERSION_5_8_x
 	if (!HasAnyFlags(RF_ClassDefaultObject) && FSlateApplication::IsInitialized())
 	{
 		OnApplicationActivationStateChangedHandle =
@@ -346,6 +347,7 @@ UGameSettingsLocal::UGameSettingsLocal()
 	bEnableScalabilitySettings = UGamePlatformSpecificRenderingSettings::Get()->bSupportsGranularVideoQualitySettings;
 
 	SetToDefaults();
+#endif
 }
 
 void UGameSettingsLocal::SetToDefaults()
@@ -747,14 +749,20 @@ void UGameSettingsLocal::UpdateEffectiveFrameRateLimit()
 
 float UGameSettingsLocal::GetDynamicResolutionFrameRateTarget() const
 {
+#if UE_VERSION_5_8_x
 	return DynamicResolutionFrameTarget;
+#else
+	return 0.0;
+#endif
 }
 
 void UGameSettingsLocal::SetDynamicResolutionFrameRateTarget(float NewDynamicResolutionFPS)
 {
 	if (!IsRunningDedicatedServer())
 	{
+#if UE_VERSION_5_8_x
 		DynamicResolutionFrameTarget = NewDynamicResolutionFPS;
+#endif
 	}
 }
 
@@ -1657,13 +1665,14 @@ void UGameSettingsLocal::UpdateGameModeDeviceProfileAndFps()
 					{
 						UE_LOG(LogConsoleResponse, Log, TEXT("Overriding device profile to %s"), *ActualProfileToApply);
 						Manager.SetOverrideDeviceProfile(NewDeviceProfile);
-
+#if UE_VERSION_5_8_x
 						if (!bEnableScalabilitySettings)
 						{
 							// We don't support persistence of the scalability settings but at least we may
 							// provide up to date values if anybody queries them using the settings API.
 							ScalabilityQuality = Scalability::GetQualityLevels();
 						}
+#endif
 					}
 				}
 			}

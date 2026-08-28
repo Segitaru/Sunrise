@@ -21,9 +21,11 @@ public:
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|Projectile")
 	TObjectPtr<UBoxComponent> CollisionRoot;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|Projectile")
 	TObjectPtr<UStaticMeshComponent> VisualSphere;
-	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Projectile", meta = (ClampMin = "1.0", Units = "cm/s"))
+
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Projectile", meta = (ClampMin = "1.0" /*, Units = "cm/s"*/))
 	float Speed = 1800.0f;
 
 private:

@@ -50,8 +50,10 @@ void UGameSettingValueDiscrete_Display::OnInitialized()
 void UGameSettingValueDiscrete_Display::StoreInitial()
 {
 	const UGameUserSettings* const UserSettings = GEngine->GetGameUserSettings();
+#if UE_VERSION_5_8_x
 	InitialMonitorID = UserSettings->GetDisplayID();
 	InitialMonitorIndex = UserSettings->GetDisplayIndex();
+#endif
 }
 
 void UGameSettingValueDiscrete_Display::ResetToDefault()
@@ -68,21 +70,31 @@ void UGameSettingValueDiscrete_Display::SetDiscreteOptionByIndex(int32 Index)
 {
 	if (CurrentDisplayMetrics.MonitorInfo.IsValidIndex(Index))
 	{
+#if UE_VERSION_5_8_x
 		GEngine->GetGameUserSettings()->SetDisplayProperties(CurrentDisplayMetrics.MonitorInfo[Index].ID, Index);
+#endif
 		NotifySettingChanged(EGameSettingChangeReason::Change);
 	}
 }
 
 int32 UGameSettingValueDiscrete_Display::GetDiscreteOptionIndex() const
 {
+#if UE_VERSION_5_8_x
 	const UGameUserSettings* const UserSettings = GEngine->GetGameUserSettings();
-
+	
 	return CurrentDisplayMetrics.GetClosestMonitorFromIDAndIndex(UserSettings->GetDisplayID(), UserSettings->GetDisplayIndex());
+#else
+	return -1;
+#endif
 }
 
 int32 UGameSettingValueDiscrete_Display::GetDiscreteOptionDefaultIndex() const
 {
+#if UE_VERSION_5_8_x
 	return CurrentDisplayMetrics.GetClosestMonitorFromIDAndIndex(InitialMonitorID, InitialMonitorIndex);
+#else
+	return -1;
+#endif
 }
 
 TArray<FText> UGameSettingValueDiscrete_Display::GetDiscreteOptions() const
@@ -98,8 +110,13 @@ TArray<FText> UGameSettingValueDiscrete_Display::GetDiscreteOptions() const
 	{
 		for (const FMonitorInfo& Monitor : CurrentDisplayMetrics.MonitorInfo)
 		{
+#if UE_VERSION_5_8_x
 			Options.Emplace(Monitor.FriendlyName.IsEmpty() ? (Monitor.Name.IsEmpty() ? UnknownDisplayText : FText::FromString(Monitor.Name))
 														   : FText::FromString(Monitor.FriendlyName));
+#else
+			Options.Emplace(Monitor.Name.IsEmpty() ? (Monitor.Name.IsEmpty() ? UnknownDisplayText : FText::FromString(Monitor.Name))
+														   : FText::FromString(Monitor.Name));
+#endif
 		}
 	}
 
@@ -108,10 +125,13 @@ TArray<FText> UGameSettingValueDiscrete_Display::GetDiscreteOptions() const
 
 void UGameSettingValueDiscrete_Display::OnDependencyChanged()
 {
+#if UE_VERSION_5_8_x
 	UGameUserSettings* const UserSettings = GEngine->GetGameUserSettings();
 	const FString DisplayID = UserSettings->GetDisplayID();
 	const int32 DisplayIndex = UserSettings->GetDisplayIndex();
+
 	SetDiscreteOptionByIndex(CurrentDisplayMetrics.GetClosestMonitorFromIDAndIndex(DisplayID, DisplayIndex));
+#endif
 }
 
 void UGameSettingValueDiscrete_Display::OnDisplayMetricsChanged(const FDisplayMetrics& NewDisplayMetrics)
