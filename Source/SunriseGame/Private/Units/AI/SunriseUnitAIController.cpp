@@ -1,6 +1,6 @@
 #include "Units/AI/SunriseUnitAIController.h"
 
-#include "Components/StateTreeAIComponent.h"
+#include "Components/StateTreeComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Navigation/CrowdFollowingComponent.h"
@@ -9,7 +9,7 @@
 ASunriseUnitAIController::ASunriseUnitAIController(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	StateTreeComponent = CreateDefaultSubobject<UStateTreeAIComponent>(TEXT("StateTree"));
+	StateTreeComponent = CreateDefaultSubobject<UStateTreeComponent>(TEXT("StateTree"));
 	StateTreeComponent->SetStartLogicAutomatically(false);
 	BrainComponent = StateTreeComponent;
 	bAllowStrafe = false;

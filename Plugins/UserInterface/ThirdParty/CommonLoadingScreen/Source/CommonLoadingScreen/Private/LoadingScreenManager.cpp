@@ -143,8 +143,10 @@ void ULoadingScreenManager::Deinitialize()
 	FCoreUObjectDelegates::PreLoadMap.RemoveAll(this);
 	FCoreUObjectDelegates::PostLoadMapWithWorld.RemoveAll(this);
 
+#if UE_VERSION_5_8_x
 	// We are done, so do not attempt to tick us again
 	SetTickableTickType(ETickableTickType::Never);
+#endif
 }
 
 bool ULoadingScreenManager::ShouldCreateSubsystem(UObject* Outer) const

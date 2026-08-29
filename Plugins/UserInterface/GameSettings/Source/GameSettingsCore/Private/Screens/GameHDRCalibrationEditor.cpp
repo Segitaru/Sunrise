@@ -2,7 +2,9 @@
 
 #include "Screens/GameHDRCalibrationEditor.h"
 
+#if UE_VERSION_5_8_x
 #include "ColorManagement/TransferFunctions.h"
+#endif
 #include "CommonButtonBase.h"
 #include "CommonRichTextBlock.h"
 #include "Components/Image.h"
@@ -119,6 +121,7 @@ void UGameHDRCalibrationEditor::HandleBackClicked()
 
 void UGameHDRCalibrationEditor::HandleDoneClicked()
 {
+#if UE_VERSION_5_8_x
 	const float MaxLuminance = UE::Color::DecodeST2084(MaxLuminancePQ);
 	if (ValueSetting.IsValid())
 	{
@@ -126,10 +129,10 @@ void UGameHDRCalibrationEditor::HandleDoneClicked()
 	}
 	else
 	{
-#if UE_VERSION_5_8_x
 		UGameSettingsLocal::Get()->SetMaximumHDRDisplayNits(MaxLuminance);
-#endif
+
 	}
+#endif
 	DeactivateWidget();
 }
 
