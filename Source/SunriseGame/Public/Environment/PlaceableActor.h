@@ -6,7 +6,7 @@
 #include "ControllableEntities/IControllableEntity.h"
 #include "GameFramework/Actor.h"
 #include "GameplayTagAssetInterface.h"
-#include "System/TFTeamAgentInterface.h"
+#include "System/SunriseTeamAgentInterface.h"
 #include "Vitality/VitalityComponent.h"
 
 #include "PlaceableActor.generated.h"
@@ -20,7 +20,7 @@ class USunriseHealthSet;
 UCLASS(Blueprintable)
 class SUNRISEGAME_API APlaceableActor : public AActor,
 										public IIControllableEntity,
-										public ITFTeamAgentInterface,
+										public ISunriseTeamAgentInterface,
 										public IAbilitySystemInterface,
 										public IGameplayTagAssetInterface
 {
@@ -50,11 +50,11 @@ protected:
 	virtual FOnControllingAgentChanged* GetOnControllingAgentChangedDelegate() override { return &OnControllingAgentChanged; }
 #pragma endregion IIControllableEntity
 
-#pragma region ITFTeamAgentInterface
+#pragma region ISunriseTeamAgentInterface
 	virtual void SetGenericTeamId(const FGenericTeamId& NewTeamId) override;
 	virtual FGenericTeamId GetGenericTeamId() const override { return TeamId; }
-	virtual FOnTFTeamIndexChangedDelegate* GetOnTeamIndexChangedDelegate() override { return &OnTeamChanged; }
-#pragma endregion ITFTeamAgentInterface
+	virtual FOnTeamIndexChangedDelegate* GetOnTeamIndexChangedDelegate() override { return &OnTeamChanged; }
+#pragma endregion ISunriseTeamAgentInterface
 
 #pragma region IAbilitySystemInterface
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override { return AbilitySystemComponent; }
@@ -99,5 +99,5 @@ private:
 	FGenericTeamId TeamId = FGenericTeamId::NoTeam;
 
 	UPROPERTY()
-	FOnTFTeamIndexChangedDelegate OnTeamChanged;
+	FOnTeamIndexChangedDelegate OnTeamChanged;
 };

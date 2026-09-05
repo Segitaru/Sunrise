@@ -2,9 +2,7 @@
 
 #pragma once
 
-
-
-#include "AbilitySystem/Attributes/SunriseAttributeSet.h"
+#include "Attribute/ModularAttributeSet.h"
 
 #include "SunriseHealthSet.generated.h"
 
@@ -12,7 +10,7 @@ struct FGameplayEffectModCallbackData;
 
 /** Health-only state shared by units, heroes and destructible environment actors. */
 UCLASS(BlueprintType)
-class SUNRISEGAME_API USunriseHealthSet : public USunriseAttributeSet
+class SUNRISEGAME_API USunriseHealthSet : public UModularAttributeSet
 {
 	GENERATED_BODY()
 
@@ -24,12 +22,12 @@ public:
 	virtual bool PreGameplayEffectExecute(FGameplayEffectModCallbackData& Data) override;
 	virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data) override;
 
-	SUNRISE_ATTRIBUTE_ACCESSORS(USunriseHealthSet, Health)
-	SUNRISE_ATTRIBUTE_ACCESSORS(USunriseHealthSet, MaxHealth)
+	ATTRIBUTE_ACCESSORS(USunriseHealthSet, Health)
+	ATTRIBUTE_ACCESSORS(USunriseHealthSet, MaxHealth)
 
-	mutable FSunriseAttributeEvent OnHealthChanged;
-	mutable FSunriseAttributeEvent OnMaxHealthChanged;
-	mutable FSunriseAttributeEvent OnOutOfHealth;
+	mutable FModularAttributeEvent OnHealthChanged;
+	mutable FModularAttributeEvent OnMaxHealthChanged;
+	mutable FModularAttributeEvent OnOutOfHealth;
 
 private:
 	void ClampAttribute(const FGameplayAttribute& Attribute, float& NewValue) const;

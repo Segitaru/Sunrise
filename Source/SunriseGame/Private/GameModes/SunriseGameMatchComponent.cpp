@@ -4,10 +4,9 @@
 
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Components/CapsuleComponent.h"
-#include "Components/EFExperienceManagerComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
-#include "Data/EFExperienceDefinition.h"
-#include "EngineUtils.h"
+#include "GameFeatures/Components/ExperienceManagerComponent.h"
+#include "GameFeatures/ExperienceDefinition.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
@@ -49,11 +48,11 @@ void USunriseGameMatchComponent::BeginPlay()
 		UnitManager->OnUnitDied.AddUObject(this, &ThisClass::HandleUnitDied);
 	}
 
-	UEFExperienceManagerComponent* ExperienceManager = GetOwner()->FindComponentByClass<UEFExperienceManagerComponent>();
+	UExperienceManagerComponent* ExperienceManager = GetOwner()->FindComponentByClass<UExperienceManagerComponent>();
 	if (ensureMsgf(ExperienceManager, TEXT("SunriseGameMatchComponent requires EFExperienceManagerComponent")))
 	{
 		ExperienceManager->CallOrRegister_OnExperienceLoaded_LowPriority(
-			FOnEFExperienceLoaded::FDelegate::CreateUObject(this, &ThisClass::HandleExperienceLoaded));
+			FOnExperienceLoaded::FDelegate::CreateUObject(this, &ThisClass::HandleExperienceLoaded));
 	}
 }
 
@@ -87,7 +86,7 @@ void USunriseGameMatchComponent::ReturnToMainMenu()
 	UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Sunrise/Maps/Test/L_MainMenu")), true);
 }
 
-void USunriseGameMatchComponent::HandleExperienceLoaded(const UEFExperienceDefinition* CurrentExperience)
+void USunriseGameMatchComponent::HandleExperienceLoaded(const UExperienceDefinition* CurrentExperience)
 {
 	if (!IsValid(CurrentExperience) || !GetWorld())
 	{

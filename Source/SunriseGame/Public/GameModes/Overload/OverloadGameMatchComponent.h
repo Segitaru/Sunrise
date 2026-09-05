@@ -2,17 +2,18 @@
 
 #pragma once
 
-#include "Components/EFGameMatchComponent.h"
+#include "GameFeatures/Components/ModularGameMatchComponent.h"
 #include "GameModes/Overload/Types/OverloadTypes.h"
 #include "Units/SunriseUnitTypes.h"
 
 #include "OverloadGameMatchComponent.generated.h"
 
+
 class AOverloadEnergyCore;
 class AOverloadGuardTower;
 class AOverloadLaneSpline;
 class ASunriseUnit;
-class UEFExperienceDefinition;
+class UExperienceDefinition;
 class USunriseEndScreenWidget;
 class USunriseUnitManagerComponent;
 class FLifetimeProperty;
@@ -22,7 +23,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnOverloadWinnerDetermined, int32, 
 
 /** Independent Overload objective condition, composed onto GameState by an Experience/Game Feature. */
 UCLASS(Blueprintable, BlueprintType)
-class SUNRISEGAME_API UOverloadGameMatchComponent : public UEFGameMatchComponent
+class SUNRISEGAME_API UOverloadGameMatchComponent : public UModularGameMatchComponent
 {
 	GENERATED_BODY()
 
@@ -48,7 +49,7 @@ public:
 	FOnOverloadWinnerDetermined OnWinnerDetermined;
 
 protected:
-	void HandleExperienceLoaded(const UEFExperienceDefinition* CurrentExperience);
+	void HandleExperienceLoaded(const UExperienceDefinition* CurrentExperience);
 	UFUNCTION()
 	void InitializeOverloadMode();
 	UFUNCTION()

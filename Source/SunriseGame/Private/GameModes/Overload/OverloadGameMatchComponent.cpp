@@ -5,10 +5,10 @@
 #include <Abilities/SunriseHeroSquadAbility.h>
 
 #include "Blueprint/WidgetBlueprintLibrary.h"
-#include "Components/EFExperienceManagerComponent.h"
 #include "Components/SplineComponent.h"
-#include "Data/EFExperienceDefinition.h"
 #include "EngineUtils.h"
+#include "GameFeatures/Components/ExperienceManagerComponent.h"
+#include "GameFeatures/ExperienceDefinition.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameModes/Overload/Actors/OverloadEnergyCore.h"
 #include "GameModes/Overload/Actors/OverloadGuardTower.h"
@@ -41,11 +41,11 @@ void UOverloadGameMatchComponent::BeginPlay()
 	{
 		return;
 	}
-	UEFExperienceManagerComponent* ExperienceManager = GetOwner()->FindComponentByClass<UEFExperienceManagerComponent>();
+	UExperienceManagerComponent* ExperienceManager = GetOwner()->FindComponentByClass<UExperienceManagerComponent>();
 	if (ensureMsgf(ExperienceManager, TEXT("OverloadGameMatchComponent requires EFExperienceManagerComponent")))
 	{
 		ExperienceManager->CallOrRegister_OnExperienceLoaded_LowPriority(
-			FOnEFExperienceLoaded::FDelegate::CreateUObject(this, &ThisClass::HandleExperienceLoaded));
+			FOnExperienceLoaded::FDelegate::CreateUObject(this, &ThisClass::HandleExperienceLoaded));
 	}
 }
 
@@ -100,13 +100,13 @@ ESunriseMatchResult UOverloadGameMatchComponent::GetMatchResult() const
 	return WinnerTeamId == 0 ? ESunriseMatchResult::Victory : ESunriseMatchResult::Defeat;
 }
 
-void UOverloadGameMatchComponent::HandleExperienceLoaded(const UEFExperienceDefinition* CurrentExperience)
+void UOverloadGameMatchComponent::HandleExperienceLoaded(const UExperienceDefinition* CurrentExperience)
 {
 	if (!IsValid(CurrentExperience) || !GetWorld())
 	{
 		return;
 	}
-	GetWorld()->GetTimerManager().SetTimer(
+	GetWorldTimerManager().SetTimer(
 		InitializationTimer, this, &UOverloadGameMatchComponent::InitializeOverloadMode, InitializationRetryDelay, false);
 }
 

@@ -16,6 +16,9 @@ public class SunriseGame : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
+			
+		});
+		PrivateDependencyModuleNames.AddRange(new string[] {
 			"InputCore",
 			"AIModule",
 			"NavigationSystem",
@@ -25,16 +28,20 @@ public class SunriseGame : ModuleRules
 			"UMG",
 			"Slate",
 			"SlateCore",
-			"ExperienceFrameworkCore",
-			"TeamFrameworkCore",
+			"SunriseTeamFrameworkCore",
 			"GameSettingsCore",
 			"GameplayAbilities",
 			"GameplayTags",
 			"ModularGameplay",
 			"EnhancedInput",
-			"ModularGameplayActors"
+			"ModularGameplayActors",
+			"GameplayMessageRuntime",
+			"GameFeatures",
+			"DeveloperSettings",
+			"NetCore"
 		});
-
+		SetupGameplayDebuggerSupport(Target);
+		SetupIrisSupport(Target);
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 	}
 }

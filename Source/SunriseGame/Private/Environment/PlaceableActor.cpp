@@ -36,7 +36,7 @@ void APlaceableActor::PostInitializeComponents()
 		{
 			SetControllingAgent(Controllable->GetControllingAgent());
 		}
-		if (ITFTeamAgentInterface* TeamAgent = Cast<ITFTeamAgentInterface>(Source))
+		if (ISunriseTeamAgentInterface* TeamAgent = Cast<ISunriseTeamAgentInterface>(Source))
 		{
 			SetGenericTeamId(TeamAgent->GetGenericTeamId());
 		}
@@ -61,7 +61,7 @@ void APlaceableActor::HandleVitalityStateChanged(AActor*, EVitalityState OldStat
 
 void APlaceableActor::OnRep_TeamId(FGenericTeamId OldTeamId)
 {
-	ITFTeamAgentInterface::ConditionalBroadcastTeamChanged(this, this, OldTeamId, TeamId);
+	ISunriseTeamAgentInterface::ConditionalBroadcastTeamChanged(this, this, OldTeamId, TeamId);
 }
 
 void APlaceableActor::OnRep_ControllingAgent(AActor* OldAgentActor)
@@ -102,7 +102,7 @@ void APlaceableActor::SetGenericTeamId(const FGenericTeamId& NewTeamId)
 	}
 	const FGenericTeamId OldTeam = TeamId;
 	TeamId = NewTeamId;
-	ITFTeamAgentInterface::ConditionalBroadcastTeamChanged(this, this, OldTeam, TeamId);
+	ISunriseTeamAgentInterface::ConditionalBroadcastTeamChanged(this, this, OldTeam, TeamId);
 }
 
 void APlaceableActor::GetOwnedGameplayTags(FGameplayTagContainer& TagContainer) const

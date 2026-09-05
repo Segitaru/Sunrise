@@ -21,8 +21,7 @@ public class CommonGame : ModuleRules
 				"CommonInput",
 				"CommonUI",
 				"CommonUser",
-				"GameplayTags",
-				"ModularGameplayActors",
+				"GameplayTags"
 			}
 		);
 			

@@ -6,7 +6,7 @@
 #include "ControllableEntities/IControllableEntity.h"
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
-#include "System/TFTeamAgentInterface.h"
+#include "System/SunriseTeamAgentInterface.h"
 
 #include "SunrisePlayerController.generated.h"
 
@@ -25,7 +25,7 @@ struct FInputActionValue;
 
 /** Native RTS input layer: camera, edge scroll, selection, formation movement and target orders. */
 UCLASS(Blueprintable)
-class SUNRISEGAME_API ASunrisePlayerController : public APlayerController, public IIControllableEntity, public ITFTeamAgentInterface
+class SUNRISEGAME_API ASunrisePlayerController : public APlayerController, public IIControllableEntity, public ISunriseTeamAgentInterface
 {
 	GENERATED_BODY()
 
@@ -41,8 +41,8 @@ public:
 	virtual void SetControllingAgent(TScriptInterface<IIControllableEntity> NewAgent) override;
 	virtual FOnControllingAgentChanged* GetOnControllingAgentChangedDelegate() override { return &OnControllingAgentChanged; }
 	virtual void SetGenericTeamId(const FGenericTeamId& NewTeamId) override;
-	virtual FGenericTeamId GetGenericTeamId() const override { return IntegerToTFTeamId(ControlledTeamId); }
-	virtual FOnTFTeamIndexChangedDelegate* GetOnTeamIndexChangedDelegate() override { return &OnTeamChanged; }
+	virtual FGenericTeamId GetGenericTeamId() const override { return IntegerToSunriseTeamId(ControlledTeamId); }
+	virtual FOnTeamIndexChangedDelegate* GetOnTeamIndexChangedDelegate() override { return &OnTeamChanged; }
 
 	void DragSelectUnits(const TArray<ASunriseUnit*>& Units);
 
@@ -288,5 +288,5 @@ protected:
 	UPROPERTY()
 	FOnControllingAgentChanged OnControllingAgentChanged;
 	UPROPERTY()
-	FOnTFTeamIndexChangedDelegate OnTeamChanged;
+	FOnTeamIndexChangedDelegate OnTeamChanged;
 };

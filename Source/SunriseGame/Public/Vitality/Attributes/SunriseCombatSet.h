@@ -2,23 +2,23 @@
 
 #pragma once
 
-#include "AbilitySystem/Attributes/SunriseAttributeSet.h"
+#include "Attribute/ModularAttributeSet.h"
 
 #include "SunriseCombatSet.generated.h"
 
 /** Targeting and action tuning for combat-capable actors. */
 UCLASS(BlueprintType)
-class SUNRISEGAME_API USunriseCombatSet : public USunriseAttributeSet
+class SUNRISEGAME_API USunriseCombatSet : public UModularAttributeSet
 {
 	GENERATED_BODY()
 public:
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	SUNRISE_ATTRIBUTE_ACCESSORS(USunriseCombatSet, AttackPower)
-	SUNRISE_ATTRIBUTE_ACCESSORS(USunriseCombatSet, ActionRange)
-	SUNRISE_ATTRIBUTE_ACCESSORS(USunriseCombatSet, ActionInterval)
-	SUNRISE_ATTRIBUTE_ACCESSORS(USunriseCombatSet, AggroRadius)
+	ATTRIBUTE_ACCESSORS(USunriseCombatSet, AttackPower)
+	ATTRIBUTE_ACCESSORS(USunriseCombatSet, ActionRange)
+	ATTRIBUTE_ACCESSORS(USunriseCombatSet, ActionInterval)
+	ATTRIBUTE_ACCESSORS(USunriseCombatSet, AggroRadius)
 
 private:
 	UFUNCTION()

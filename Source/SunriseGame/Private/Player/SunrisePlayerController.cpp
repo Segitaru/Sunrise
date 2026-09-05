@@ -59,7 +59,7 @@ void ASunrisePlayerController::SetControllingAgent(TScriptInterface<IIControllab
 
 void ASunrisePlayerController::SetGenericTeamId(const FGenericTeamId& NewTeamId)
 {
-	const int32 NewValue = TFTeamIdToInteger(NewTeamId);
+	const int32 NewValue = SunriseTeamIdToInteger(NewTeamId);
 	if (!HasAuthority() || ControlledTeamId == NewValue)
 	{
 		return;

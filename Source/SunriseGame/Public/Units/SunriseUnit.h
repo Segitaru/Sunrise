@@ -7,8 +7,8 @@
 #include "ControllableEntities/IControllableEntity.h"
 #include "CoreMinimal.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
-#include "GameFramework/Character.h"
-#include "System/TFTeamAgentInterface.h"
+#include "ModularCharacter.h"
+#include "System/SunriseTeamAgentInterface.h"
 #include "Units/SunriseUnitInterfaces.h"
 #include "Units/SunriseUnitTypes.h"
 #include "Vitality/VitalityComponent.h"
@@ -28,7 +28,7 @@ class UControllableComponent;
 class UGameplayEffect;
 class USunriseWeapon;
 class USunriseHeroSquadAbility;
-class UTFTeamActorComponent;
+class USunriseTeamActorComponent;
 struct FOnAttributeChangeData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUnitMoveCompletedDelegate, ASunriseUnit*, Unit);
@@ -40,9 +40,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSunriseUnitDied, ASunriseUnit*, U
  * Blueprint children only need to supply presentation assets and optional event effects.
  */
 UCLASS(Blueprintable)
-class SUNRISEGAME_API ASunriseUnit : public ACharacter,
+class SUNRISEGAME_API ASunriseUnit : public AModularCharacter,
 									 public IAbilitySystemInterface,
-									 public ITFTeamAgentInterface,
+									 public ISunriseTeamAgentInterface,
 									 public IIControllableEntity,
 									 public ISunriseSelectable,
 									 public ISunriseOrderReceiver
@@ -108,7 +108,7 @@ public:
 
 	virtual void SetGenericTeamId(const FGenericTeamId& NewTeamId) override;
 	virtual FGenericTeamId GetGenericTeamId() const override;
-	virtual FOnTFTeamIndexChangedDelegate* GetOnTeamIndexChangedDelegate() override;
+	virtual FOnTeamIndexChangedDelegate* GetOnTeamIndexChangedDelegate() override;
 	virtual TScriptInterface<IIControllableEntity> GetControllingAgent() override;
 	virtual void SetControllingAgent(TScriptInterface<IIControllableEntity> NewAgent) override;
 	virtual FOnControllingAgentChanged* GetOnControllingAgentChangedDelegate() override { return &OnControllingAgentChanged; }
@@ -258,7 +258,7 @@ protected:
 	TObjectPtr<UControllableComponent> ControllableComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|Team")
-	TObjectPtr<UTFTeamActorComponent> TeamComponent;
+	TObjectPtr<USunriseTeamActorComponent> TeamComponent;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Instanced, Transient, Category = "Sunrise|Weapon")
 	TObjectPtr<USunriseWeapon> Weapon;

@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "GameFramework/Pawn.h"
+#include "ModularPawn.h"
 
 #include "SunrisePawn.generated.h"
 
 /** Neutral player pawn shell. Experiences add camera/input/gameplay features as components. */
 UCLASS(Blueprintable)
-class SUNRISEGAME_API ASunrisePawn : public APawn
+class SUNRISEGAME_API ASunrisePawn : public AModularPawn
 {
 	GENERATED_BODY()
 

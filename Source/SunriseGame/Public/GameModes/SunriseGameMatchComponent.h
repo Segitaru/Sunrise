@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "Components/EFGameMatchComponent.h"
+#include "GameFeatures/Components/ModularGameMatchComponent.h"
 #include "Units/SunriseUnitTypes.h"
 
 #include "SunriseGameMatchComponent.generated.h"
 
 class ASunriseUnit;
-class UEFExperienceDefinition;
+class UExperienceDefinition;
 class USunriseEndScreenWidget;
 class USunriseUnitManagerComponent;
 class FLifetimeProperty;
@@ -17,7 +17,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSunriseMatchFinished, ESunriseMat
 
 /** Optional elimination scenario. Experiences may compose it with other match components. */
 UCLASS(Blueprintable, BlueprintType)
-class SUNRISEGAME_API USunriseGameMatchComponent : public UEFGameMatchComponent
+class SUNRISEGAME_API USunriseGameMatchComponent : public UModularGameMatchComponent
 {
 	GENERATED_BODY()
 
@@ -41,7 +41,7 @@ public:
 	FOnSunriseMatchFinished OnMatchFinished;
 
 protected:
-	void HandleExperienceLoaded(const UEFExperienceDefinition* CurrentExperience);
+	void HandleExperienceLoaded(const UExperienceDefinition* CurrentExperience);
 	UFUNCTION()
 	void InitializeScenario();
 	void HandleUnitDied(ASunriseUnit* Unit);

@@ -7,7 +7,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/DecalComponent.h"
 #include "Components/SphereComponent.h"
-#include "Components/TFTeamActorComponent.h"
+#include "Components/SunriseTeamActorComponent.h"
 #include "ControllableEntities/ControllableComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
 #include "Engine/OverlapResult.h"
@@ -78,7 +78,7 @@ ASunriseUnit::ASunriseUnit(const FObjectInitializer& ObjectInitializer)
 	MovementSet = CreateDefaultSubobject<USunriseMovementSet>(TEXT("MovementAttributes"));
 	VitalityComponent = CreateDefaultSubobject<UVitalityComponent>(TEXT("Vitality"));
 	ControllableComponent = CreateDefaultSubobject<UControllableComponent>(TEXT("Controllable"));
-	TeamComponent = CreateDefaultSubobject<UTFTeamActorComponent>(TEXT("Team"));
+	TeamComponent = CreateDefaultSubobject<USunriseTeamActorComponent>(TEXT("Team"));
 
 	InteractionRange = CreateDefaultSubobject<USphereComponent>(TEXT("InteractionRange"));
 	InteractionRange->SetupAttachment(RootComponent);
@@ -369,15 +369,15 @@ void ASunriseUnit::SetTeamId(int32 NewTeamId)
 
 void ASunriseUnit::SetGenericTeamId(const FGenericTeamId& NewTeamId)
 {
-	SetTeamId(TFTeamIdToInteger(NewTeamId));
+	SetTeamId(SunriseTeamIdToInteger(NewTeamId));
 }
 
 FGenericTeamId ASunriseUnit::GetGenericTeamId() const
 {
-	return TeamComponent ? TeamComponent->GetGenericTeamId() : IntegerToTFTeamId(TeamId);
+	return TeamComponent ? TeamComponent->GetGenericTeamId() : IntegerToSunriseTeamId(TeamId);
 }
 
-FOnTFTeamIndexChangedDelegate* ASunriseUnit::GetOnTeamIndexChangedDelegate()
+FOnTeamIndexChangedDelegate* ASunriseUnit::GetOnTeamIndexChangedDelegate()
 {
 	return TeamComponent ? TeamComponent->GetOnTeamIndexChangedDelegate() : nullptr;
 }

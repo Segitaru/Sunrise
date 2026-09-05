@@ -5,7 +5,7 @@
 #include "AbilitySystemComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "Components/TFTeamActorComponent.h"
+#include "Components/SunriseTeamActorComponent.h"
 #include "GameModes/Overload/AbilitySystem/OverloadAttributeSet.h"
 #include "GameModes/Overload/Effects/OverloadEffects.h"
 #include "Net/UnrealNetwork.h"
@@ -25,7 +25,7 @@ AOverloadObjectiveBase::AOverloadObjectiveBase()
 	DefenseAttributes = CreateDefaultSubobject<UOverloadDefenseSet>(TEXT("DefenseAttributes"));
 	HackAttributes = CreateDefaultSubobject<UOverloadHackSet>(TEXT("HackAttributes"));
 	EnergyAttributes = CreateDefaultSubobject<UOverloadEnergySet>(TEXT("EnergyAttributes"));
-	TeamComponent = CreateDefaultSubobject<UTFTeamActorComponent>(TEXT("Team"));
+	TeamComponent = CreateDefaultSubobject<USunriseTeamActorComponent>(TEXT("Team"));
 }
 
 void AOverloadObjectiveBase::BeginPlay()

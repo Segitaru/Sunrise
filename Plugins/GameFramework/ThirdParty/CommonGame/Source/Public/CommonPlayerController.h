@@ -2,8 +2,7 @@
 
 #pragma once
 
-#include "ModularPlayerController.h"
-
+#include "GameFramework/PlayerController.h"
 #include "CommonPlayerController.generated.h"
 
 #define UE_API COMMONGAME_API
@@ -12,7 +11,7 @@ class APawn;
 class UObject;
 
 UCLASS(MinimalAPI, config=Game)
-class ACommonPlayerController : public AModularPlayerController
+class ACommonPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
