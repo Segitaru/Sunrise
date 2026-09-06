@@ -11,6 +11,7 @@
 class SWidget;
 class STextBlock;
 class USunriseSettingsWidget;
+class UUserFacingExperienceDefinition;
 
 /** Fully native main menu. A Blueprint wrapper is optional, not required. */
 UCLASS()
@@ -20,9 +21,11 @@ class SUNRISEGAME_API USunriseMainMenuWidget : public UUserWidget
 
 protected:
 	virtual TSharedRef<SWidget> RebuildWidget() override;
+	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
 
 private:
-	FReply StartGame();
+	TSharedRef<SWidget> BuildExperienceList();
+	FReply StartGame(int32 ExperienceIndex);
 	FReply OpenSettings();
 	FReply QuitGame();
 	FReply SelectEasy();
@@ -32,6 +35,10 @@ private:
 	void RefreshDifficultyLabel();
 
 	TSharedPtr<STextBlock> DifficultyLabel;
+	TSharedPtr<STextBlock> ExperienceStatusLabel;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UUserFacingExperienceDefinition>> AvailableExperiences;
 
 	UPROPERTY(Transient)
 	TObjectPtr<USunriseSettingsWidget> SettingsWidget;

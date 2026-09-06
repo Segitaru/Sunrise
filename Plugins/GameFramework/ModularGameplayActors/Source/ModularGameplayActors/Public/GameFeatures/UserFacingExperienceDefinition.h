@@ -15,7 +15,7 @@ struct FFrame;
 
 /** Description of settings used to display experiences in the UI and start a new session */
 UCLASS(BlueprintType)
-class UUserFacingExperienceDefinition : public UPrimaryDataAsset
+class MODULARGAMEPLAYACTORS_API UUserFacingExperienceDefinition : public UPrimaryDataAsset
 {
 	GENERATED_BODY()
 
@@ -25,7 +25,7 @@ public:
 	FPrimaryAssetId MapID;
 
 	/** The gameplay experience to load */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = Experience, meta = (AllowedTypes = "EFExperienceDefinition"))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = Experience, meta = (AllowedTypes = "ExperienceDefinition"))
 	FPrimaryAssetId ExperienceID;
 
 	/** Extra arguments passed as URL options to the game */

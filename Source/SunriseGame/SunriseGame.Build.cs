@@ -35,6 +35,7 @@ public class SunriseGame : ModuleRules
 			"ModularGameplay",
 			"EnhancedInput",
 			"ModularGameplayActors",
+			"CommonUser",
 			"GameplayMessageRuntime",
 			"GameFeatures",
 			"DeveloperSettings",
