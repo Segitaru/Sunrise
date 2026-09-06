@@ -29,6 +29,8 @@ class UGameplayEffect;
 class USunriseWeapon;
 class USunriseHeroSquadAbility;
 class USunriseTeamActorComponent;
+class UModularPawnExtensionComponent;
+
 struct FOnAttributeChangeData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUnitMoveCompletedDelegate, ASunriseUnit*, Unit);
@@ -59,6 +61,12 @@ public:
 	virtual float TakeDamage(
 		float DamageAmount, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UModularPawnExtensionComponent> PawnExtensionComponent;
+
+	virtual void OnPlayerStateChanged(APlayerState* NewPlayerState, APlayerState* OldPlayerState) override;
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
 	// ISunriseSelectable
 	virtual bool CanBeSelectedBy_Implementation(const APlayerController* InController) const override;

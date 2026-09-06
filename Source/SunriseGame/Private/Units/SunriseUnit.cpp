@@ -6,6 +6,8 @@
 #include "AbilitySystemComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/DecalComponent.h"
+#include "Components/ModularHeroComponent.h"
+#include "Components/ModularPawnExtensionComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/SunriseTeamActorComponent.h"
 #include "ControllableEntities/ControllableComponent.h"
@@ -70,25 +72,27 @@ ASunriseUnit::ASunriseUnit(const FObjectInitializer& ObjectInitializer)
 	AIControllerClass = ASunriseUnitAIController::StaticClass();
 	bReplicates = true;
 
+	PawnExtensionComponent = CreateDefaultSubobject<UModularPawnExtensionComponent>("ExtensionComponent");
+
 	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystem"));
 	AbilitySystemComponent->SetIsReplicated(true);
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
 	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(USunriseHealthSet::GetHealthAttribute())
-	.AddUObject(this, &ASunriseUnit::HandleHealthAttributeChanged);
+		.AddUObject(this, &ASunriseUnit::HandleHealthAttributeChanged);
 	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(USunriseMovementSet::GetMoveSpeedAttribute())
 		.AddUObject(this, &ASunriseUnit::HandleMoveSpeedAttributeChanged);
 
 	HealthSet = CreateDefaultSubobject<USunriseHealthSet>(TEXT("HealthAttributes"));
 	CombatSet = CreateDefaultSubobject<USunriseCombatSet>(TEXT("CombatAttributes"));
 	MovementSet = CreateDefaultSubobject<USunriseMovementSet>(TEXT("MovementAttributes"));
-	
+
 	VitalityComponent = CreateDefaultSubobject<UVitalityComponent>(TEXT("Vitality"));
 	VitalityComponent->OnVitalityStateChanged.AddDynamic(this, &ThisClass::HandleVitalityStateChanged);
-	
+
 	ControllableComponent = CreateDefaultSubobject<UControllableComponent>(TEXT("Controllable"));
 	TeamComponent = CreateDefaultSubobject<USunriseTeamActorComponent>(TEXT("Team"));
 	TeamComponent->OnTeamChanged.AddDynamic(this, &ThisClass::HandleTeamChanged);
-	
+
 	InteractionRange = CreateDefaultSubobject<USphereComponent>(TEXT("InteractionRange"));
 	InteractionRange->SetupAttachment(RootComponent);
 	InteractionRange->SetSphereRadius(100.0f);
@@ -118,7 +122,7 @@ ASunriseUnit::ASunriseUnit(const FObjectInitializer& ObjectInitializer)
 void ASunriseUnit::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	if (!bHasExplicitTeamId)
 	{
 		SetTeam(Team);
@@ -187,6 +191,7 @@ void ASunriseUnit::NotifyControllerChanged()
 			Path->OnRequestFinished.AddUObject(this, &ASunriseUnit::OnMoveFinished);
 		}
 	}
+	PawnExtensionComponent->HandleControllerChanged();
 }
 
 void ASunriseUnit::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -223,6 +228,16 @@ float ASunriseUnit::TakeDamage(float DamageAmount, const FDamageEvent& DamageEve
 UAbilitySystemComponent* ASunriseUnit::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
+}
+
+void ASunriseUnit::OnPlayerStateChanged(APlayerState* NewPlayerState, APlayerState* OldPlayerState)
+{
+	Super::OnPlayerStateChanged(NewPlayerState, OldPlayerState);
+}
+
+void ASunriseUnit::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
 }
 
 bool ASunriseUnit::CanBeSelectedBy_Implementation(const APlayerController* InController) const
