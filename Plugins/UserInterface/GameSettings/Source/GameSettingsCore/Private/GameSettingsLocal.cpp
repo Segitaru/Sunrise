@@ -1399,118 +1399,118 @@ FName UGameSettingsLocal::GetControllerPlatform() const
 
 void UGameSettingsLocal::LoadUserControlBusMix()
 {
-	if (GEngine)
+	if (!GEngine)
 	{
-		if (const UWorld* World = GEngine->GetCurrentPlayWorld())
+		return;
+	}
+	const UWorld* World = GEngine->GetCurrentPlayWorld();
+
+	if (const UGameAudioSettings* GameAudioSettings = GetDefault<UGameAudioSettings>())
+	{
+		USoundControlBus* OverallControlBus = nullptr;
+		USoundControlBus* MusicControlBus = nullptr;
+		USoundControlBus* SoundFXControlBus = nullptr;
+		USoundControlBus* DialogueControlBus = nullptr;
+		USoundControlBus* VoiceChatControlBus = nullptr;
+
+		ControlBusMap.Empty();
+
+		if (UObject* ObjPath = GameAudioSettings->OverallVolumeControlBus.TryLoad())
 		{
-			if (const UGameAudioSettings* GameAudioSettings = GetDefault<UGameAudioSettings>())
+			if (USoundControlBus* SoundControlBus = Cast<USoundControlBus>(ObjPath))
 			{
-				USoundControlBus* OverallControlBus = nullptr;
-				USoundControlBus* MusicControlBus = nullptr;
-				USoundControlBus* SoundFXControlBus = nullptr;
-				USoundControlBus* DialogueControlBus = nullptr;
-				USoundControlBus* VoiceChatControlBus = nullptr;
+				OverallControlBus = SoundControlBus;
+				ControlBusMap.Add(TEXT("Overall"), OverallControlBus);
+			}
+			else
+			{
+				ensureMsgf(SoundControlBus, TEXT("Overall Control Bus reference missing from Game Audio Settings."));
+			}
+		}
 
-				ControlBusMap.Empty();
+		if (UObject* ObjPath = GameAudioSettings->MusicVolumeControlBus.TryLoad())
+		{
+			if (USoundControlBus* SoundControlBus = Cast<USoundControlBus>(ObjPath))
+			{
+				MusicControlBus = SoundControlBus;
+				ControlBusMap.Add(TEXT("Music"), MusicControlBus);
+			}
+			else
+			{
+				ensureMsgf(SoundControlBus, TEXT("Music Control Bus reference missing from Game Audio Settings."));
+			}
+		}
 
-				if (UObject* ObjPath = GameAudioSettings->OverallVolumeControlBus.TryLoad())
-				{
-					if (USoundControlBus* SoundControlBus = Cast<USoundControlBus>(ObjPath))
-					{
-						OverallControlBus = SoundControlBus;
-						ControlBusMap.Add(TEXT("Overall"), OverallControlBus);
-					}
-					else
-					{
-						ensureMsgf(SoundControlBus, TEXT("Overall Control Bus reference missing from Game Audio Settings."));
-					}
-				}
+		if (UObject* ObjPath = GameAudioSettings->SoundFXVolumeControlBus.TryLoad())
+		{
+			if (USoundControlBus* SoundControlBus = Cast<USoundControlBus>(ObjPath))
+			{
+				SoundFXControlBus = SoundControlBus;
+				ControlBusMap.Add(TEXT("SoundFX"), SoundFXControlBus);
+			}
+			else
+			{
+				ensureMsgf(SoundControlBus, TEXT("SoundFX Control Bus reference missing from Game Audio Settings."));
+			}
+		}
 
-				if (UObject* ObjPath = GameAudioSettings->MusicVolumeControlBus.TryLoad())
-				{
-					if (USoundControlBus* SoundControlBus = Cast<USoundControlBus>(ObjPath))
-					{
-						MusicControlBus = SoundControlBus;
-						ControlBusMap.Add(TEXT("Music"), MusicControlBus);
-					}
-					else
-					{
-						ensureMsgf(SoundControlBus, TEXT("Music Control Bus reference missing from Game Audio Settings."));
-					}
-				}
+		if (UObject* ObjPath = GameAudioSettings->DialogueVolumeControlBus.TryLoad())
+		{
+			if (USoundControlBus* SoundControlBus = Cast<USoundControlBus>(ObjPath))
+			{
+				DialogueControlBus = SoundControlBus;
+				ControlBusMap.Add(TEXT("Dialogue"), DialogueControlBus);
+			}
+			else
+			{
+				ensureMsgf(SoundControlBus, TEXT("Dialogue Control Bus reference missing from Game Audio Settings."));
+			}
+		}
 
-				if (UObject* ObjPath = GameAudioSettings->SoundFXVolumeControlBus.TryLoad())
-				{
-					if (USoundControlBus* SoundControlBus = Cast<USoundControlBus>(ObjPath))
-					{
-						SoundFXControlBus = SoundControlBus;
-						ControlBusMap.Add(TEXT("SoundFX"), SoundFXControlBus);
-					}
-					else
-					{
-						ensureMsgf(SoundControlBus, TEXT("SoundFX Control Bus reference missing from Game Audio Settings."));
-					}
-				}
+		if (UObject* ObjPath = GameAudioSettings->VoiceChatVolumeControlBus.TryLoad())
+		{
+			if (USoundControlBus* SoundControlBus = Cast<USoundControlBus>(ObjPath))
+			{
+				VoiceChatControlBus = SoundControlBus;
+				ControlBusMap.Add(TEXT("VoiceChat"), VoiceChatControlBus);
+			}
+			else
+			{
+				ensureMsgf(SoundControlBus, TEXT("VoiceChat Control Bus reference missing from Game Audio Settings."));
+			}
+		}
 
-				if (UObject* ObjPath = GameAudioSettings->DialogueVolumeControlBus.TryLoad())
-				{
-					if (USoundControlBus* SoundControlBus = Cast<USoundControlBus>(ObjPath))
-					{
-						DialogueControlBus = SoundControlBus;
-						ControlBusMap.Add(TEXT("Dialogue"), DialogueControlBus);
-					}
-					else
-					{
-						ensureMsgf(SoundControlBus, TEXT("Dialogue Control Bus reference missing from Game Audio Settings."));
-					}
-				}
+		if (UObject* ObjPath = GameAudioSettings->UserSettingsControlBusMix.TryLoad())
+		{
+			if (USoundControlBusMix* SoundControlBusMix = Cast<USoundControlBusMix>(ObjPath))
+			{
+				ControlBusMix = SoundControlBusMix;
 
-				if (UObject* ObjPath = GameAudioSettings->VoiceChatVolumeControlBus.TryLoad())
-				{
-					if (USoundControlBus* SoundControlBus = Cast<USoundControlBus>(ObjPath))
-					{
-						VoiceChatControlBus = SoundControlBus;
-						ControlBusMap.Add(TEXT("VoiceChat"), VoiceChatControlBus);
-					}
-					else
-					{
-						ensureMsgf(SoundControlBus, TEXT("VoiceChat Control Bus reference missing from Game Audio Settings."));
-					}
-				}
+				const FSoundControlBusMixStage OverallControlBusMixStage =
+					UAudioModulationStatics::CreateBusMixStage(World, OverallControlBus, OverallVolume);
+				const FSoundControlBusMixStage MusicControlBusMixStage =
+					UAudioModulationStatics::CreateBusMixStage(World, MusicControlBus, MusicVolume);
+				const FSoundControlBusMixStage SoundFXControlBusMixStage =
+					UAudioModulationStatics::CreateBusMixStage(World, SoundFXControlBus, SoundFXVolume);
+				const FSoundControlBusMixStage DialogueControlBusMixStage =
+					UAudioModulationStatics::CreateBusMixStage(World, DialogueControlBus, DialogueVolume);
+				const FSoundControlBusMixStage VoiceChatControlBusMixStage =
+					UAudioModulationStatics::CreateBusMixStage(World, VoiceChatControlBus, VoiceChatVolume);
 
-				if (UObject* ObjPath = GameAudioSettings->UserSettingsControlBusMix.TryLoad())
-				{
-					if (USoundControlBusMix* SoundControlBusMix = Cast<USoundControlBusMix>(ObjPath))
-					{
-						ControlBusMix = SoundControlBusMix;
+				TArray<FSoundControlBusMixStage> ControlBusMixStageArray;
+				ControlBusMixStageArray.Add(OverallControlBusMixStage);
+				ControlBusMixStageArray.Add(MusicControlBusMixStage);
+				ControlBusMixStageArray.Add(SoundFXControlBusMixStage);
+				ControlBusMixStageArray.Add(DialogueControlBusMixStage);
+				ControlBusMixStageArray.Add(VoiceChatControlBusMixStage);
 
-						const FSoundControlBusMixStage OverallControlBusMixStage =
-							UAudioModulationStatics::CreateBusMixStage(World, OverallControlBus, OverallVolume);
-						const FSoundControlBusMixStage MusicControlBusMixStage =
-							UAudioModulationStatics::CreateBusMixStage(World, MusicControlBus, MusicVolume);
-						const FSoundControlBusMixStage SoundFXControlBusMixStage =
-							UAudioModulationStatics::CreateBusMixStage(World, SoundFXControlBus, SoundFXVolume);
-						const FSoundControlBusMixStage DialogueControlBusMixStage =
-							UAudioModulationStatics::CreateBusMixStage(World, DialogueControlBus, DialogueVolume);
-						const FSoundControlBusMixStage VoiceChatControlBusMixStage =
-							UAudioModulationStatics::CreateBusMixStage(World, VoiceChatControlBus, VoiceChatVolume);
+				UAudioModulationStatics::UpdateMix(World, ControlBusMix, ControlBusMixStageArray);
 
-						TArray<FSoundControlBusMixStage> ControlBusMixStageArray;
-						ControlBusMixStageArray.Add(OverallControlBusMixStage);
-						ControlBusMixStageArray.Add(MusicControlBusMixStage);
-						ControlBusMixStageArray.Add(SoundFXControlBusMixStage);
-						ControlBusMixStageArray.Add(DialogueControlBusMixStage);
-						ControlBusMixStageArray.Add(VoiceChatControlBusMixStage);
-
-						UAudioModulationStatics::UpdateMix(World, ControlBusMix, ControlBusMixStageArray);
-
-						bSoundControlBusMixLoaded = true;
-					}
-					else
-					{
-						ensureMsgf(SoundControlBusMix, TEXT("User Settings Control Bus Mix reference missing from Game Audio Settings."));
-					}
-				}
+				bSoundControlBusMixLoaded = true;
+			}
+			else
+			{
+				ensureMsgf(SoundControlBusMix, TEXT("User Settings Control Bus Mix reference missing from Game Audio Settings."));
 			}
 		}
 	}

@@ -11,7 +11,6 @@ enum class ECommonInputType : uint8;
 enum class EGameDisplayablePerformanceStat : uint8;
 enum class EGameStatDisplayMode : uint8;
 
-class UGameLocalPlayer;
 class UObject;
 class USoundControlBus;
 class USoundControlBusMix;

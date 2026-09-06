@@ -17,7 +17,7 @@ USunriseWeaponAbility::USunriseWeaponAbility()
 		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Unarmed/Attack/MM_Attack_01_Montage.MM_Attack_01_Montage"));
 	if (DefaultWeaponAnimation.Succeeded())
 	{
-		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
+		//WeaponAnimationMontage = DefaultWeaponAnimation.Object;
 	}
 }
 
@@ -60,7 +60,7 @@ USunriseSwordAttackAbility::USunriseSwordAttackAbility()
 		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Unarmed/Attack/MM_Attack_01_Montage.MM_Attack_01_Montage"));
 	if (DefaultWeaponAnimation.Succeeded())
 	{
-		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
+		//WeaponAnimationMontage = DefaultWeaponAnimation.Object;
 	}
 }
 USunriseBowAttackAbility::USunriseBowAttackAbility()
@@ -70,7 +70,7 @@ USunriseBowAttackAbility::USunriseBowAttackAbility()
 		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Rifle/MM_Rifle_DryFire_Montage.MM_Rifle_DryFire_Montage"));
 	if (DefaultWeaponAnimation.Succeeded())
 	{
-		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
+		//WeaponAnimationMontage = DefaultWeaponAnimation.Object;
 	}
 }
 USunriseDrumsHealAbility::USunriseDrumsHealAbility()
@@ -80,7 +80,7 @@ USunriseDrumsHealAbility::USunriseDrumsHealAbility()
 		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Pistol/MM_Pistol_Reload_Montage.MM_Pistol_Reload_Montage"));
 	if (DefaultWeaponAnimation.Succeeded())
 	{
-		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
+		//WeaponAnimationMontage = DefaultWeaponAnimation.Object;
 	}
 }
 USunriseStaffAttackAbility::USunriseStaffAttackAbility()
@@ -90,7 +90,7 @@ USunriseStaffAttackAbility::USunriseStaffAttackAbility()
 		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Unarmed/Jump/MM_Jump_Montage.MM_Jump_Montage"));
 	if (DefaultWeaponAnimation.Succeeded())
 	{
-		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
+		//WeaponAnimationMontage = DefaultWeaponAnimation.Object;
 	}
 }
 USunriseSpearShieldAttackAbility::USunriseSpearShieldAttackAbility()
@@ -100,7 +100,7 @@ USunriseSpearShieldAttackAbility::USunriseSpearShieldAttackAbility()
 		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Unarmed/Attack/MM_ChargedAttack_Montage.MM_ChargedAttack_Montage"));
 	if (DefaultWeaponAnimation.Succeeded())
 	{
-		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
+		//WeaponAnimationMontage = DefaultWeaponAnimation.Object;
 	}
 }
 
@@ -112,6 +112,6 @@ USunriseStaffAreaAttackAbility::USunriseStaffAreaAttackAbility()
 		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Death/MM_Death_Right_01_Montage.MM_Death_Right_01_Montage"));
 	if (DefaultWeaponAnimation.Succeeded())
 	{
-		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
+		//WeaponAnimationMontage = DefaultWeaponAnimation.Object;
 	}
 }
