@@ -30,11 +30,6 @@ void UOverloadLaneFollowerComponent::TickComponent(float DeltaTime, ELevelTick T
 	USplineComponent* Spline = Lane->GetLaneSpline();
 	CurrentDistance = Spline->GetDistanceAlongSplineAtLocation(Unit->GetActorLocation(), ESplineCoordinateSpace::World);
 
-	if (Unit->IsHero() && Unit->GetHeroSquadAbilityClass())
-	{
-		USunriseHeroSquadAbility::ActivateForHero(Unit, Unit->GetHeroSquadAbilityClass());
-	}
-
 	if (!Unit->IsHero() && (Unit->GetOrderState() == ESunriseOrderState::Attacking || Unit->GetOrderState() == ESunriseOrderState::Healing))
 	{
 		return;

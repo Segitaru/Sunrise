@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/GameInstance.h"
 #include "GameFramework/SaveGame.h"
+#include "ModularGameInstance.h"
 #include "Units/SunriseUnitTypes.h"
 
 #include "SunriseGameInstance.generated.h"
@@ -24,7 +24,7 @@ public:
 
 /** Persistent settings and match history shared by menu and gameplay maps. */
 UCLASS()
-class SUNRISEGAME_API USunriseGameInstance : public UGameInstance
+class SUNRISEGAME_API USunriseGameInstance : public UModularGameInstance
 {
 	GENERATED_BODY()
 

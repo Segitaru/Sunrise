@@ -18,29 +18,31 @@ class UObject;
  *	Component used to manage input mappings and bindings using an input config data asset.
  */
 UCLASS(Config = Input)
-class UModularInputComponent : public UEnhancedInputComponent
+class MODULARGAMEPLAYACTORS_API UModularInputComponent : public UEnhancedInputComponent
 {
 	GENERATED_BODY()
 
 public:
-
 	UModularInputComponent(const FObjectInitializer& ObjectInitializer);
 
 	void AddInputMappings(const UModularInputConfig* InputConfig, UEnhancedInputLocalPlayerSubsystem* InputSubsystem) const;
 	void RemoveInputMappings(const UModularInputConfig* InputConfig, UEnhancedInputLocalPlayerSubsystem* InputSubsystem) const;
 
-	template<class UserClass, typename FuncType>
-	void BindNativeAction(const UModularInputConfig* InputConfig, const FGameplayTag& InputTag, ETriggerEvent TriggerEvent, UserClass* Object, FuncType Func, bool bLogIfNotFound);
+	template <class UserClass, typename FuncType>
+	void BindNativeAction(const UModularInputConfig* InputConfig, const FGameplayTag& InputTag, ETriggerEvent TriggerEvent,
+		UserClass* Object, FuncType Func, bool bLogIfNotFound);
 
-	template<class UserClass, typename PressedFuncType, typename ReleasedFuncType>
-	void BindAbilityActions(const UModularInputConfig* InputConfig, UserClass* Object, PressedFuncType PressedFunc, ReleasedFuncType ReleasedFunc, TArray<uint32>& BindHandles);
+	template <class UserClass, typename PressedFuncType, typename ReleasedFuncType>
+	void BindAbilityActions(const UModularInputConfig* InputConfig, UserClass* Object, PressedFuncType PressedFunc,
+		ReleasedFuncType ReleasedFunc, TArray<uint32>& BindHandles);
 
 	void RemoveBinds(TArray<uint32>& BindHandles);
 };
 
 
-template<class UserClass, typename FuncType>
-void UModularInputComponent::BindNativeAction(const UModularInputConfig* InputConfig, const FGameplayTag& InputTag, ETriggerEvent TriggerEvent, UserClass* Object, FuncType Func, bool bLogIfNotFound)
+template <class UserClass, typename FuncType>
+void UModularInputComponent::BindNativeAction(const UModularInputConfig* InputConfig, const FGameplayTag& InputTag,
+	ETriggerEvent TriggerEvent, UserClass* Object, FuncType Func, bool bLogIfNotFound)
 {
 	check(InputConfig);
 	if (const UInputAction* IA = InputConfig->FindNativeInputActionForTag(InputTag, bLogIfNotFound))
@@ -49,8 +51,9 @@ void UModularInputComponent::BindNativeAction(const UModularInputConfig* InputCo
 	}
 }
 
-template<class UserClass, typename PressedFuncType, typename ReleasedFuncType>
-void UModularInputComponent::BindAbilityActions(const UModularInputConfig* InputConfig, UserClass* Object, PressedFuncType PressedFunc, ReleasedFuncType ReleasedFunc, TArray<uint32>& BindHandles)
+template <class UserClass, typename PressedFuncType, typename ReleasedFuncType>
+void UModularInputComponent::BindAbilityActions(const UModularInputConfig* InputConfig, UserClass* Object, PressedFuncType PressedFunc,
+	ReleasedFuncType ReleasedFunc, TArray<uint32>& BindHandles)
 {
 	check(InputConfig);
 
@@ -65,7 +68,8 @@ void UModularInputComponent::BindAbilityActions(const UModularInputConfig* Input
 
 			if (ReleasedFunc)
 			{
-				BindHandles.Add(BindAction(Action.InputAction, ETriggerEvent::Completed, Object, ReleasedFunc, Action.InputTag).GetHandle());
+				BindHandles.Add(
+					BindAction(Action.InputAction, ETriggerEvent::Completed, Object, ReleasedFunc, Action.InputTag).GetHandle());
 			}
 		}
 	}

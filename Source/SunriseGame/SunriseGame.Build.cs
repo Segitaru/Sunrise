@@ -16,6 +16,11 @@ public class SunriseGame : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
+			"ModularGameplayActors",
+			"ModularGameplay",
+			"GameplayAbilities",
+			"GameplayTags",
+			"CommonGame",
 			
 		});
 		PrivateDependencyModuleNames.AddRange(new string[] {
@@ -30,11 +35,7 @@ public class SunriseGame : ModuleRules
 			"SlateCore",
 			"SunriseTeamFrameworkCore",
 			"GameSettingsCore",
-			"GameplayAbilities",
-			"GameplayTags",
-			"ModularGameplay",
 			"EnhancedInput",
-			"ModularGameplayActors",
 			"CommonUser",
 			"GameplayMessageRuntime",
 			"GameFeatures",

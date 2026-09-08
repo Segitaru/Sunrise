@@ -144,20 +144,22 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|GAS")
 	USunriseHealthSet* GetHealthSet() const { return HealthSet; }
+
 	UFUNCTION(BlueprintPure, Category = "Sunrise|GAS")
 	USunriseCombatSet* GetCombatSet() const { return CombatSet; }
+
 	UFUNCTION(BlueprintPure, Category = "Sunrise|GAS")
 	USunriseMovementSet* GetMovementSet() const { return MovementSet; }
+
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
 	ESunriseUnitKind GetUnitKind() const { return UnitKind; }
+
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
 	bool IsHero() const { return UnitKind == ESunriseUnitKind::Hero; }
-	UFUNCTION(BlueprintPure, Category = "Sunrise|Hero")
-	TSubclassOf<USunriseHeroSquadAbility> GetHeroSquadAbilityClass() const { return HeroSquadAbilityClass; }
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Hero")
-	void SetHeroSquadAbilityClass(TSubclassOf<USunriseHeroSquadAbility> NewAbilityClass) { HeroSquadAbilityClass = NewAbilityClass; }
+
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
 	float GetHeroRespawnDelay() const { return HeroRespawnDelay; }
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Unit")
 	void ConfigureControl(ESunriseUnitKind NewKind, TScriptInterface<IIControllableEntity> NewAgent);
 

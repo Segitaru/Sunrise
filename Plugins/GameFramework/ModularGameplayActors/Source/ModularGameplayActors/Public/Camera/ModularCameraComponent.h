@@ -14,7 +14,8 @@ class UObject;
 struct FFrame;
 struct FGameplayTag;
 struct FMinimalViewInfo;
-template <class TClass> class TSubclassOf;
+template <class TClass>
+class TSubclassOf;
 
 DECLARE_DELEGATE_RetVal(TSubclassOf<UModularCameraMode>, FModularCameraModeDelegate);
 
@@ -25,17 +26,19 @@ DECLARE_DELEGATE_RetVal(TSubclassOf<UModularCameraMode>, FModularCameraModeDeleg
  *	The base camera component class used by this project.
  */
 UCLASS()
-class UModularCameraComponent : public UCameraComponent
+class MODULARGAMEPLAYACTORS_API UModularCameraComponent : public UCameraComponent
 {
 	GENERATED_BODY()
 
 public:
-
 	UModularCameraComponent(const FObjectInitializer& ObjectInitializer);
 
 	// Returns the camera component if one exists on the specified actor.
 	UFUNCTION(BlueprintPure, Category = "Modular|Camera")
-	static UModularCameraComponent* FindCameraComponent(const AActor* Actor) { return (Actor ? Actor->FindComponentByClass<UModularCameraComponent>() : nullptr); }
+	static UModularCameraComponent* FindCameraComponent(const AActor* Actor)
+	{
+		return (Actor ? Actor->FindComponentByClass<UModularCameraComponent>() : nullptr);
+	}
 
 	// Returns the target actor that the camera is looking at.
 	virtual AActor* GetTargetActor() const { return GetOwner(); }
@@ -52,19 +55,16 @@ public:
 	void GetBlendInfo(float& OutWeightOfTopLayer, FGameplayTag& OutTagOfTopLayer) const;
 
 protected:
-
 	virtual void OnRegister() override;
 	virtual void GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView) override;
 
 	virtual void UpdateCameraModes();
 
 protected:
-
 	// Stack used to blend the camera modes.
 	UPROPERTY()
 	TObjectPtr<UModularCameraModeStack> CameraModeStack;
 
 	// Offset applied to the field of view.  The offset is only for one frame, it gets cleared once it is applied.
 	float FieldOfViewOffset;
-
 };

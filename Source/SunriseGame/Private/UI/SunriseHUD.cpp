@@ -2,6 +2,11 @@
 
 #include "UI/SunriseHUD.h"
 
+#include <AbilitySystemComponent.h>
+#include <AbilitySystemGlobals.h>
+#include <GameplayAbilitySpec.h>
+
+#include "Abilities/SunriseSelectionAbility.h"
 #include "Components/GameFrameworkComponentManager.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
@@ -51,22 +56,6 @@ void ASunriseHUD::DrawHUD()
 		const FVector2D Min(FMath::Min(BoxStart.X, BoxCurrentPosition.X), FMath::Min(BoxStart.Y, BoxCurrentPosition.Y));
 		const FVector2D Max(FMath::Max(BoxStart.X, BoxCurrentPosition.X), FMath::Max(BoxStart.Y, BoxCurrentPosition.Y));
 		DrawRect(SelectionBoxColor, Min.X, Min.Y, Max.X - Min.X, Max.Y - Min.Y);
-		TArray<ASunriseUnit*> BoxedUnits;
-		for (TActorIterator<ASunriseUnit> It(GetWorld()); It; ++It)
-		{
-			ASunriseUnit* Unit = *It;
-			if (!Unit->IsAlive() || Unit->GetTeamId() != PC->GetControlledTeamId())
-			{
-				continue;
-			}
-			FVector2D ScreenPosition;
-			if (PC->ProjectWorldLocationToScreen(Unit->GetActorLocation(), ScreenPosition, true) && ScreenPosition.X >= Min.X &&
-				ScreenPosition.X <= Max.X && ScreenPosition.Y >= Min.Y && ScreenPosition.Y <= Max.Y)
-			{
-				BoxedUnits.Add(Unit);
-			}
-		}
-		PC->DragSelectUnits(BoxedUnits);
 	}
 	if (bDrawCommandDrag && CommandDragUnit.IsValid())
 	{
@@ -79,11 +68,25 @@ void ASunriseHUD::DrawHUD()
 		}
 	}
 
-	const TArray<ASunriseUnit*>& Selected = PC->GetSelectedUnits();
-	if (UIWidget)
+	const auto* const ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(PC->GetPawn());
+	if (!ASC)
 	{
-		UIWidget->SetSelectedUnitsCount(Selected.Num());
+		return;
 	}
+	FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromClass(USunriseSelectionAbility::StaticClass());
+	if (!AbilitySpec)
+	{
+		return;
+	}
+	if (USunriseSelectionAbility* Selection = Cast<USunriseSelectionAbility>(AbilitySpec->Ability); IsValid(Selection))
+	{
+		const TArray<ASunriseUnit*>& Selected = Selection->GetSelectedUnits();
+		if (UIWidget)
+		{
+			UIWidget->SetSelectedUnitsCount(Selected.Num());
+		}
+	}
+
 	DrawUnitOverlays();
 	DrawMatchPanel();
 
@@ -173,8 +176,23 @@ void ASunriseHUD::DrawMatchPanel()
 	DrawText(
 		FString::Printf(TEXT("PLAYER  %d"), GameMode->GetFriendlyAlive()), FriendlyColor, 34.0f, 30.0f, GEngine->GetMediumFont(), 1.2f);
 	DrawText(FString::Printf(TEXT("ENEMY   %d"), GameMode->GetEnemyAlive()), EnemyColor, 180.0f, 30.0f, GEngine->GetMediumFont(), 1.2f);
-	DrawText(FString::Printf(TEXT("Selected: %d"), PC->GetSelectedUnits().Num()), FLinearColor::White, 34.0f, 58.0f,
-		GEngine->GetSmallFont(), 1.15f);
+
+	const auto* const ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(PC->GetPawn());
+	if (!ASC)
+	{
+		return;
+	}
+	FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromClass(USunriseSelectionAbility::StaticClass());
+	if (!AbilitySpec)
+	{
+		return;
+	}
+	if (USunriseSelectionAbility* Selection = Cast<USunriseSelectionAbility>(AbilitySpec->Ability); IsValid(Selection))
+	{
+		DrawText(FString::Printf(TEXT("Selected: %d"), Selection->GetSelectedUnits().Num()), FLinearColor::White, 34.0f, 58.0f,
+			GEngine->GetSmallFont(), 1.15f);
+	}
+
 	DrawText(TEXT("LMB select/box | Drag unit to target | RMB move/camera | Edge scroll | Esc"), FLinearColor(0.75f, 0.8f, 0.85f), 34.0f,
 		83.0f, GEngine->GetSmallFont(), 0.95f);
 }

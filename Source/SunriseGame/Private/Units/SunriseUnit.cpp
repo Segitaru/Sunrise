@@ -6,7 +6,6 @@
 #include "AbilitySystemComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/DecalComponent.h"
-#include "Components/ModularHeroComponent.h"
 #include "Components/ModularPawnExtensionComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/SunriseTeamActorComponent.h"
@@ -14,7 +13,6 @@
 #include "ControllableEntities/ControllableEntitiesManager.h"
 #include "Engine/OverlapResult.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Kismet/GameplayStatics.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
@@ -133,6 +131,11 @@ void ASunriseUnit::BeginPlay()
 	}
 
 	AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	// Heroes expose effect durations to HUD consumers even when owned by GameState.
+	if (IsHero())
+	{
+		AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Full);
+	}
 	InitializeAbilityAttributes();
 	VitalityComponent->InitializeWithAbilitySystem(AbilitySystemComponent);
 	EquipDefaultWeaponForRole();
@@ -142,13 +145,6 @@ void ASunriseUnit::BeginPlay()
 	if (USunriseUnitManagerComponent* UnitManager = USunriseUnitManagerComponent::Find(this))
 	{
 		UnitManager->RegisterUnit(this);
-	}
-	if (IsHero())
-	{
-		if (ASunrisePlayerController* PlayerController = Cast<ASunrisePlayerController>(UGameplayStatics::GetPlayerController(this, 0)))
-		{
-			PlayerController->FocusCameraOnHero(this);
-		}
 	}
 	OnHealthChanged.Broadcast(this, 1.0f);
 }

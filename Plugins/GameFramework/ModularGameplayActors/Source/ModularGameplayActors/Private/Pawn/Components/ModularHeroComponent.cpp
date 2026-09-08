@@ -27,13 +27,13 @@
 
 #if WITH_EDITOR
 #include "Misc/UObjectToken.h"
-#endif	// WITH_EDITOR
+#endif // WITH_EDITOR
 
 namespace ModularHero
 {
 	static const float LookYawRate = 300.0f;
 	static const float LookPitchRate = 165.0f;
-};
+}; // namespace ModularHero
 
 const FName UModularHeroComponent::NAME_BindInputsNow("BindInputsNow");
 const FName UModularHeroComponent::NAME_ActorFeatureName("Hero");
@@ -51,18 +51,22 @@ void UModularHeroComponent::OnRegister()
 
 	if (!GetPawn<APawn>())
 	{
-		UE_LOG(LogModularGameplayActors, Error, TEXT("[UModularHeroComponent::OnRegister] This component has been added to a blueprint whose base class is not a Pawn. To use this component, it MUST be placed on a Pawn Blueprint."));
+		UE_LOG(LogModularGameplayActors, Error,
+			TEXT(
+				"[UModularHeroComponent::OnRegister] This component has been added to a blueprint whose base class is not a Pawn. To use this component, it MUST be placed on a Pawn Blueprint."));
 
 #if WITH_EDITOR
 		if (GIsEditor)
 		{
-			static const FText Message = NSLOCTEXT("ModularHeroComponent", "NotOnPawnError", "has been added to a blueprint whose base class is not a Pawn. To use this component, it MUST be placed on a Pawn Blueprint. This will cause a crash if you PIE!");
+			static const FText Message = NSLOCTEXT("ModularHeroComponent", "NotOnPawnError",
+				"has been added to a blueprint whose base class is not a Pawn. To use this component, it MUST be placed on a Pawn Blueprint. This will cause a crash if you PIE!");
 			static const FName HeroMessageLogName = TEXT("ModularHeroComponent");
-			
-			FMessageLog(HeroMessageLogName).Error()
+
+			FMessageLog(HeroMessageLogName)
+				.Error()
 				->AddToken(FUObjectToken::Create(this, FText::FromString(GetNameSafe(this))))
 				->AddToken(FTextToken::Create(Message));
-				
+
 			FMessageLog(HeroMessageLogName).Open();
 		}
 #endif
@@ -74,7 +78,8 @@ void UModularHeroComponent::OnRegister()
 	}
 }
 
-bool UModularHeroComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const
+bool UModularHeroComponent::CanChangeInitState(
+	UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const
 {
 	check(Manager);
 
@@ -101,9 +106,8 @@ bool UModularHeroComponent::CanChangeInitState(UGameFrameworkComponentManager* M
 		{
 			AController* Controller = GetController<AController>();
 
-			const bool bHasControllerPairedWithPS = (Controller != nullptr) && \
-				(Controller->PlayerState != nullptr) && \
-				(Controller->PlayerState->GetOwner() == Controller);
+			const bool bHasControllerPairedWithPS =
+				(Controller != nullptr) && (Controller->PlayerState != nullptr) && (Controller->PlayerState->GetOwner() == Controller);
 
 			if (!bHasControllerPairedWithPS)
 			{
@@ -132,7 +136,8 @@ bool UModularHeroComponent::CanChangeInitState(UGameFrameworkComponentManager* M
 		// Wait for player state and extension component
 		AModularPlayerState* ModularPS = GetPlayerState<AModularPlayerState>();
 
-		return ModularPS && Manager->HasFeatureReachedInitState(Pawn, UModularPawnExtensionComponent::NAME_ActorFeatureName, ModularGameplayTags::InitState_DataInitialized);
+		return ModularPS && Manager->HasFeatureReachedInitState(Pawn, UModularPawnExtensionComponent::NAME_ActorFeatureName,
+								ModularGameplayTags::InitState_DataInitialized);
 	}
 	else if (CurrentState == ModularGameplayTags::InitState_DataInitialized && DesiredState == ModularGameplayTags::InitState_GameplayReady)
 	{
@@ -143,7 +148,8 @@ bool UModularHeroComponent::CanChangeInitState(UGameFrameworkComponentManager* M
 	return false;
 }
 
-void UModularHeroComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState)
+void UModularHeroComponent::HandleChangeInitState(
+	UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState)
 {
 	if (CurrentState == ModularGameplayTags::InitState_DataAvailable && DesiredState == ModularGameplayTags::InitState_DataInitialized)
 	{
@@ -188,9 +194,10 @@ void UModularHeroComponent::OnActorInitStateChanged(const FActorInitStateChanged
 {
 	if (Params.FeatureName == UModularPawnExtensionComponent::NAME_ActorFeatureName)
 	{
-		if (Params.FeatureState == ModularGameplayTags::InitState_DataInitialized)
+		if (Params.FeatureState == ModularGameplayTags::InitState_DataInitialized ||
+			Params.FeatureState == ModularGameplayTags::InitState_GameplayReady)
 		{
-			// If the extension component says all all other components are initialized, try to progress to next state
+			// If the extension component says all other components are initialized, try to progress to next state
 			CheckDefaultInitialization();
 		}
 	}
@@ -198,7 +205,8 @@ void UModularHeroComponent::OnActorInitStateChanged(const FActorInitStateChanged
 
 void UModularHeroComponent::CheckDefaultInitialization()
 {
-	static const TArray<FGameplayTag> StateChain = { ModularGameplayTags::InitState_Spawned, ModularGameplayTags::InitState_DataAvailable, ModularGameplayTags::InitState_DataInitialized, ModularGameplayTags::InitState_GameplayReady };
+	static const TArray<FGameplayTag> StateChain = {ModularGameplayTags::InitState_Spawned, ModularGameplayTags::InitState_DataAvailable,
+		ModularGameplayTags::InitState_DataInitialized, ModularGameplayTags::InitState_GameplayReady};
 
 	// This will try to progress from spawned (which is only set in BeginPlay) through the data initialization stages until it gets to gameplay ready
 	ContinueInitStateChain(StateChain);
@@ -260,10 +268,10 @@ void UModularHeroComponent::InitializePlayerInput(UInputComponent* PlayerInputCo
 							{
 								Settings->RegisterInputMappingContext(IMC);
 							}
-							
+
 							FModifyContextOptions Options = {};
 							Options.bIgnoreAllPressedKeysUntilRelease = false;
-							// Actually add the config to the local player							
+							// Actually add the config to the local player
 							Subsystem->AddMappingContext(IMC, Mapping.Priority, Options);
 						}
 					}
@@ -273,19 +281,25 @@ void UModularHeroComponent::InitializePlayerInput(UInputComponent* PlayerInputCo
 				// If you want this functionality but still want to change your input component class, make it a subclass
 				// of the UModularInputComponent or modify this component accordingly.
 				UModularInputComponent* ModularIC = Cast<UModularInputComponent>(PlayerInputComponent);
-				if (ensureMsgf(ModularIC, TEXT("Unexpected Input Component class! The Gameplay Abilities will not be bound to their inputs. Change the input component to UModularInputComponent or a subclass of it.")))
+				if (ensureMsgf(ModularIC,
+						TEXT(
+							"Unexpected Input Component class! The Gameplay Abilities will not be bound to their inputs. Change the input component to UModularInputComponent or a subclass of it.")))
 				{
 					// Add the key mappings that may have been set by the player
 					ModularIC->AddInputMappings(InputConfig, Subsystem);
 
 					// This is where we actually bind and input action to a gameplay tag, which means that Gameplay Ability Blueprints will
-					// be triggered directly by these input actions Triggered events. 
+					// be triggered directly by these input actions Triggered events.
 					TArray<uint32> BindHandles;
-					ModularIC->BindAbilityActions(InputConfig, this, &ThisClass::Input_AbilityInputTagPressed, &ThisClass::Input_AbilityInputTagReleased, /*out*/ BindHandles);
+					ModularIC->BindAbilityActions(InputConfig, this, &ThisClass::Input_AbilityInputTagPressed,
+						&ThisClass::Input_AbilityInputTagReleased, /*out*/ BindHandles);
 
-					ModularIC->BindNativeAction(InputConfig, ModularGameplayTags::InputTag_Move, ETriggerEvent::Triggered, this, &ThisClass::Input_Move, /*bLogIfNotFound=*/ false);
-					ModularIC->BindNativeAction(InputConfig, ModularGameplayTags::InputTag_Look_Mouse, ETriggerEvent::Triggered, this, &ThisClass::Input_LookMouse, /*bLogIfNotFound=*/ false);
-					ModularIC->BindNativeAction(InputConfig, ModularGameplayTags::InputTag_Look_Stick, ETriggerEvent::Triggered, this, &ThisClass::Input_LookStick, /*bLogIfNotFound=*/ false);
+					ModularIC->BindNativeAction(InputConfig, ModularGameplayTags::InputTag_Move, ETriggerEvent::Triggered, this,
+						&ThisClass::Input_Move, /*bLogIfNotFound=*/false);
+					ModularIC->BindNativeAction(InputConfig, ModularGameplayTags::InputTag_Look_Mouse, ETriggerEvent::Triggered, this,
+						&ThisClass::Input_LookMouse, /*bLogIfNotFound=*/false);
+					ModularIC->BindNativeAction(InputConfig, ModularGameplayTags::InputTag_Look_Stick, ETriggerEvent::Triggered, this,
+						&ThisClass::Input_LookStick, /*bLogIfNotFound=*/false);
 				}
 			}
 		}
@@ -295,7 +309,7 @@ void UModularHeroComponent::InitializePlayerInput(UInputComponent* PlayerInputCo
 	{
 		bReadyToBindInputs = true;
 	}
- 
+
 	UGameFrameworkComponentManager::SendGameFrameworkComponentExtensionEvent(const_cast<APlayerController*>(PC), NAME_BindInputsNow);
 	UGameFrameworkComponentManager::SendGameFrameworkComponentExtensionEvent(const_cast<APawn*>(Pawn), NAME_BindInputsNow);
 }
@@ -309,7 +323,7 @@ void UModularHeroComponent::AddAdditionalInputConfig(const UModularInputConfig* 
 	{
 		return;
 	}
-	
+
 	const APlayerController* PC = GetController<APlayerController>();
 	check(PC);
 
@@ -322,9 +336,12 @@ void UModularHeroComponent::AddAdditionalInputConfig(const UModularInputConfig* 
 	if (const UModularPawnExtensionComponent* PawnExtComp = UModularPawnExtensionComponent::FindPawnExtensionComponent(Pawn))
 	{
 		UModularInputComponent* ModularIC = Pawn->FindComponentByClass<UModularInputComponent>();
-		if (ensureMsgf(ModularIC, TEXT("Unexpected Input Component class! The Gameplay Abilities will not be bound to their inputs. Change the input component to UModularInputComponent or a subclass of it.")))
+		if (ensureMsgf(ModularIC,
+				TEXT(
+					"Unexpected Input Component class! The Gameplay Abilities will not be bound to their inputs. Change the input component to UModularInputComponent or a subclass of it.")))
 		{
-			ModularIC->BindAbilityActions(InputConfig, this, &ThisClass::Input_AbilityInputTagPressed, &ThisClass::Input_AbilityInputTagReleased, /*out*/ BindHandles);
+			ModularIC->BindAbilityActions(InputConfig, this, &ThisClass::Input_AbilityInputTagPressed,
+				&ThisClass::Input_AbilityInputTagReleased, /*out*/ BindHandles);
 		}
 	}
 }
@@ -349,7 +366,7 @@ void UModularHeroComponent::Input_AbilityInputTagPressed(FGameplayTag InputTag)
 			{
 				ModularASC->AbilityInputTagPressed(InputTag);
 			}
-		}	
+		}
 	}
 }
 
@@ -400,7 +417,7 @@ void UModularHeroComponent::Input_LookMouse(const FInputActionValue& InputAction
 	{
 		return;
 	}
-	
+
 	const FVector2D Value = InputActionValue.Get<FVector2D>();
 
 	if (Value.X != 0.0f)
@@ -422,7 +439,7 @@ void UModularHeroComponent::Input_LookStick(const FInputActionValue& InputAction
 	{
 		return;
 	}
-	
+
 	const FVector2D Value = InputActionValue.Get<FVector2D>();
 
 	const UWorld* World = GetWorld();
@@ -463,7 +480,8 @@ TSubclassOf<UModularCameraMode> UModularHeroComponent::DetermineCameraMode() con
 	return nullptr;
 }
 
-void UModularHeroComponent::SetAbilityCameraMode(TSubclassOf<UModularCameraMode> CameraMode, const FGameplayAbilitySpecHandle& OwningSpecHandle)
+void UModularHeroComponent::SetAbilityCameraMode(
+	TSubclassOf<UModularCameraMode> CameraMode, const FGameplayAbilitySpecHandle& OwningSpecHandle)
 {
 	if (CameraMode)
 	{
@@ -480,4 +498,3 @@ void UModularHeroComponent::ClearAbilityCameraMode(const FGameplayAbilitySpecHan
 		AbilityCameraModeOwningSpecHandle = FGameplayAbilitySpecHandle();
 	}
 }
-

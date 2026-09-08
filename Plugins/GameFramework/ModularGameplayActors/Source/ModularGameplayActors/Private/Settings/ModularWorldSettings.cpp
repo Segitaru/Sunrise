@@ -2,13 +2,13 @@
 
 #include "Settings/ModularWorldSettings.h"
 
-#include "ModularLogChannels.h"
 #include "Engine/AssetManager.h"
 #include "EngineUtils.h"
 #include "GameFramework/PlayerStart.h"
 #include "Logging/MessageLog.h"
 #include "Misc/UObjectToken.h"
 #include "ModularLogChannels.h"
+#include "ModularPlayerStart.h"
 #include UE_INLINE_GENERATED_CPP_BY_NAME(ModularWorldSettings)
 
 AModularWorldSettings::AModularWorldSettings(const FObjectInitializer& ObjectInitializer)
@@ -44,7 +44,7 @@ void AModularWorldSettings::CheckForErrors()
 	for (TActorIterator<APlayerStart> PlayerStartIt(GetWorld()); PlayerStartIt; ++PlayerStartIt)
 	{
 		APlayerStart* PlayerStart = *PlayerStartIt;
-		if (IsValid(PlayerStart) && PlayerStart->GetClass() == APlayerStart::StaticClass())
+		if (IsValid(PlayerStart) && PlayerStart->GetClass() == AModularPlayerStart::StaticClass())
 		{
 			MapCheck.Warning()
 				->AddToken(FUObjectToken::Create(PlayerStart))

@@ -2,6 +2,7 @@
 
 #include "GameModes/Overload/UI/OverloadHUDComponent.h"
 
+#include "Abilities/SunriseUnitOrderAbility.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameModes/Overload/AbilitySystem/OverloadAttributeSet.h"
@@ -82,7 +83,7 @@ void UOverloadHUDComponent::DrawHUD(ASunriseHUD* HUD)
 		const float Height = 62.0f * Scale;
 		const float X = (HUD->GetDrawingCanvas()->ClipX - Width) * 0.5f;
 		const float Y = HUD->GetDrawingCanvas()->ClipY - Height - 18.0f * Scale;
-		const float Cooldown = Controller->GetHeroSquadCooldownRemaining();
+		const float Cooldown = USunriseUnitOrderAbility::GetHeroSquadCooldownRemaining(Controller);
 		const FLinearColor StateColor = Cooldown > 0.0f ? FLinearColor(0.95f, 0.65f, 0.15f) : FLinearColor(0.25f, 0.95f, 0.4f);
 		HUD->DrawRect(FLinearColor(0.008f, 0.014f, 0.025f, 0.92f), X, Y, Width, Height);
 		HUD->DrawText(TEXT("SQUAD ABILITY"), FLinearColor(0.82f, 0.86f, 0.92f), X + 58.0f * Scale, Y + 7.0f * Scale,

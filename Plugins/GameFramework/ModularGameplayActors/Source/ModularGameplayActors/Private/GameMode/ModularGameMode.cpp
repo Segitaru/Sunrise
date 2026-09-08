@@ -64,7 +64,7 @@ const UModularPawnData* AModularGameModeBase::GetPawnDataForController(const ACo
 	if (ExperienceComponent->IsExperienceLoaded())
 	{
 		const UExperienceDefinition* Experience = ExperienceComponent->GetCurrentExperienceChecked();
-		if (Experience->DefaultPawnData != nullptr)
+		if (Experience->DefaultPawnData.ToSoftObjectPath().IsValid())
 		{
 			return Experience->DefaultPawnData.LoadSynchronous();
 		}
@@ -104,8 +104,7 @@ void AModularGameModeBase::HandleMatchAssignmentIfNotExpectingOne()
 	if (!ExperienceId.IsValid() && UGameplayStatics::HasOption(OptionsString, TEXT("Experience")))
 	{
 		const FString ExperienceFromOptions = UGameplayStatics::ParseOption(OptionsString, TEXT("Experience"));
-		ExperienceId =
-			FPrimaryAssetId(FPrimaryAssetType(UExperienceDefinition::StaticClass()->GetFName()), FName(*ExperienceFromOptions));
+		ExperienceId = FPrimaryAssetId(FPrimaryAssetType(UExperienceDefinition::StaticClass()->GetFName()), FName(*ExperienceFromOptions));
 		ExperienceIdSource = TEXT("OptionsString");
 	}
 
@@ -124,8 +123,8 @@ void AModularGameModeBase::HandleMatchAssignmentIfNotExpectingOne()
 			ExperienceId = FPrimaryAssetId::ParseTypeAndName(ExperienceFromCommandLine);
 			if (!ExperienceId.PrimaryAssetType.IsValid())
 			{
-				ExperienceId = FPrimaryAssetId(
-					FPrimaryAssetType(UExperienceDefinition::StaticClass()->GetFName()), FName(*ExperienceFromCommandLine));
+				ExperienceId =
+					FPrimaryAssetId(FPrimaryAssetType(UExperienceDefinition::StaticClass()->GetFName()), FName(*ExperienceFromCommandLine));
 			}
 			ExperienceIdSource = TEXT("CommandLine");
 		}
@@ -408,7 +407,8 @@ void AModularGameModeBase::HandleStartingNewPlayer_Implementation(APlayerControl
 
 AActor* AModularGameModeBase::ChoosePlayerStart_Implementation(AController* Player)
 {
-	if (UModularPlayerSpawningManagerComponent* PlayerSpawningComponent = GameState->FindComponentByClass<UModularPlayerSpawningManagerComponent>())
+	if (UModularPlayerSpawningManagerComponent* PlayerSpawningComponent =
+			GameState->FindComponentByClass<UModularPlayerSpawningManagerComponent>())
 	{
 		return PlayerSpawningComponent->ChoosePlayerStart(Player);
 	}
@@ -418,7 +418,8 @@ AActor* AModularGameModeBase::ChoosePlayerStart_Implementation(AController* Play
 
 void AModularGameModeBase::FinishRestartPlayer(AController* NewPlayer, const FRotator& StartRotation)
 {
-	if (UModularPlayerSpawningManagerComponent* PlayerSpawningComponent = GameState->FindComponentByClass<UModularPlayerSpawningManagerComponent>())
+	if (UModularPlayerSpawningManagerComponent* PlayerSpawningComponent =
+			GameState->FindComponentByClass<UModularPlayerSpawningManagerComponent>())
 	{
 		PlayerSpawningComponent->FinishRestartPlayer(NewPlayer, StartRotation);
 	}
@@ -449,7 +450,8 @@ bool AModularGameModeBase::ControllerCanRestart(AController* Controller)
 		}
 	}
 
-	if (UModularPlayerSpawningManagerComponent* PlayerSpawningComponent = GameState->FindComponentByClass<UModularPlayerSpawningManagerComponent>())
+	if (UModularPlayerSpawningManagerComponent* PlayerSpawningComponent =
+			GameState->FindComponentByClass<UModularPlayerSpawningManagerComponent>())
 	{
 		return PlayerSpawningComponent->ControllerCanRestart(Controller);
 	}

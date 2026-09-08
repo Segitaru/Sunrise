@@ -2,11 +2,11 @@
 
 #include "Camera/ModularCameraMode.h"
 
+#include "Camera/ModularCameraComponent.h"
+#include "Camera/ModularPlayerCameraManager.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/Canvas.h"
 #include "GameFramework/Character.h"
-#include "Camera/ModularCameraComponent.h"
-#include "Camera/ModularPlayerCameraManager.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(ModularCameraMode)
 
@@ -43,6 +43,11 @@ void FModularCameraModeView::Blend(const FModularCameraModeView& Other, float Ot
 	ControlRotation = ControlRotation + (OtherWeight * DeltaControlRotation);
 
 	FieldOfView = FMath::Lerp(FieldOfView, Other.FieldOfView, OtherWeight);
+	OrthoWidth = FMath::Lerp(OrthoWidth, Other.OrthoWidth, OtherWeight);
+	if (OtherWeight >= 0.5f)
+	{
+		ProjectionMode = Other.ProjectionMode;
+	}
 }
 
 
@@ -152,25 +157,25 @@ void UModularCameraMode::SetBlendWeight(float Weight)
 
 	switch (BlendFunction)
 	{
-	case EModularCameraModeBlendFunction::Linear:
-		BlendAlpha = BlendWeight;
-		break;
+		case EModularCameraModeBlendFunction::Linear:
+			BlendAlpha = BlendWeight;
+			break;
 
-	case EModularCameraModeBlendFunction::EaseIn:
-		BlendAlpha = FMath::InterpEaseIn(0.0f, 1.0f, BlendWeight, InvExponent);
-		break;
+		case EModularCameraModeBlendFunction::EaseIn:
+			BlendAlpha = FMath::InterpEaseIn(0.0f, 1.0f, BlendWeight, InvExponent);
+			break;
 
-	case EModularCameraModeBlendFunction::EaseOut:
-		BlendAlpha = FMath::InterpEaseOut(0.0f, 1.0f, BlendWeight, InvExponent);
-		break;
+		case EModularCameraModeBlendFunction::EaseOut:
+			BlendAlpha = FMath::InterpEaseOut(0.0f, 1.0f, BlendWeight, InvExponent);
+			break;
 
-	case EModularCameraModeBlendFunction::EaseInOut:
-		BlendAlpha = FMath::InterpEaseInOut(0.0f, 1.0f, BlendWeight, InvExponent);
-		break;
+		case EModularCameraModeBlendFunction::EaseInOut:
+			BlendAlpha = FMath::InterpEaseInOut(0.0f, 1.0f, BlendWeight, InvExponent);
+			break;
 
-	default:
-		checkf(false, TEXT("SetBlendWeight: Invalid BlendFunction [%d]\n"), (uint8)BlendFunction);
-		break;
+		default:
+			checkf(false, TEXT("SetBlendWeight: Invalid BlendFunction [%d]\n"), (uint8)BlendFunction);
+			break;
 	}
 }
 
@@ -190,25 +195,25 @@ void UModularCameraMode::UpdateBlending(float DeltaTime)
 
 	switch (BlendFunction)
 	{
-	case EModularCameraModeBlendFunction::Linear:
-		BlendWeight = BlendAlpha;
-		break;
+		case EModularCameraModeBlendFunction::Linear:
+			BlendWeight = BlendAlpha;
+			break;
 
-	case EModularCameraModeBlendFunction::EaseIn:
-		BlendWeight = FMath::InterpEaseIn(0.0f, 1.0f, BlendAlpha, Exponent);
-		break;
+		case EModularCameraModeBlendFunction::EaseIn:
+			BlendWeight = FMath::InterpEaseIn(0.0f, 1.0f, BlendAlpha, Exponent);
+			break;
 
-	case EModularCameraModeBlendFunction::EaseOut:
-		BlendWeight = FMath::InterpEaseOut(0.0f, 1.0f, BlendAlpha, Exponent);
-		break;
+		case EModularCameraModeBlendFunction::EaseOut:
+			BlendWeight = FMath::InterpEaseOut(0.0f, 1.0f, BlendAlpha, Exponent);
+			break;
 
-	case EModularCameraModeBlendFunction::EaseInOut:
-		BlendWeight = FMath::InterpEaseInOut(0.0f, 1.0f, BlendAlpha, Exponent);
-		break;
+		case EModularCameraModeBlendFunction::EaseInOut:
+			BlendWeight = FMath::InterpEaseInOut(0.0f, 1.0f, BlendAlpha, Exponent);
+			break;
 
-	default:
-		checkf(false, TEXT("UpdateBlending: Invalid BlendFunction [%d]\n"), (uint8)BlendFunction);
-		break;
+		default:
+			checkf(false, TEXT("UpdateBlending: Invalid BlendFunction [%d]\n"), (uint8)BlendFunction);
+			break;
 	}
 }
 
@@ -462,4 +467,3 @@ void UModularCameraModeStack::GetBlendInfo(float& OutWeightOfTopLayer, FGameplay
 		OutTagOfTopLayer = TopEntry->GetCameraTypeTag();
 	}
 }
-

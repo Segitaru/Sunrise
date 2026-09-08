@@ -9,7 +9,32 @@
 #include "GameModes/Overload/Actors/OverloadLaneSpline.h"
 #include "GameModes/Overload/Components/OverloadInteractorComponent.h"
 #include "GameModes/Overload/Components/OverloadLaneFollowerComponent.h"
+#include "NativeGameplayTags.h"
 #include "Units/SunriseUnit.h"
+
+UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_Sunrise_HeroSquadCooldown, "Cooldown.Sunrise.HeroSquad");
+
+USunriseHeroSquadCooldownEffect::USunriseHeroSquadCooldownEffect()
+{
+	DurationPolicy = EGameplayEffectDurationType::HasDuration;
+	DurationMagnitude = FScalableFloat(30.0f);
+}
+
+float USunriseHeroSquadAbility::GetCooldownRemaining(const ASunriseUnit* Hero)
+{
+	const UAbilitySystemComponent* ASC = Hero ? Hero->GetAbilitySystemComponent() : nullptr;
+	float Remaining = 0.0f;
+	if (ASC)
+	{
+		const FGameplayEffectQuery Query =
+			FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(FGameplayTagContainer(TAG_Sunrise_HeroSquadCooldown));
+		for (float Time : ASC->GetActiveEffectsTimeRemaining(Query))
+		{
+			Remaining = FMath::Max(Remaining, Time);
+		}
+	}
+	return Remaining;
+}
 
 USunriseHeroSquadAbility::USunriseHeroSquadAbility()
 {
@@ -21,25 +46,33 @@ bool USunriseHeroSquadAbility::CanActivateAbility(FGameplayAbilitySpecHandle Han
 	const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
 	if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) || !ActorInfo ||
-		!ActorInfo->AvatarActor.IsValid())
+		!ActorInfo->AvatarActor.IsValid() || !ActorInfo->AbilitySystemComponent.IsValid())
 	{
 		return false;
 	}
 	const ASunriseUnit* Hero = Cast<ASunriseUnit>(ActorInfo->AvatarActor.Get());
 	return Hero && Hero->IsHero() && Hero->IsAlive() && !SquadDefinitions.IsEmpty() && Hero->GetWorld() &&
-		   Hero->GetWorld()->GetTimeSeconds() >= NextActivationTime;
+		   !ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(TAG_Sunrise_HeroSquadCooldown);
 }
 
 void USunriseHeroSquadAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	ASunriseUnit* Hero = ActorInfo ? Cast<ASunriseUnit>(ActorInfo->AvatarActor.Get()) : nullptr;
-	if (!Hero || !Hero->HasAuthority() || !SpawnSquad(Hero))
+	if (!Hero || !Hero->HasAuthority() || !CommitAbility(Handle, ActorInfo, ActivationInfo) || !SpawnSquad(Hero))
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 		return;
 	}
-	NextActivationTime = Hero->GetWorld()->GetTimeSeconds() + FMath::Max(1.0f, Cooldown);
+	UAbilitySystemComponent* ASC = Hero->GetAbilitySystemComponent();
+	FGameplayEffectSpecHandle CooldownSpec =
+		ASC->MakeOutgoingSpec(USunriseHeroSquadCooldownEffect::StaticClass(), GetAbilityLevel(), ASC->MakeEffectContext());
+	if (CooldownSpec.IsValid())
+	{
+		CooldownSpec.Data->SetDuration(FMath::Max(1.0f, Cooldown), true);
+		CooldownSpec.Data->DynamicGrantedTags.AddTag(TAG_Sunrise_HeroSquadCooldown);
+		ASC->ApplyGameplayEffectSpecToSelf(*CooldownSpec.Data.Get());
+	}
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }
 

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Camera/CameraTypes.h"
 #include "Engine/World.h"
 #include "GameplayTagContainer.h"
 
@@ -33,7 +34,7 @@ enum class EModularCameraModeBlendFunction : uint8
 	// Smoothly accelerates and decelerates.  Ease amount controlled by the exponent.
 	EaseInOut,
 
-	COUNT	UMETA(Hidden)
+	COUNT UMETA(Hidden)
 };
 
 
@@ -42,20 +43,20 @@ enum class EModularCameraModeBlendFunction : uint8
  *
  *	View data produced by the camera mode that is used to blend camera modes.
  */
-struct FModularCameraModeView
+struct MODULARGAMEPLAYACTORS_API FModularCameraModeView
 {
 public:
-
 	FModularCameraModeView();
 
 	void Blend(const FModularCameraModeView& Other, float OtherWeight);
 
 public:
-
 	FVector Location;
 	FRotator Rotation;
 	FRotator ControlRotation;
 	float FieldOfView;
+	TEnumAsByte<ECameraProjectionMode::Type> ProjectionMode = ECameraProjectionMode::Perspective;
+	float OrthoWidth = 1500.0f;
 };
 
 
@@ -70,7 +71,6 @@ class UModularCameraMode : public UObject
 	GENERATED_BODY()
 
 public:
-
 	UE_API UModularCameraMode();
 
 	UE_API UModularCameraComponent* GetModularCameraComponent() const;
@@ -93,15 +93,11 @@ public:
 	float GetBlendWeight() const { return BlendWeight; }
 	UE_API void SetBlendWeight(float Weight);
 
-	FGameplayTag GetCameraTypeTag() const
-	{
-		return CameraTypeTag;
-	}
+	FGameplayTag GetCameraTypeTag() const { return CameraTypeTag; }
 
 	UE_API virtual void DrawDebug(UCanvas* Canvas) const;
 
 protected:
-
 	UE_API virtual FVector GetPivotLocation() const;
 	UE_API virtual FRotator GetPivotRotation() const;
 
@@ -150,7 +146,7 @@ protected:
 protected:
 	/** If true, skips all interpolation and puts camera in ideal location.  Automatically set to false next frame. */
 	UPROPERTY(transient)
-	uint32 bResetInterpolation:1;
+	uint32 bResetInterpolation : 1;
 };
 
 
@@ -165,7 +161,6 @@ class UModularCameraModeStack : public UObject
 	GENERATED_BODY()
 
 public:
-
 	UModularCameraModeStack();
 
 	void ActivateStack();
@@ -183,14 +178,12 @@ public:
 	void GetBlendInfo(float& OutWeightOfTopLayer, FGameplayTag& OutTagOfTopLayer) const;
 
 protected:
-
 	UModularCameraMode* GetCameraModeInstance(TSubclassOf<UModularCameraMode> CameraModeClass);
 
 	void UpdateStack(float DeltaTime);
 	void BlendStack(FModularCameraModeView& OutCameraModeView) const;
 
 protected:
-
 	bool bIsActive;
 
 	UPROPERTY()

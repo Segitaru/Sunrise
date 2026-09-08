@@ -1,10 +1,19 @@
 #pragma once
 #include "Abilities/GameplayAbility.h"
 #include "CoreMinimal.h"
+#include "GameplayEffect.h"
 
 #include "SunriseHeroSquadAbility.generated.h"
 class UControllableEntityDefinition;
 class ASunriseUnit;
+
+UCLASS()
+class SUNRISEGAME_API USunriseHeroSquadCooldownEffect : public UGameplayEffect
+{
+	GENERATED_BODY()
+public:
+	USunriseHeroSquadCooldownEffect();
+};
 UCLASS(Blueprintable)
 class SUNRISEGAME_API USunriseHeroSquadAbility : public UGameplayAbility
 {
@@ -18,6 +27,7 @@ public:
 		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 	UFUNCTION(BlueprintCallable, Category = "Sunrise|Hero Ability")
 	static bool ActivateForHero(ASunriseUnit* Hero, TSubclassOf<USunriseHeroSquadAbility> AbilityClass);
+	static float GetCooldownRemaining(const ASunriseUnit* Hero);
 
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise|Hero Ability")
@@ -26,7 +36,6 @@ protected:
 	float Cooldown = 30.0f;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise|Hero Ability", meta = (ClampMin = "50.0", Units = "cm"))
 	float FormationSpacing = 170.0f;
-	float NextActivationTime = 0.0f;
 	UPROPERTY(Transient)
 	TArray<TWeakObjectPtr<ASunriseUnit>> SpawnedUnits;
 	bool SpawnSquad(ASunriseUnit* Hero);

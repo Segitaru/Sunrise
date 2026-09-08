@@ -5,11 +5,15 @@
 #include "Components/GameFrameworkInitStateInterface.h"
 #include "Components/PawnComponent.h"
 #include "GameplayAbilitySpecHandle.h"
+
 #include "ModularHeroComponent.generated.h"
 
 #define UE_API MODULARGAMEPLAYACTORS_API
 
-namespace EEndPlayReason { enum Type : int; }
+namespace EEndPlayReason
+{
+	enum Type : int;
+}
 struct FLoadedMappableConfigPair;
 struct FMappableConfigPair;
 
@@ -27,18 +31,20 @@ struct FInputActionValue;
  * Component that sets up input and camera handling for player controlled pawns (or bots that simulate players).
  * This depends on a PawnExtensionComponent to coordinate initialization.
  */
-UCLASS(MinimalAPI, Blueprintable, Meta=(BlueprintSpawnableComponent))
+UCLASS(MinimalAPI, Blueprintable, Meta = (BlueprintSpawnableComponent))
 class UModularHeroComponent : public UPawnComponent, public IGameFrameworkInitStateInterface
 {
 	GENERATED_BODY()
 
 public:
-
 	UE_API UModularHeroComponent(const FObjectInitializer& ObjectInitializer);
 
 	/** Returns the hero component if one exists on the specified actor. */
 	UFUNCTION(BlueprintPure, Category = "Modular|Hero")
-	static UModularHeroComponent* FindHeroComponent(const AActor* Actor) { return (Actor ? Actor->FindComponentByClass<UModularHeroComponent>() : nullptr); }
+	static UModularHeroComponent* FindHeroComponent(const AActor* Actor)
+	{
+		return (Actor ? Actor->FindComponentByClass<UModularHeroComponent>() : nullptr);
+	}
 
 	/** Overrides the camera from an active gameplay ability */
 	UE_API void SetAbilityCameraMode(TSubclassOf<UModularCameraMode> CameraMode, const FGameplayAbilitySpecHandle& OwningSpecHandle);
@@ -54,7 +60,7 @@ public:
 
 	/** True if this is controlled by a real player and has progressed far enough in initialization where additional input bindings can be added */
 	UE_API bool IsReadyToBindInputs() const;
-	
+
 	/** The name of the extension event sent via UGameFrameworkComponentManager when ability inputs are ready to bind */
 	static UE_API const FName NAME_BindInputsNow;
 
@@ -63,14 +69,15 @@ public:
 
 	//~ Begin IGameFrameworkInitStateInterface interface
 	virtual FName GetFeatureName() const override { return NAME_ActorFeatureName; }
-	UE_API virtual bool CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const override;
-	UE_API virtual void HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) override;
+	UE_API virtual bool CanChangeInitState(
+		UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const override;
+	UE_API virtual void HandleChangeInitState(
+		UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) override;
 	UE_API virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) override;
 	UE_API virtual void CheckDefaultInitialization() override;
 	//~ End IGameFrameworkInitStateInterface interface
 
 protected:
-
 	UE_API virtual void OnRegister() override;
 	UE_API virtual void BeginPlay() override;
 	UE_API virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -80,18 +87,17 @@ protected:
 	UE_API void Input_AbilityInputTagPressed(FGameplayTag InputTag);
 	UE_API void Input_AbilityInputTagReleased(FGameplayTag InputTag);
 
-	UE_API void Input_Move(const FInputActionValue& InputActionValue);
+	UE_API virtual void Input_Move(const FInputActionValue& InputActionValue);
 	UE_API void Input_LookMouse(const FInputActionValue& InputActionValue);
 	UE_API void Input_LookStick(const FInputActionValue& InputActionValue);
 
 
-	UE_API TSubclassOf<UModularCameraMode> DetermineCameraMode() const;
+	UE_API virtual TSubclassOf<UModularCameraMode> DetermineCameraMode() const;
 
 protected:
-	
 	UPROPERTY(EditAnywhere)
 	TArray<struct FInputMappingContextAndPriority> DefaultInputMappings;
-	
+
 	/** Camera mode set by an ability. */
 	UPROPERTY()
 	TSubclassOf<UModularCameraMode> AbilityCameraMode;

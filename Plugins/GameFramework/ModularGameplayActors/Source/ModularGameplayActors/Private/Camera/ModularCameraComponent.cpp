@@ -2,11 +2,11 @@
 
 #include "Camera/ModularCameraComponent.h"
 
+#include "Camera/ModularCameraMode.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
-#include "Camera/ModularCameraMode.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(ModularCameraComponent)
 
@@ -53,6 +53,8 @@ void UModularCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& D
 	// Keep camera component in sync with the latest view.
 	SetWorldLocationAndRotation(CameraModeView.Location, CameraModeView.Rotation);
 	FieldOfView = CameraModeView.FieldOfView;
+	ProjectionMode = CameraModeView.ProjectionMode;
+	OrthoWidth = CameraModeView.OrthoWidth;
 
 	// Fill in desired view.
 	DesiredView.Location = CameraModeView.Location;
@@ -121,5 +123,3 @@ void UModularCameraComponent::GetBlendInfo(float& OutWeightOfTopLayer, FGameplay
 	check(CameraModeStack);
 	CameraModeStack->GetBlendInfo(/*out*/ OutWeightOfTopLayer, /*out*/ OutTagOfTopLayer);
 }
-
-

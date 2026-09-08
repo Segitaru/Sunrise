@@ -204,10 +204,6 @@ void UOverloadGameMatchComponent::InitializeOverloadMode()
 						break;
 					}
 				}
-				if (!Agent.GetObject() && PlayerController && PlayerController->GetHeroSquadAbilityClass())
-				{
-					Hero->SetHeroSquadAbilityClass(PlayerController->GetHeroSquadAbilityClass());
-				}
 
 				if (!Agent.GetObject() && HeroLane)
 				{
@@ -243,17 +239,13 @@ void UOverloadGameMatchComponent::EnsureEnemyHeroFollowers()
 	{
 		return;
 	}
-	ASunrisePlayerController* PlayerController = Cast<ASunrisePlayerController>(UGameplayStatics::GetPlayerController(this, 0));
+
 	for (TActorIterator<ASunriseUnit> It(GetWorld()); It; ++It)
 	{
 		ASunriseUnit* Hero = *It;
 		if (!Hero || !Hero->IsHero() || !Hero->IsAlive() || Hero->GetControllingAgent().GetObject())
 		{
 			continue;
-		}
-		if (PlayerController && PlayerController->GetHeroSquadAbilityClass() && !Hero->GetHeroSquadAbilityClass())
-		{
-			Hero->SetHeroSquadAbilityClass(PlayerController->GetHeroSquadAbilityClass());
 		}
 		if (Hero->FindComponentByClass<UOverloadLaneFollowerComponent>())
 		{

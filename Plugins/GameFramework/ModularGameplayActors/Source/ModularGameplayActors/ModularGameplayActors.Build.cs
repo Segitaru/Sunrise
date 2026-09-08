@@ -63,6 +63,7 @@ public class ModularGameplayActors : ModuleRules
 				"PhysicsCore",
 				"DeveloperSettings",
 				"EngineSettings",
+				"GameSettingsCore",
 			}
 		);
 		

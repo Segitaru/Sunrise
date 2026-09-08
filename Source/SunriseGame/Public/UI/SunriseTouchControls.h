@@ -20,6 +20,7 @@ class SUNRISEGAME_API USunriseTouchControls : public UUserWidget
 
 protected:
 	/** Pointer to the owning Sunrise PC */
+	UPROPERTY(Transient)
 	TObjectPtr<ASunrisePlayerController> PlayerController;
 
 public:
