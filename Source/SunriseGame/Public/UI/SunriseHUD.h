@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
+#include "Player/SunrisePlayerController.h"
 
 #include "SunriseHUD.generated.h"
 
@@ -22,6 +23,7 @@ public:
 	virtual void PreInitializeComponents() override;
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	void DrawSelectedUnitsCount(ASunrisePlayerController* PC);
 	virtual void DrawHUD() override;
 	void DragSelectUpdate(FVector2D Start, FVector2D WidthAndHeight, FVector2D CurrentPosition, bool bDraw);
 	void CommandDragUpdate(ASunriseUnit* SourceUnit, FVector2D CursorPosition, bool bDraw);

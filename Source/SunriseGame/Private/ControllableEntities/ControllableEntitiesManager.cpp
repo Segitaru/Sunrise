@@ -1,10 +1,10 @@
 #include "ControllableEntities/ControllableEntitiesManager.h"
 
 #include "ControllableEntities/ControllableComponent.h"
-#include "ControllableEntities/Data/ControllableEntityDefinition.h"
 #include "ControllableEntities/IControllableEntity.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
+#include "ModularPawnData.h"
 #include "Net/UnrealNetwork.h"
 #include "System/SunriseTeamSubsystem.h"
 #include "Units/SunriseUnit.h"
@@ -70,8 +70,9 @@ void UControllableEntitiesManager::ClearSummonedUnits()
 		}
 	}
 }
+
 TArray<APawn*> UControllableEntitiesManager::SpawnControlledUnitsAtLocations(
-	TSoftObjectPtr<UControllableEntityDefinition> RequiredEntity, const TArray<FVector>& TargetLocations)
+	TSoftObjectPtr<UModularPawnData> RequiredEntity, const TArray<FVector>& TargetLocations)
 {
 	TArray<APawn*> Result;
 	AController* Controller = Cast<AController>(GetOwner());
@@ -79,8 +80,8 @@ TArray<APawn*> UControllableEntitiesManager::SpawnControlledUnitsAtLocations(
 	{
 		return Result;
 	}
-	UControllableEntityDefinition* Definition = RequiredEntity.LoadSynchronous();
-	UClass* UnitClass = Definition ? Definition->UnitClass.LoadSynchronous() : nullptr;
+	UModularPawnData* Definition = RequiredEntity.LoadSynchronous();
+	UClass* UnitClass = Definition ? Definition->PawnClass.LoadSynchronous() : nullptr;
 	if (!UnitClass)
 	{
 		return Result;

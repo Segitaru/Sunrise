@@ -4,6 +4,8 @@
 
 #include "ControllableComponent.generated.h"
 
+
+class UModularPawnData;
 class AController;
 class UControllableEntityDefinition;
 
@@ -22,19 +24,25 @@ public:
 	{
 		return Actor ? Actor->FindComponentByClass<UControllableComponent>() : nullptr;
 	}
+
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Control")
 	bool IsPlayerControllable() const { return bPlayerControllable; }
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Control")
 	void SetPlayerControllable(bool bNewControllable);
+
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Control")
 	bool CanBeControlledBy(const AController* Controller) const;
-	void SetEntityDefinition(UControllableEntityDefinition* NewDefinition);
+
+	void SetEntityDefinition(UModularPawnData* NewDefinition);
+
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Control")
-	UControllableEntityDefinition* GetEntityDefinition() const { return EntityDefinition; }
+	UModularPawnData* GetEntityDefinition() const { return EntityDefinition; }
 
 private:
 	UPROPERTY(EditAnywhere, Replicated, Category = "Sunrise|Control")
 	bool bPlayerControllable = false;
+
 	UPROPERTY(Replicated)
-	TObjectPtr<UControllableEntityDefinition> EntityDefinition;
+	TObjectPtr<UModularPawnData> EntityDefinition;
 };

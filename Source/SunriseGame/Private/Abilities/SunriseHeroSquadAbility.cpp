@@ -3,12 +3,12 @@
 #include "AbilitySystemComponent.h"
 #include "ControllableEntities/ControllableComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
-#include "ControllableEntities/Data/ControllableEntityDefinition.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameModes/Overload/Actors/OverloadLaneSpline.h"
 #include "GameModes/Overload/Components/OverloadInteractorComponent.h"
 #include "GameModes/Overload/Components/OverloadLaneFollowerComponent.h"
+#include "ModularPawnData.h"
 #include "NativeGameplayTags.h"
 #include "Units/SunriseUnit.h"
 
@@ -36,7 +36,8 @@ float USunriseHeroSquadAbility::GetCooldownRemaining(const ASunriseUnit* Hero)
 	return Remaining;
 }
 
-USunriseHeroSquadAbility::USunriseHeroSquadAbility()
+USunriseHeroSquadAbility::USunriseHeroSquadAbility(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
@@ -111,8 +112,8 @@ bool USunriseHeroSquadAbility::SpawnSquad(ASunriseUnit* Hero)
 	SpawnedUnits.Reset();
 	for (int32 Index = 0; Index < SquadDefinitions.Num(); ++Index)
 	{
-		UControllableEntityDefinition* Definition = SquadDefinitions[Index].LoadSynchronous();
-		TSubclassOf<ASunriseUnit> UnitClass = Definition ? Definition->UnitClass.LoadSynchronous() : nullptr;
+		UModularPawnData* Definition = SquadDefinitions[Index].LoadSynchronous();
+		TSubclassOf<APawn> UnitClass = Definition ? Definition->PawnClass.LoadSynchronous() : nullptr;
 		if (!UnitClass)
 		{
 			continue;

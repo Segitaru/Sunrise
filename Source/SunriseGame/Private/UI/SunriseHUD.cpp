@@ -42,6 +42,28 @@ void ASunriseHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
+void ASunriseHUD::DrawSelectedUnitsCount(ASunrisePlayerController* PC)
+{
+	const auto* const ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(PC->GetPawn());
+	if (!ASC)
+	{
+		return;
+	}
+	FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromClass(USunriseSelectionAbility::StaticClass());
+	if (!AbilitySpec)
+	{
+		return;
+	}
+	if (USunriseSelectionAbility* Selection = Cast<USunriseSelectionAbility>(AbilitySpec->Ability); IsValid(Selection))
+	{
+		const TArray<ASunriseUnit*>& Selected = Selection->GetSelectedUnits();
+		if (UIWidget)
+		{
+			UIWidget->SetSelectedUnitsCount(Selected.Num());
+		}
+	}
+}
+
 void ASunriseHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -68,25 +90,7 @@ void ASunriseHUD::DrawHUD()
 		}
 	}
 
-	const auto* const ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(PC->GetPawn());
-	if (!ASC)
-	{
-		return;
-	}
-	FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromClass(USunriseSelectionAbility::StaticClass());
-	if (!AbilitySpec)
-	{
-		return;
-	}
-	if (USunriseSelectionAbility* Selection = Cast<USunriseSelectionAbility>(AbilitySpec->Ability); IsValid(Selection))
-	{
-		const TArray<ASunriseUnit*>& Selected = Selection->GetSelectedUnits();
-		if (UIWidget)
-		{
-			UIWidget->SetSelectedUnitsCount(Selected.Num());
-		}
-	}
-
+	DrawSelectedUnitsCount(PC);
 	DrawUnitOverlays();
 	DrawMatchPanel();
 

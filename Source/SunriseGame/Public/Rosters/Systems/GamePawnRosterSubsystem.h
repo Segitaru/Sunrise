@@ -24,8 +24,7 @@ struct FPlayerWithPayload
 		NetId = NewNetId;
 		AuthId = NewAuthId;
 	}
-	FPlayerWithPayload(
-		const FUniqueNetIdRepl& NewNetId, const FString& NewAuthId, const TSubclassOf<UObject> NewPayloadClass)
+	FPlayerWithPayload(const FUniqueNetIdRepl& NewNetId, const FString& NewAuthId, const TSubclassOf<UObject> NewPayloadClass)
 	{
 		NetId = NewNetId;
 		AuthId = NewAuthId;
@@ -59,7 +58,7 @@ public:
 	//~End of USubsystem interface
 
 	UPROPERTY(BlueprintReadWrite)
-	bool bIsPlayWorld = false;
+	bool bIsPlayWorld = true;
 
 	UPROPERTY(BlueprintReadWrite)
 	TArray<FPlayerWithPayload> PlayersWithPayload;

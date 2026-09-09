@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <Components/GameFrameworkInitStateInterface.h>
+#include <Components/PawnComponent.h>
 #include <NativeGameplayTags.h>
 
 #include "AbilitySystem/ModularAbilitySet.h"
@@ -24,16 +26,16 @@ class UModularPawnData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPawnDefinitionUpdated, const UModularPawnData*, NewDefinition);
 
-UCLASS(BlueprintType)
+UCLASS(BlueprintType, MinimalAPI)
 
-class SUNRISEGAME_API UPlayerPawnManager : public UPlayerStateComponent
+class UPlayerPawnManager : public UPawnComponent, public IGameFrameworkInitStateInterface
 {
 	GENERATED_BODY()
 
 protected:
 	UPROPERTY()
 	FModularAbilitySet_GrantedHandles CurrentGrantedAbility;
-	
+
 	UPROPERTY()
 	FGrantedPawnComponents CurrentGrantedComponents;
 
@@ -79,8 +81,7 @@ public:
 	// TODO: Try Swap Pawn between players;
 
 	void RemoveGrantedAbility(UModularAbilitySystemComponent* FromASC);
-	void AddGrantedAbilities(
-		UModularAbilitySystemComponent* IntoASC, TArray<TSoftObjectPtr<UModularAbilitySet>> AbilitiesToGrand);
+	void AddGrantedAbilities(UModularAbilitySystemComponent* IntoASC, TArray<TSoftObjectPtr<UModularAbilitySet>> AbilitiesToGrand);
 
 	void SetDefaultAbilities();
 
@@ -96,6 +97,19 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+
+	/** The name of this component-implemented feature */
+	static const FName NAME_ActorFeatureName;
+
+	//~ Begin IGameFrameworkInitStateInterface interface
+	virtual FName GetFeatureName() const override { return NAME_ActorFeatureName; }
+	virtual bool CanChangeInitState(
+		UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const override;
+	virtual void HandleChangeInitState(
+		UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) override;
+	virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) override;
+	virtual void CheckDefaultInitialization() override;
+	//~ End IGameFrameworkInitStateInterface interface
 
 	void TryTakePawnOnGameStarted();
 
@@ -128,19 +142,17 @@ protected:
 
 	UFUNCTION()
 	void OnRep_SelectedPawnDefinition();
-	
+
 	UFUNCTION()
 	void OnPawnSet(APlayerState* Player, APawn* NewPawn, APawn* OldPawn);
 
 	void OnAbilitySystemInitialized();
-	
-	/** Copy properties which need to be saved in inactive PlayerState */
-	virtual void CopyProperties(UPlayerStateComponent* TargetPlayerStateComponent) override;
 
 	UGamePawnSelectorComponent* GetPawnSelector() const;
 
 	void ForceTakePawn();
 	void ForceUpdate();
+
 private:
 	UPROPERTY()
 	bool bChoseWasRandom = false;

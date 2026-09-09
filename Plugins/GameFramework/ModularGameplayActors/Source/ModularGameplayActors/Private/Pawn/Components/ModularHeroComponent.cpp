@@ -194,8 +194,7 @@ void UModularHeroComponent::OnActorInitStateChanged(const FActorInitStateChanged
 {
 	if (Params.FeatureName == UModularPawnExtensionComponent::NAME_ActorFeatureName)
 	{
-		if (Params.FeatureState == ModularGameplayTags::InitState_DataInitialized ||
-			Params.FeatureState == ModularGameplayTags::InitState_GameplayReady)
+		if (Params.FeatureState == ModularGameplayTags::InitState_DataInitialized)
 		{
 			// If the extension component says all other components are initialized, try to progress to next state
 			CheckDefaultInitialization();
