@@ -4,12 +4,17 @@
 
 #include "Components/GameFrameworkInitStateInterface.h"
 #include "Components/PawnComponent.h"
+#include "ModularAbilitySet.h"
+#include "ModularPawnData.h"
 
 #include "ModularPawnExtensionComponent.generated.h"
 
 #define UE_API MODULARGAMEPLAYACTORS_API
 
-namespace EEndPlayReason { enum Type : int; }
+namespace EEndPlayReason
+{
+	enum Type : int;
+}
 
 class UGameFrameworkComponentManager;
 class UModularAbilitySystemComponent;
@@ -29,7 +34,6 @@ class UModularPawnExtensionComponent : public UPawnComponent, public IGameFramew
 	GENERATED_BODY()
 
 public:
-
 	UE_API UModularPawnExtensionComponent(const FObjectInitializer& ObjectInitializer);
 
 	/** The name of this overall feature, this one depends on the other named component features */
@@ -37,19 +41,27 @@ public:
 
 	//~ Begin IGameFrameworkInitStateInterface interface
 	virtual FName GetFeatureName() const override { return NAME_ActorFeatureName; }
-	UE_API virtual bool CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const override;
-	UE_API virtual void HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) override;
+	UE_API virtual bool CanChangeInitState(
+		UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const override;
+	UE_API virtual void HandleChangeInitState(
+		UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) override;
 	UE_API virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) override;
 	UE_API virtual void CheckDefaultInitialization() override;
 	//~ End IGameFrameworkInitStateInterface interface
 
 	/** Returns the pawn extension component if one exists on the specified actor. */
 	UFUNCTION(BlueprintPure, Category = "Modular|Pawn")
-	static UModularPawnExtensionComponent* FindPawnExtensionComponent(const AActor* Actor) { return (Actor ? Actor->FindComponentByClass<UModularPawnExtensionComponent>() : nullptr); }
+	static UModularPawnExtensionComponent* FindPawnExtensionComponent(const AActor* Actor)
+	{
+		return (Actor ? Actor->FindComponentByClass<UModularPawnExtensionComponent>() : nullptr);
+	}
 
 	/** Gets the pawn data, which is used to specify pawn properties in data */
 	template <class T>
-	const T* GetPawnData() const { return Cast<T>(PawnData); }
+	const T* GetPawnData() const
+	{
+		return Cast<T>(PawnData);
+	}
 
 	/** Sets the current pawn data */
 	UE_API void SetPawnData(const UModularPawnData* InPawnData);
@@ -60,6 +72,8 @@ public:
 
 	/** Should be called by the owning pawn to become the avatar of the ability system. */
 	UE_API void InitializeAbilitySystem(UModularAbilitySystemComponent* InASC, AActor* InOwnerActor);
+
+	UE_API void UpdateAbilitySystemOwner(AActor* InOwnerActor);
 
 	/** Should be called by the owning pawn to remove itself as the avatar of the ability system. */
 	UE_API void UninitializeAbilitySystem();
@@ -80,13 +94,20 @@ public:
 	UE_API void OnAbilitySystemUninitialized_Register(FSimpleMulticastDelegate::FDelegate Delegate);
 
 protected:
-
 	UE_API virtual void OnRegister() override;
 	UE_API virtual void BeginPlay() override;
 	UE_API virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UFUNCTION()
 	UE_API void OnRep_PawnData();
+
+	void TryAddPawnPartComponent();
+	void TryAddPawnAbilities();
+	void TryAddPawnComponents();
+	void TryActivateFragments();
+
+	void RemoveGrantedAbility();
+	void AddGrantedAbilities();
 
 	/** Delegate fired when our pawn becomes the ability system's avatar actor */
 	FSimpleMulticastDelegate OnAbilitySystemInitialized;
@@ -101,6 +122,12 @@ protected:
 	/** Pointer to the ability system component that is cached for convenience. */
 	UPROPERTY(Transient)
 	TObjectPtr<UModularAbilitySystemComponent> AbilitySystemComponent;
+
+	UPROPERTY()
+	FModularAbilitySet_GrantedHandles CurrentGrantedAbility;
+
+	UPROPERTY()
+	FGrantedPawnComponents CurrentGrantedComponents;
 };
 
 #undef UE_API

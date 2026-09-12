@@ -121,10 +121,6 @@ void ASunriseUnit::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (!bHasExplicitTeamId)
-	{
-		SetTeam(Team);
-	}
 	if (bUseRoleDefaults)
 	{
 		ApplyRoleDefaults();
@@ -358,16 +354,20 @@ void ASunriseUnit::MoveToLocation(const FVector& Location, bool bInteract, const
 	IssueMoveOrderInternal(Location, false);
 }
 
+ESunriseTeam ASunriseUnit::GetTeam() const
+{
+	return StaticCast<ESunriseTeam>(TeamComponent->GetTeamId());
+}
+
 int32 ASunriseUnit::GetTeamId() const
 {
-	return TeamComponent ? TeamComponent->GetTeamId() : TeamId;
+	return TeamComponent->GetTeamId();
 }
 
 void ASunriseUnit::SetTeam(ESunriseTeam NewTeam)
 {
-	Team = NewTeam;
-	SetTeamId(Team == ESunriseTeam::Friendly ? 0 : Team == ESunriseTeam::Enemy ? 1 : INDEX_NONE);
-	if (Team != ESunriseTeam::Friendly && bSelected)
+	SetTeamId(NewTeam == ESunriseTeam::Friendly ? 0 : NewTeam == ESunriseTeam::Enemy ? 1 : INDEX_NONE);
+	if (NewTeam != ESunriseTeam::Friendly && bSelected)
 	{
 		ISunriseSelectable::Execute_SetSunriseSelected(this, false);
 	}
@@ -375,28 +375,22 @@ void ASunriseUnit::SetTeam(ESunriseTeam NewTeam)
 
 void ASunriseUnit::SetTeamId(int32 NewTeamId)
 {
-	bHasExplicitTeamId = true;
-	const int32 PreviousTeamId = TeamId;
-	if (TeamComponent)
-	{
-		TeamComponent->SetTeamId(NewTeamId);
-	}
-	HandleTeamChanged(this, PreviousTeamId, NewTeamId);
+	TeamComponent->SetTeamId(NewTeamId);
 }
 
 void ASunriseUnit::SetGenericTeamId(const FGenericTeamId& NewTeamId)
 {
-	SetTeamId(SunriseTeamIdToInteger(NewTeamId));
+	TeamComponent->SetGenericTeamId(NewTeamId);
 }
 
 FGenericTeamId ASunriseUnit::GetGenericTeamId() const
 {
-	return TeamComponent ? TeamComponent->GetGenericTeamId() : IntegerToSunriseTeamId(TeamId);
+	return TeamComponent->GetGenericTeamId();
 }
 
 FOnTeamIndexChangedDelegate* ASunriseUnit::GetOnTeamIndexChangedDelegate()
 {
-	return TeamComponent ? TeamComponent->GetOnTeamIndexChangedDelegate() : nullptr;
+	return TeamComponent->GetOnTeamIndexChangedDelegate();
 }
 
 TScriptInterface<IIControllableEntity> ASunriseUnit::GetControllingAgent()
@@ -724,10 +718,6 @@ void ASunriseUnit::OnRep_ControllingAgent(AActor* OldAgentActor)
 
 void ASunriseUnit::HandleTeamChanged(UObject* TeamAgent, int32 PreviousTeamId, int32 NewTeamId)
 {
-	(void)TeamAgent;
-	(void)PreviousTeamId;
-	TeamId = NewTeamId;
-	Team = TeamId < 0 ? ESunriseTeam::Neutral : TeamId == 0 ? ESunriseTeam::Friendly : ESunriseTeam::Enemy;
 	if (GetTeamId() != 0 && bSelected)
 	{
 		ISunriseSelectable::Execute_SetSunriseSelected(this, false);

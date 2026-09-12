@@ -102,7 +102,7 @@ public:
 	FVector GetMovementGoal() const { return CurrentMovementGoal; }
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	ESunriseTeam GetTeam() const { return Team; }
+	ESunriseTeam GetTeam() const;
 
 	/** Numeric authority used by multi-team modes. 0=player, 1=legacy enemy, -1=neutral. */
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
@@ -274,13 +274,6 @@ protected:
 	TObjectPtr<USunriseWeapon> Weapon;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sunrise|Identity")
-	ESunriseTeam Team = ESunriseTeam::Friendly;
-
-	/** Deprecated compatibility mirror for existing BP_SunriseUnit assets. */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Sunrise|Identity", meta = (DeprecatedProperty))
-	int32 TeamId = 0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sunrise|Identity")
 	ESunriseUnitRole UnitRole = ESunriseUnitRole::Melee;
 	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Sunrise|Identity")
 	ESunriseUnitKind UnitKind = ESunriseUnitKind::Creep;
@@ -337,7 +330,6 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Sunrise|Orders")
 	bool bPlayerOrderActive = false;
 	bool bInteractOnArrival = false;
-	bool bHasExplicitTeamId = false;
 	bool bExternalInteractionActive = false;
 	TWeakObjectPtr<ASunriseUnit> LastDamageSource;
 	TWeakObjectPtr<ASunriseUnit> FocusTarget;

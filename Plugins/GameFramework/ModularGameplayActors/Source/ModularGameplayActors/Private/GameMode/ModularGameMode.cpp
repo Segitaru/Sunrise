@@ -56,7 +56,7 @@ const UModularPawnData* AModularGameModeBase::GetPawnDataForController(const ACo
 		}
 	}
 
-	// If not, fall back to the the default for the current experience
+	// If not, fall back to the default for the current experience
 	check(GameState);
 	UExperienceManagerComponent* ExperienceComponent = GameState->FindComponentByClass<UExperienceManagerComponent>();
 	check(ExperienceComponent);

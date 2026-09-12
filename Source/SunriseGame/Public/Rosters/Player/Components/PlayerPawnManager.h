@@ -33,15 +33,6 @@ class UPlayerPawnManager : public UPawnComponent, public IGameFrameworkInitState
 	GENERATED_BODY()
 
 protected:
-	UPROPERTY()
-	FModularAbilitySet_GrantedHandles CurrentGrantedAbility;
-
-	UPROPERTY()
-	FGrantedPawnComponents CurrentGrantedComponents;
-
-	UPROPERTY()
-	TSubclassOf<UModularCameraMode> PawnCameraMode = nullptr;
-
 	UPROPERTY(ReplicatedUsing = OnRep_SelectedPawnDefinition)
 	TObjectPtr<UModularPawnData> SelectedPawnDefinition;
 
@@ -75,15 +66,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SwapRandom();
 
-	TSubclassOf<UModularCameraMode> GetPawnCameraMode() const;
-
 	// TODO: Try Swap/take Pawn random/choised;
 	// TODO: Try Swap Pawn between players;
-
-	void RemoveGrantedAbility(UModularAbilitySystemComponent* FromASC);
-	void AddGrantedAbilities(UModularAbilitySystemComponent* IntoASC, TArray<TSoftObjectPtr<UModularAbilitySet>> AbilitiesToGrand);
-
-	void SetDefaultAbilities();
 
 	void CommitRandomPawn();
 
@@ -92,7 +76,6 @@ public:
 	UFUNCTION(Server, Reliable)
 	virtual void TryTakeRandomPawn_OnServer();
 
-	void RegisterOrCallOnPawnDataLoaded();
 	void ClearForceTakeTimer();
 
 protected:
@@ -114,7 +97,7 @@ protected:
 	void TryTakePawnOnGameStarted();
 
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-	virtual void OnPawnDataLoaded();
+
 	virtual void OnExperienceLoadedForBot(const UExperienceDefinition* CurrentExperience);
 	virtual void OnExperienceLoadedForPlayer(const UExperienceDefinition* CurrentExperience);
 
@@ -127,10 +110,6 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ResetSelectedPawnConfirmation_OnServer();
 
-	virtual void TryAddPawnPartComponent();
-	virtual void TryAddPawnAbilities();
-	virtual void TryAddPawnComponents();
-	virtual void TryActivateFragments();
 	UFUNCTION()
 	virtual void OnRosterReady();
 
@@ -142,11 +121,6 @@ protected:
 
 	UFUNCTION()
 	void OnRep_SelectedPawnDefinition();
-
-	UFUNCTION()
-	void OnPawnSet(APlayerState* Player, APawn* NewPawn, APawn* OldPawn);
-
-	void OnAbilitySystemInitialized();
 
 	UGamePawnSelectorComponent* GetPawnSelector() const;
 
@@ -160,7 +134,6 @@ private:
 	bool bForceTakePawn = false;
 
 	FTimerHandle ForceTakePawnHandle;
-
 
 	UPROPERTY()
 	TObjectPtr<AModularPlayerState> OwnerPS;

@@ -120,8 +120,7 @@ bool UGamePawnRosterComponent::CheckContainPawnInPool(int32 PoolId, const UModul
 
 	if (!GetPoolById(PoolId, RosterPool))
 	{
-		UE_LOG(
-			LogGamePawnRosterComponent, Warning, TEXT("RemovePawnFromPool(): Trying to get a pool that doesn't exist"));
+		UE_LOG(LogGamePawnRosterComponent, Warning, TEXT("RemovePawnFromPool(): Trying to get a pool that doesn't exist"));
 		return false;
 	}
 
@@ -139,8 +138,7 @@ bool UGamePawnRosterComponent::RemovePawnFromPool(int32 PoolId, const TObjectPtr
 
 	if (!GetPoolById(PoolId, RosterPool))
 	{
-		UE_LOG(
-			LogGamePawnRosterComponent, Warning, TEXT("RemovePawnFromPool(): Trying to get a pool that doesn't exist"));
+		UE_LOG(LogGamePawnRosterComponent, Warning, TEXT("RemovePawnFromPool(): Trying to get a pool that doesn't exist"));
 		return false;
 	}
 
@@ -165,8 +163,7 @@ TObjectPtr<UModularPawnData> UGamePawnRosterComponent::GetRandomPawnFromPool(int
 
 	if (!GetPoolById(PoolId, RosterPool))
 	{
-		UE_LOG(LogGamePawnRosterComponent, Warning,
-			TEXT("GetRandomPawnFromPool(): Trying to get a pool that doesn't exist"));
+		UE_LOG(LogGamePawnRosterComponent, Warning, TEXT("GetRandomPawnFromPool(): Trying to get a pool that doesn't exist"));
 		return nullptr;
 	}
 
@@ -175,23 +172,20 @@ TObjectPtr<UModularPawnData> UGamePawnRosterComponent::GetRandomPawnFromPool(int
 		return nullptr;
 	}
 
-	const int32 RandomPawnIndex =
-		UKismetMathLibrary::RandomIntegerInRange(0, RosterPool.AvailablePawnsFromRoster.Num() - 1);
+	const int32 RandomPawnIndex = UKismetMathLibrary::RandomIntegerInRange(0, RosterPool.AvailablePawnsFromRoster.Num() - 1);
 
 	const TObjectPtr<UModularPawnData> RandomPawn = RosterPool.AvailablePawnsFromRoster[RandomPawnIndex];
 
 	return RandomPawn;
 }
 
-TObjectPtr<UModularPawnData> UGamePawnRosterComponent::GetPawnFromPoolByClass(
-	int32 PoolId, TSubclassOf<UObject> SearchClass)
+TObjectPtr<UModularPawnData> UGamePawnRosterComponent::GetPawnFromPoolByClass(int32 PoolId, TSubclassOf<UObject> SearchClass)
 {
 	FRosterPool RosterPool;
 
 	if (!GetPoolById(PoolId, RosterPool))
 	{
-		UE_LOG(LogGamePawnRosterComponent, Warning,
-			TEXT("GetRandomPawnFromPool(): Trying to get a pool that doesn't exist"));
+		UE_LOG(LogGamePawnRosterComponent, Warning, TEXT("GetRandomPawnFromPool(): Trying to get a pool that doesn't exist"));
 		return nullptr;
 	}
 
@@ -260,8 +254,7 @@ void UGamePawnRosterComponent::OnRep_CurrentRoster()
 	}
 	else
 	{
-		ensureMsgf(
-			false, TEXT("%s: Critical Error: Roster loading failing, nothing was uploaded"), *GetPathNameSafe(this));
+		ensureMsgf(false, TEXT("%s: Critical Error: Roster loading failing, nothing was uploaded"), *GetPathNameSafe(this));
 	}
 }
 
@@ -272,8 +265,7 @@ void UGamePawnRosterComponent::BeginPlay()
 	// Listen for the experience load to complete
 	AGameStateBase* GameState = GetGameStateChecked<AGameStateBase>();
 
-	UExperienceManagerComponent* ExperienceComponent =
-		GameState->FindComponentByClass<UExperienceManagerComponent>();
+	UExperienceManagerComponent* ExperienceComponent = GameState->FindComponentByClass<UExperienceManagerComponent>();
 
 	check(ExperienceComponent);
 	ExperienceComponent->CallOrRegister_OnExperienceLoaded_HighPriority(
@@ -290,19 +282,21 @@ void UGamePawnRosterComponent::OnExperienceLoaded(const UExperienceDefinition* C
 
 void UGamePawnRosterComponent::LoadRoster()
 {
+	UAssetManager& AssetManager = UAssetManager::Get();
+
 	for (const FPrimaryAssetType& SearchingAssetsType : SearchingAssetsTypes)
 	{
 		TArray<FPrimaryAssetId> FindingPawnAssets;
 
 		UKismetSystemLibrary::GetPrimaryAssetIdList(SearchingAssetsType, FindingPawnAssets);
-		
+
 		TArray<TObjectPtr<UModularPawnData>> PawnsToAppendInRoster;
 
-		UAssetManager& AssetManager = UAssetManager::Get();
 		for (auto PawnAsset : FindingPawnAssets)
 		{
 			FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(PawnAsset);
-			TSubclassOf<UModularPawnData> AssetClass = Cast<UClass>(AssetPath.TryLoad());
+
+			TSubclassOf<UModularPawnData> AssetClass = Cast<UClass>(AssetPath.TryLoad()->GetClass());
 
 			check(AssetClass);
 

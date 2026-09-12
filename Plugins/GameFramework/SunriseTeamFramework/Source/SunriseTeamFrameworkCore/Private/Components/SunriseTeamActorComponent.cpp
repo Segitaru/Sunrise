@@ -8,6 +8,17 @@ USunriseTeamActorComponent::USunriseTeamActorComponent()
 	SetIsReplicatedByDefault(true);
 }
 
+void USunriseTeamActorComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(USunriseTeamActorComponent, TeamId);
+}
+
+int32 USunriseTeamActorComponent::GetTeamId() const
+{
+	return SunriseTeamIdToInteger(TeamId);
+}
+
 bool USunriseTeamActorComponent::SetTeamId(int32 NewTeamId)
 {
 	if (NewTeamId < INDEX_NONE || NewTeamId > MAX_uint8 - 1)
@@ -38,10 +49,4 @@ void USunriseTeamActorComponent::SetGenericTeamId(const FGenericTeamId& NewTeamI
 void USunriseTeamActorComponent::OnRep_TeamId(FGenericTeamId PreviousTeamId)
 {
 	ISunriseTeamAgentInterface::ConditionalBroadcastTeamChanged(this, this, PreviousTeamId, TeamId);
-}
-
-void USunriseTeamActorComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(USunriseTeamActorComponent, TeamId);
 }

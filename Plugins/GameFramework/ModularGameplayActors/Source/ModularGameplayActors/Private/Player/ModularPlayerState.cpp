@@ -89,7 +89,7 @@ bool AModularPlayerState::HasStatTag(FGameplayTag Tag) const
 
 void AModularPlayerState::CallOrRegister_OnPawnDataReady(FOnPawnDataReady::FDelegate&& Delegate)
 {
-	if (PawnData.Get())
+	if (PawnData)
 	{
 		Delegate.Execute();
 	}

@@ -13,7 +13,10 @@
 
 class UPawnCosmeticCreatorComponent;
 
-namespace EEndPlayReason { enum Type : int; }
+namespace EEndPlayReason
+{
+	enum Type : int;
+}
 struct FGameplayTag;
 struct FPawnCosmeticPartList;
 
@@ -35,8 +38,7 @@ struct FPawnAppliedCosmeticPartEntry : public FFastArraySerializerItem
 {
 	GENERATED_BODY()
 
-	UE_API FPawnAppliedCosmeticPartEntry()
-	{}
+	UE_API FPawnAppliedCosmeticPartEntry() {}
 
 	UE_API FString GetDebugString() const;
 
@@ -80,7 +82,8 @@ public:
 
 	UE_API bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
 	{
-		return FFastArraySerializer::FastArrayDeltaSerialize<FPawnAppliedCosmeticPartEntry, FPawnCosmeticPartList>(Entries, DeltaParms, *this);
+		return FFastArraySerializer::FastArrayDeltaSerialize<FPawnAppliedCosmeticPartEntry, FPawnCosmeticPartList>(
+			Entries, DeltaParms, *this);
 	}
 
 	FPawnCosmeticPartHandle AddEntry(FPawnCosmeticPart NewPart);
@@ -89,11 +92,8 @@ public:
 
 	FGameplayTagContainer CollectCombinedTags() const;
 
-	void SetOwnerComponent(UPawnCosmeticCreatorComponent* InOwnerComponent)
-	{
-		OwnerComponent = InOwnerComponent;
-	}
-	
+	void SetOwnerComponent(UPawnCosmeticCreatorComponent* InOwnerComponent) { OwnerComponent = InOwnerComponent; }
+
 private:
 	friend UPawnCosmeticCreatorComponent;
 
@@ -113,16 +113,19 @@ private:
 	int32 PartHandleCounter = 0;
 };
 
-template<>
+template <>
 struct TStructOpsTypeTraits<FPawnCosmeticPartList> : public TStructOpsTypeTraitsBase2<FPawnCosmeticPartList>
 {
-	enum { WithNetDeltaSerializer = true };
+	enum
+	{
+		WithNetDeltaSerializer = true
+	};
 };
 
 //////////////////////////////////////////////////////////////////////
 
 // A component that handles spawning cosmetic actors attached to the owner pawn on all clients
-UCLASS(meta=(BlueprintSpawnableComponent),MinimalAPI)
+UCLASS(meta = (BlueprintSpawnableComponent), MinimalAPI)
 class UPawnCosmeticCreatorComponent : public UPawnComponent
 {
 	GENERATED_BODY()
@@ -137,19 +140,19 @@ public:
 	//~End of UActorComponent interface
 
 	// Adds a character part to the actor that owns this customization component, should be called on the authority only
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Cosmetics)
-	UE_API FPawnCosmeticPartHandle AddCharacterPart(const FPawnCosmeticPart& NewPart);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Cosmetics)
+	UE_API FPawnCosmeticPartHandle AddCosmeticPart(const FPawnCosmeticPart& NewPart);
 
 	// Removes a previously added character part from the actor that owns this customization component, should be called on the authority only
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Cosmetics)
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Cosmetics)
 	UE_API void RemoveCharacterPart(FPawnCosmeticPartHandle Handle);
 
 	// Removes all added character parts, should be called on the authority only
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Cosmetics)
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Cosmetics)
 	UE_API void RemoveAllCharacterParts();
 
 	// Gets the list of all spawned character parts from this component
-	UFUNCTION(BlueprintCallable, BlueprintPure=false, Category=Cosmetics)
+	UFUNCTION(BlueprintCallable, BlueprintPure = false, Category = Cosmetics)
 	UE_API TArray<AActor*> GetCharacterPartActors() const;
 
 	// If the parent actor is derived from ACharacter, returns the Mesh component, otherwise nullptr
@@ -160,23 +163,23 @@ public:
 	UE_API USceneComponent* GetSceneComponentToAttachTo() const;
 
 	// Returns the set of combined gameplay tags from attached character parts, optionally filtered to only tags that start with the specified root
-	UFUNCTION(BlueprintCallable, BlueprintPure=false, Category=Cosmetics)
+	UFUNCTION(BlueprintCallable, BlueprintPure = false, Category = Cosmetics)
 	UE_API FGameplayTagContainer GetCombinedTags(FGameplayTag RequiredPrefix) const;
 
 	UE_API void BroadcastChanged();
 
 public:
 	// Delegate that will be called when the list of spawned character parts has changed
-	UPROPERTY(BlueprintAssignable, Category=Cosmetics, BlueprintCallable)
+	UPROPERTY(BlueprintAssignable, Category = Cosmetics, BlueprintCallable)
 	FPawnSpawnedCosmeticPartsChanged OnCharacterPartsChanged;
 
 private:
 	// List of character parts
 	UPROPERTY(Replicated, Transient)
-	FPawnCosmeticPartList CharacterPartList;
+	FPawnCosmeticPartList CosmeticPartList;
 
 	// Rules for how to pick a body style mesh for animation to play on, based on character part cosmetics tags
-	UPROPERTY(EditAnywhere, Category=Cosmetics)
+	UPROPERTY(EditAnywhere, Category = Cosmetics)
 	FPawnAnimBodyStyleSelectionSet BodyMeshes;
 };
 

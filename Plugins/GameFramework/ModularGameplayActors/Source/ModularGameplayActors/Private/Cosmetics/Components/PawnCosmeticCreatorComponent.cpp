@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Cosmetics/Components/PawnCosmeticCreatorComponent.h"
+
 #include "Components/SkeletalMeshComponent.h"
 #include "Cosmetics/System/PawnCosmeticPartTypes.h"
 #include "GameFramework/Character.h"
@@ -18,7 +19,8 @@ class UWorld;
 
 FString FPawnAppliedCosmeticPartEntry::GetDebugString() const
 {
-	return FString::Printf(TEXT("(PartClass: %s, Socket: %s, Instance: %s)"), *GetPathNameSafe(Part.PartClass.LoadSynchronous()), *Part.SocketName.ToString(), *GetPathNameSafe(SpawnedComponent));
+	return FString::Printf(TEXT("(PartClass: %s, Socket: %s, Instance: %s)"), *GetPathNameSafe(Part.PartClass.LoadSynchronous()),
+		*Part.SocketName.ToString(), *GetPathNameSafe(SpawnedComponent));
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -82,7 +84,7 @@ FPawnCosmeticPartHandle FPawnCosmeticPartList::AddEntry(FPawnCosmeticPart NewPar
 		FPawnAppliedCosmeticPartEntry& NewEntry = Entries.AddDefaulted_GetRef();
 		NewEntry.Part = NewPart;
 		NewEntry.PartHandle = Result.PartHandle;
-	
+
 		if (SpawnActorForEntry(NewEntry))
 		{
 			OwnerComponent->BroadcastChanged();
@@ -173,16 +175,16 @@ bool FPawnCosmeticPartList::SpawnActorForEntry(FPawnAppliedCosmeticPartEntry& En
 			{
 				// FarcanaModify: for correct SetOwnerNoSee
 				SpawnedActor->SetOwner(OwnerComponent->GetOwner());
-				
+
 				switch (Entry.Part.CollisionMode)
 				{
-				case ECosmeticCustomizationCollisionMode::UseCollisionFromCharacterPart:
-					// Do nothing
-					break;
+					case ECosmeticCustomizationCollisionMode::UseCollisionFromCharacterPart:
+						// Do nothing
+						break;
 
-				case ECosmeticCustomizationCollisionMode::NoCollision:
-					SpawnedActor->SetActorEnableCollision(false);
-					break;
+					case ECosmeticCustomizationCollisionMode::NoCollision:
+						SpawnedActor->SetActorEnableCollision(false);
+						break;
 				}
 
 				// Set up a direct tick dependency to work around the child actor component not providing one
@@ -222,26 +224,26 @@ UPawnCosmeticCreatorComponent::UPawnCosmeticCreatorComponent(const FObjectInitia
 	SetIsReplicatedByDefault(true);
 }
 
-void UPawnCosmeticCreatorComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const
+void UPawnCosmeticCreatorComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ThisClass, CharacterPartList);
+	DOREPLIFETIME(ThisClass, CosmeticPartList);
 }
 
-FPawnCosmeticPartHandle UPawnCosmeticCreatorComponent::AddCharacterPart(const FPawnCosmeticPart& NewPart)
+FPawnCosmeticPartHandle UPawnCosmeticCreatorComponent::AddCosmeticPart(const FPawnCosmeticPart& NewPart)
 {
-	return CharacterPartList.AddEntry(NewPart);
+	return CosmeticPartList.AddEntry(NewPart);
 }
 
 void UPawnCosmeticCreatorComponent::RemoveCharacterPart(FPawnCosmeticPartHandle Handle)
 {
-	CharacterPartList.RemoveEntry(Handle);
+	CosmeticPartList.RemoveEntry(Handle);
 }
 
 void UPawnCosmeticCreatorComponent::RemoveAllCharacterParts()
 {
-	CharacterPartList.ClearAllEntries(/*bBroadcastChangeDelegate=*/ true);
+	CosmeticPartList.ClearAllEntries(/*bBroadcastChangeDelegate=*/true);
 }
 
 void UPawnCosmeticCreatorComponent::BeginPlay()
@@ -251,7 +253,7 @@ void UPawnCosmeticCreatorComponent::BeginPlay()
 
 void UPawnCosmeticCreatorComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	CharacterPartList.ClearAllEntries(/*bBroadcastChangeDelegate=*/ false);
+	CosmeticPartList.ClearAllEntries(/*bBroadcastChangeDelegate=*/false);
 
 	Super::EndPlay(EndPlayReason);
 }
@@ -259,19 +261,19 @@ void UPawnCosmeticCreatorComponent::EndPlay(const EEndPlayReason::Type EndPlayRe
 void UPawnCosmeticCreatorComponent::OnRegister()
 {
 	Super::OnRegister();
-	
+
 	if (!IsTemplate())
 	{
-		CharacterPartList.SetOwnerComponent(this);
+		CosmeticPartList.SetOwnerComponent(this);
 	}
 }
 
 TArray<AActor*> UPawnCosmeticCreatorComponent::GetCharacterPartActors() const
 {
 	TArray<AActor*> Result;
-	Result.Reserve(CharacterPartList.Entries.Num());
+	Result.Reserve(CosmeticPartList.Entries.Num());
 
-	for (const FPawnAppliedCosmeticPartEntry& Entry : CharacterPartList.Entries)
+	for (const FPawnAppliedCosmeticPartEntry& Entry : CosmeticPartList.Entries)
 	{
 		if (UChildActorComponent* PartComponent = Entry.SpawnedComponent)
 		{
@@ -319,7 +321,7 @@ USceneComponent* UPawnCosmeticCreatorComponent::GetSceneComponentToAttachTo() co
 
 FGameplayTagContainer UPawnCosmeticCreatorComponent::GetCombinedTags(FGameplayTag RequiredPrefix) const
 {
-	FGameplayTagContainer Result = CharacterPartList.CollectCombinedTags();
+	FGameplayTagContainer Result = CosmeticPartList.CollectCombinedTags();
 	if (RequiredPrefix.IsValid())
 	{
 		return Result.Filter(FGameplayTagContainer(RequiredPrefix));
@@ -342,17 +344,15 @@ void UPawnCosmeticCreatorComponent::BroadcastChanged()
 		USkeletalMesh* DesiredMesh = BodyMeshes.SelectBestBodyStyle(MergedTags);
 
 		// Apply the desired mesh (this call is a no-op if the mesh hasn't changed)
-		MeshComponent->SetSkeletalMesh(DesiredMesh, /*bReinitPose=*/ bReinitPose);
+		MeshComponent->SetSkeletalMesh(DesiredMesh, /*bReinitPose=*/bReinitPose);
 
 		// Apply the desired physics asset if there's a forced override independent of the one from the mesh
 		if (UPhysicsAsset* PhysicsAsset = BodyMeshes.ForcedPhysicsAsset)
 		{
-			MeshComponent->SetPhysicsAsset(PhysicsAsset, /*bForceReInit=*/ bReinitPose);
+			MeshComponent->SetPhysicsAsset(PhysicsAsset, /*bForceReInit=*/bReinitPose);
 		}
 	}
 
 	// Let observers know, e.g., if they need to apply team coloring or similar
 	OnCharacterPartsChanged.Broadcast(this);
 }
-
-

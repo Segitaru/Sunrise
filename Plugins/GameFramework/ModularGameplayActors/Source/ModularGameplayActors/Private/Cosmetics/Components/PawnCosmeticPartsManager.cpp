@@ -67,10 +67,9 @@ void UPawnCosmeticPartsManager::AddCharacterPartInternal(const FPawnCosmeticPart
 	{
 		if (NewEntry.Source != ECharacterPartSource::NaturalSuppressedViaCheat)
 		{
-			NewEntry.Handle = PawnCustomizer->AddCharacterPart(NewPart);
+			NewEntry.Handle = PawnCustomizer->AddCosmeticPart(NewPart);
 		}
 	}
-
 }
 
 void UPawnCosmeticPartsManager::RemoveCharacterPart(const FPawnCosmeticPart& PartToRemove)
@@ -123,7 +122,7 @@ void UPawnCosmeticPartsManager::OnPossessedPawnChanged(APawn* OldPawn, APawn* Ne
 			// Don't readd if it's already there, this can get called with a null oldpawn
 			if (!Entry.Handle.IsValid() && Entry.Source != ECharacterPartSource::NaturalSuppressedViaCheat)
 			{
-				Entry.Handle = NewCustomizer->AddCharacterPart(Entry.Part);
+				Entry.Handle = NewCustomizer->AddCosmeticPart(Entry.Part);
 			}
 		}
 	}
@@ -135,7 +134,8 @@ void UPawnCosmeticPartsManager::ApplyDeveloperSettings()
 	const UPawnCosmeticDeveloperSettings* Settings = GetDefault<UPawnCosmeticDeveloperSettings>();
 
 	// Suppress or unsuppress natural parts if needed
-	const bool bSuppressNaturalParts = (Settings->CheatMode == ECosmeticCheatMode::ReplaceParts) && (Settings->CheatCosmeticCharacterParts.Num() > 0);
+	const bool bSuppressNaturalParts =
+		(Settings->CheatMode == ECosmeticCheatMode::ReplaceParts) && (Settings->CheatCosmeticCharacterParts.Num() > 0);
 	SetSuppressionOnNaturalParts(bSuppressNaturalParts);
 
 	// Remove anything added by developer settings and re-add it
@@ -213,11 +213,10 @@ void UPawnCosmeticPartsManager::SetSuppressionOnNaturalParts(bool bSuppressed)
 			// Unsuppress
 			if (PawnCustomizer != nullptr)
 			{
-				Entry.Handle = PawnCustomizer->AddCharacterPart(Entry.Part);
+				Entry.Handle = PawnCustomizer->AddCosmeticPart(Entry.Part);
 			}
 			Entry.Source = ECharacterPartSource::Natural;
 		}
 	}
 #endif
 }
-

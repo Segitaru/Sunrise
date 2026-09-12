@@ -21,6 +21,8 @@ public class SunriseGame : ModuleRules
 			"GameplayAbilities",
 			"GameplayTags",
 			"CommonGame",
+			"AsyncMixin",
+			"SunriseTeamFrameworkCore",
 			
 		});
 		PrivateDependencyModuleNames.AddRange(new string[] {

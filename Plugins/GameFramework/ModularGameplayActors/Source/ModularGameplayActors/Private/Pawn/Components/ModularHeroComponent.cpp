@@ -162,13 +162,12 @@ void UModularHeroComponent::HandleChangeInitState(
 
 		const UModularPawnData* PawnData = nullptr;
 
-		if (UModularPawnExtensionComponent* PawnExtComp = UModularPawnExtensionComponent::FindPawnExtensionComponent(Pawn))
+		if (UModularPawnExtensionComponent* PawnExtComp = UModularPawnExtensionComponent::FindPawnExtensionComponent(Pawn);
+			IsValid(PawnExtComp))
 		{
 			PawnData = PawnExtComp->GetPawnData<UModularPawnData>();
 
-			// The player state holds the persistent data for this player (state that persists across deaths and multiple pawns).
-			// The ability system component and attribute sets live on the player state.
-			PawnExtComp->InitializeAbilitySystem(ModularPS->GetModularAbilitySystemComponent(), ModularPS);
+			PawnExtComp->UpdateAbilitySystemOwner(ModularPS);
 		}
 
 		if (AModularPlayerController* ModularPC = GetController<AModularPlayerController>())

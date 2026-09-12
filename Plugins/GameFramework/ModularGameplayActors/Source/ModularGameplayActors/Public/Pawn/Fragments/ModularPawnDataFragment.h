@@ -17,5 +17,5 @@ class MODULARGAMEPLAYACTORS_API UModularPawnDataFragment : public UObject
 public:
 	UModularPawnDataFragment(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	virtual void Activate(AActor* ForOwner, APawn* ForPawn) {};
+	virtual void Activate(APawn* ForPawn) {};
 };

@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "AsyncMixin.h"
 #include "Components/GameStateComponent.h"
 #include "CoreMinimal.h"
 #include "NativeGameplayTags.h"
+
 #include "GamePawnRosterComponent.generated.h"
 
 class UExperienceDefinition;
@@ -31,7 +33,7 @@ public:
 };
 
 UCLASS()
-class SUNRISEGAME_API UGamePawnRosterComponent : public UGameStateComponent
+class SUNRISEGAME_API UGamePawnRosterComponent : public UGameStateComponent, public FAsyncMixin
 {
 	GENERATED_BODY()
 
@@ -74,6 +76,7 @@ protected:
 	UFUNCTION()
 	void OnRep_CurrentRoster();
 
+	TArray<FPrimaryAssetId> DefinitionsForUpload;
 	FOnRosterLoaded OnRosterLoaded;
 	FOnRosterReady OnRosterReady;
 };

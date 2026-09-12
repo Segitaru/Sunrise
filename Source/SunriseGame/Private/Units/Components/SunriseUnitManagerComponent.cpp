@@ -80,10 +80,10 @@ ASunriseUnit* USunriseUnitManagerComponent::SpawnHeroForTeam(
 	{
 		return nullptr;
 	}
+	UGameplayStatics::FinishSpawningActor(Hero, ActualTransform);
 	Hero->SetTeamId(TeamId);
 	Hero->SetUnitRole(HeroRole, true);
 	Hero->ConfigureControl(ESunriseUnitKind::Hero, ControllingAgent);
-	UGameplayStatics::FinishSpawningActor(Hero, ActualTransform);
 	RegisterUnit(Hero);
 
 	FSunriseHeroRespawnData& Data = HeroRespawnData.FindOrAdd(TeamId);

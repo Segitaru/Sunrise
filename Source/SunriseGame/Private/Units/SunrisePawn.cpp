@@ -4,6 +4,7 @@
 #include "AbilitySystem/ModularAbilitySystemComponent.h"
 #include "Camera/ModularCameraComponent.h"
 #include "Components/ModularHeroComponent.h"
+#include "Components/SunriseTeamActorComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
 #include "Engine/LocalPlayer.h"
 #include "EnhancedInputComponent.h"
@@ -20,6 +21,8 @@ ASunrisePawn::ASunrisePawn(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
+	TeamComponent = CreateDefaultSubobject<USunriseTeamActorComponent>(TEXT("Team"));
+	TeamComponent->OnTeamChanged.AddDynamic(this, &ThisClass::HandleTeamChanged);
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	ModularAbilitySystemComponent = CreateDefaultSubobject<UModularAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	HeroComponent = CreateDefaultSubobject<UModularHeroComponent>(TEXT("HeroComponent"));
@@ -42,6 +45,7 @@ ASunrisePawn::ASunrisePawn(const FObjectInitializer& ObjectInitializer)
 void ASunrisePawn::BeginPlay()
 {
 	Super::BeginPlay();
+
 	CameraZoom = FMath::Clamp(DefaultZoom, MinZoomLevel, MaxZoomLevel);
 	PawnExtensionComponent->OnAbilitySystemInitialized_RegisterAndCall(
 		FSimpleMulticastDelegate::FDelegate::CreateUObject(this, &ThisClass::OnAbilitySystemInitialized));
@@ -435,6 +439,49 @@ void ASunrisePawn::FocusCameraOnHero(ASunriseUnit* Hero)
 	SetActorLocation(Location, true);
 	ClampCameraToBounds();
 	bHeroFocusConsumed = true;
+}
+
+ESunriseTeam ASunrisePawn::GetTeam() const
+{
+	return StaticCast<ESunriseTeam>(TeamComponent->GetTeamId());
+}
+
+int32 ASunrisePawn::GetTeamId() const
+{
+	return TeamComponent->GetTeamId();
+}
+
+void ASunrisePawn::SetTeam(ESunriseTeam NewTeam)
+{
+	SetTeamId(NewTeam == ESunriseTeam::Friendly ? 0 : NewTeam == ESunriseTeam::Enemy ? 1 : INDEX_NONE);
+	if (NewTeam != ESunriseTeam::Friendly && bSelected)
+	{
+		ISunriseSelectable::Execute_SetSunriseSelected(this, false);
+	}
+}
+
+void ASunrisePawn::SetTeamId(int32 NewTeamId)
+{
+	TeamComponent->SetTeamId(NewTeamId);
+}
+
+void ASunrisePawn::SetGenericTeamId(const FGenericTeamId& NewTeamId)
+{
+	TeamComponent->SetGenericTeamId(NewTeamId);
+}
+
+FGenericTeamId ASunrisePawn::GetGenericTeamId() const
+{
+	return TeamComponent->GetGenericTeamId();
+}
+
+FOnTeamIndexChangedDelegate* ASunrisePawn::GetOnTeamIndexChangedDelegate()
+{
+	return TeamComponent->GetOnTeamIndexChangedDelegate();
+}
+
+void ASunrisePawn::HandleTeamChanged(UObject* TeamAgent, int32 PreviousTeamId, int32 NewTeamId)
+{
 }
 
 void ASunrisePawn::TryFocusControlledHero()

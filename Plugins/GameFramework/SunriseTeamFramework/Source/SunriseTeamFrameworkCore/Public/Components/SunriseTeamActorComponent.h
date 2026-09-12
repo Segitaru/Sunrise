@@ -17,7 +17,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Team")
-	int32 GetTeamId() const { return SunriseTeamIdToInteger(TeamId); }
+	int32 GetTeamId() const;
 
 	/** Changes the team on authority. INDEX_NONE represents no team. */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Team")

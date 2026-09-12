@@ -2,8 +2,11 @@
 #pragma once
 
 #include "AbilitySystemInterface.h"
+#include "ControllableEntities/IControllableEntity.h"
 #include "GameplayAbilitySpecHandle.h"
 #include "ModularPawn.h"
+#include "SunriseUnitTypes.h"
+#include "System/SunriseTeamAgentInterface.h"
 
 #include "SunrisePawn.generated.h"
 
@@ -15,17 +18,16 @@ class UModularPawnExtensionComponent;
 class UModularCameraComponent;
 class UFloatingPawnMovement;
 class UEnhancedInputComponent;
-class UEnhancedInputLocalPlayerSubsystem;
-class UInputMappingContext;
+
+
 class UInputAction;
-class USunriseSelectionAbility;
-class USunriseUnitOrderAbility;
-class USunriseHeroSquadAbility;
+class USunriseTeamActorComponent;
+
 struct FInputActionValue;
 
 /** Local RTS camera/input avatar; the PlayerState owns its modular ASC. */
 UCLASS(Blueprintable)
-class SUNRISEGAME_API ASunrisePawn : public AModularPawn, public IAbilitySystemInterface
+class SUNRISEGAME_API ASunrisePawn : public AModularPawn, public IAbilitySystemInterface, public ISunriseTeamAgentInterface
 {
 	GENERATED_BODY()
 public:
@@ -69,6 +71,29 @@ public:
 	float GetCameraZoom() const { return CameraZoom; }
 	UFUNCTION(BlueprintCallable, Category = "Sunrise|Camera")
 	void FocusCameraOnHero(ASunriseUnit* Hero);
+
+
+	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
+	ESunriseTeam GetTeam() const;
+
+	/** Numeric authority used by multi-team modes. 0=player, 1=legacy enemy, -1=neutral. */
+	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
+	int32 GetTeamId() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Sunrise|Unit")
+	void SetTeam(ESunriseTeam NewTeam);
+
+	UFUNCTION(BlueprintCallable, Category = "Sunrise|Unit")
+	void SetTeamId(int32 NewTeamId);
+
+	virtual void SetGenericTeamId(const FGenericTeamId& NewTeamId) override;
+	virtual FGenericTeamId GetGenericTeamId() const override;
+	virtual FOnTeamIndexChangedDelegate* GetOnTeamIndexChangedDelegate() override;
+	UFUNCTION()
+	void HandleTeamChanged(UObject* TeamAgent, int32 PreviousTeamId, int32 NewTeamId);
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|Team")
+	TObjectPtr<USunriseTeamActorComponent> TeamComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UModularHeroComponent> HeroComponent;
@@ -153,6 +178,7 @@ private:
 	FVector2D StartingDragScrollPosition = FVector2D::ZeroVector;
 	FVector CameraDragStartLocation = FVector::ZeroVector;
 
+	bool bSelected = false;
 	float CameraZoom = 1500.0f;
 	float LastCameraDragTime = -1000.0f;
 	bool bRTSInputReady = false;

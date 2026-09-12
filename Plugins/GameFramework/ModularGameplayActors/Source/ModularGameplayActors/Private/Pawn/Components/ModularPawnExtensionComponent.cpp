@@ -5,14 +5,19 @@
 #include "AbilitySystem/ModularAbilitySystemComponent.h"
 #include "Components/GameFrameworkComponentDelegates.h"
 #include "Components/GameFrameworkComponentManager.h"
+#include "Components/PawnCosmeticCreatorComponent.h"
+#include "Fragments/ModularPawnDataFragment.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
+#include "ModularCharacter.h"
 #include "ModularGameplayTags.h"
 #include "ModularLogChannels.h"
-#include "Pawn/ModularPawnData.h"
 #include "Net/UnrealNetwork.h"
+#include "Pawn/ModularPawnData.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(ModularPawnExtensionComponent)
+
+DEFINE_LOG_CATEGORY_STATIC(LogModularPawnExtensionComponent, All, All)
 
 class FLifetimeProperty;
 class UActorComponent;
@@ -35,7 +40,7 @@ void UModularPawnExtensionComponent::GetLifetimeReplicatedProps(TArray<FLifetime
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(UModularPawnExtensionComponent, PawnData);
+	DOREPLIFETIME_CONDITION_NOTIFY(UModularPawnExtensionComponent, PawnData, COND_None, REPNOTIFY_Always);
 }
 
 void UModularPawnExtensionComponent::OnRegister()
@@ -43,11 +48,13 @@ void UModularPawnExtensionComponent::OnRegister()
 	Super::OnRegister();
 
 	const APawn* Pawn = GetPawn<APawn>();
-	ensureAlwaysMsgf((Pawn != nullptr), TEXT("ModularPawnExtensionComponent on [%s] can only be added to Pawn actors."), *GetNameSafe(GetOwner()));
+	ensureAlwaysMsgf(
+		(Pawn != nullptr), TEXT("ModularPawnExtensionComponent on [%s] can only be added to Pawn actors."), *GetNameSafe(GetOwner()));
 
 	TArray<UActorComponent*> PawnExtensionComponents;
 	Pawn->GetComponents(UModularPawnExtensionComponent::StaticClass(), PawnExtensionComponents);
-	ensureAlwaysMsgf((PawnExtensionComponents.Num() == 1), TEXT("Only one ModularPawnExtensionComponent should exist on [%s]."), *GetNameSafe(GetOwner()));
+	ensureAlwaysMsgf((PawnExtensionComponents.Num() == 1), TEXT("Only one ModularPawnExtensionComponent should exist on [%s]."),
+		*GetNameSafe(GetOwner()));
 
 	// Register with the init state system early, this will only work if this is a game world
 	RegisterInitStateFeature();
@@ -59,7 +66,7 @@ void UModularPawnExtensionComponent::BeginPlay()
 
 	// Listen for changes to all features
 	BindOnActorInitStateChanged(NAME_None, FGameplayTag(), false);
-	
+
 	// Notifies state manager that we have spawned, then try rest of default initialization
 	ensure(TryToChangeInitState(ModularGameplayTags::InitState_Spawned));
 	CheckDefaultInitialization();
@@ -86,7 +93,8 @@ void UModularPawnExtensionComponent::SetPawnData(const UModularPawnData* InPawnD
 
 	if (PawnData)
 	{
-		UE_LOG(LogModularGameplayActors, Error, TEXT("Trying to set PawnData [%s] on pawn [%s] that already has valid PawnData [%s]."), *GetNameSafe(InPawnData), *GetNameSafe(Pawn), *GetNameSafe(PawnData));
+		UE_LOG(LogModularGameplayActors, Error, TEXT("Trying to set PawnData [%s] on pawn [%s] that already has valid PawnData [%s]."),
+			*GetNameSafe(InPawnData), *GetNameSafe(Pawn), *GetNameSafe(PawnData));
 		return;
 	}
 
@@ -100,6 +108,107 @@ void UModularPawnExtensionComponent::SetPawnData(const UModularPawnData* InPawnD
 void UModularPawnExtensionComponent::OnRep_PawnData()
 {
 	CheckDefaultInitialization();
+}
+
+void UModularPawnExtensionComponent::TryAddPawnPartComponent()
+{
+	if (!PawnData)
+	{
+		UE_LOG(LogModularPawnExtensionComponent, Display, TEXT("[Cosmetic]: Pawn definition doesn't existed yet"));
+		return;
+	}
+
+	auto* const PawnPartComponent = GetOwner()->FindComponentByClass<UPawnCosmeticCreatorComponent>();
+
+	if (!PawnPartComponent)
+	{
+		UE_LOG(LogModularPawnExtensionComponent, Error, TEXT("[Cosmetic]: Pawn Not have cosmetic component"));
+		return;
+	}
+
+	PawnPartComponent->RemoveAllCharacterParts();
+
+	for (const auto& PawnPart : PawnData->PawnMeshes)
+	{
+		PawnPartComponent->AddCosmeticPart(PawnPart);
+	}
+
+	if (AModularCharacter* const AsCharacter = Cast<AModularCharacter>(GetOwner()); IsValid(AsCharacter))
+	{
+		AsCharacter->OnCosmeticPartAddedExternal();
+	}
+}
+
+void UModularPawnExtensionComponent::TryAddPawnAbilities()
+{
+	if (!PawnData)
+	{
+		UE_LOG(LogModularPawnExtensionComponent, Display, TEXT("[Abilities]: Pawn definition doesn't existed yet"));
+		return;
+	}
+
+	if (!IsValid(GetModularAbilitySystemComponent()))
+	{
+		UE_LOG(LogModularPawnExtensionComponent, Display, TEXT("[Abilities]: Not valid ASC component"));
+		return;
+	}
+	GetModularAbilitySystemComponent()->CancelAbilities();
+	RemoveGrantedAbility();
+
+	AddGrantedAbilities();
+}
+
+void UModularPawnExtensionComponent::TryAddPawnComponents()
+{
+	if (!PawnData)
+	{
+		UE_LOG(LogModularPawnExtensionComponent, Display, TEXT("[Components]: Pawn definition doesn't existed yet"));
+		return;
+	}
+
+	AActor* const Pawn = GetOwner();
+
+	CurrentGrantedComponents.TakeFromActor(Pawn);
+
+	for (const auto& ComponentSet : PawnData->ComponentsSets)
+	{
+		ComponentSet.GiveComponentsToActor(Pawn, &CurrentGrantedComponents);
+	}
+}
+
+void UModularPawnExtensionComponent::TryActivateFragments()
+{
+	if (!PawnData)
+	{
+		UE_LOG(LogModularPawnExtensionComponent, Display, TEXT("[Components]: Pawn definition doesn't existed yet"));
+		return;
+	}
+
+	APawn* const Pawn = GetPawn<APawn>();
+	for (const auto& Fragment : PawnData->Fragments)
+	{
+		Fragment->Activate(Pawn);
+	}
+}
+
+void UModularPawnExtensionComponent::RemoveGrantedAbility()
+{
+	CurrentGrantedAbility.TakeFromAbilitySystem(GetModularAbilitySystemComponent());
+}
+
+void UModularPawnExtensionComponent::AddGrantedAbilities()
+{
+	for (const auto& AbilitySet : PawnData->AbilitySets)
+	{
+		if (const auto LoadedAbilitySet = AbilitySet.LoadSynchronous())
+		{
+			LoadedAbilitySet->GiveToAbilitySystem(GetModularAbilitySystemComponent(), &CurrentGrantedAbility, nullptr);
+		}
+	}
+
+	const FName NAME_AbilityReady("AbilitiesReady");
+
+	UGameFrameworkComponentManager::SendGameFrameworkComponentExtensionEvent(GetOwner(), NAME_AbilityReady);
 }
 
 void UModularPawnExtensionComponent::InitializeAbilitySystem(UModularAbilitySystemComponent* InASC, AActor* InOwnerActor)
@@ -122,7 +231,8 @@ void UModularPawnExtensionComponent::InitializeAbilitySystem(UModularAbilitySyst
 	APawn* Pawn = GetPawnChecked<APawn>();
 	AActor* ExistingAvatar = InASC->GetAvatarActor();
 
-	UE_LOG(LogModularGameplayActors, Verbose, TEXT("Setting up ASC [%s] on pawn [%s] owner [%s], existing [%s] "), *GetNameSafe(InASC), *GetNameSafe(Pawn), *GetNameSafe(InOwnerActor), *GetNameSafe(ExistingAvatar));
+	UE_LOG(LogModularGameplayActors, Verbose, TEXT("Setting up ASC [%s] on pawn [%s] owner [%s], existing [%s] "), *GetNameSafe(InASC),
+		*GetNameSafe(Pawn), *GetNameSafe(InOwnerActor), *GetNameSafe(ExistingAvatar));
 
 	if ((ExistingAvatar != nullptr) && (ExistingAvatar != Pawn))
 	{
@@ -147,6 +257,16 @@ void UModularPawnExtensionComponent::InitializeAbilitySystem(UModularAbilitySyst
 	}
 
 	OnAbilitySystemInitialized.Broadcast();
+}
+
+void UModularPawnExtensionComponent::UpdateAbilitySystemOwner(AActor* InOwnerActor)
+{
+	if (!AbilitySystemComponent)
+	{
+		return;
+	}
+
+	AbilitySystemComponent->SetOwnerActor(InOwnerActor);
 }
 
 void UModularPawnExtensionComponent::UninitializeAbilitySystem()
@@ -186,7 +306,8 @@ void UModularPawnExtensionComponent::HandleControllerChanged()
 {
 	if (AbilitySystemComponent && (AbilitySystemComponent->GetAvatarActor() == GetPawnChecked<APawn>()))
 	{
-		ensure(AbilitySystemComponent->AbilityActorInfo->OwnerActor == AbilitySystemComponent->GetOwnerActor());
+		ensure(AbilitySystemComponent->AbilityActorInfo &&
+			   (AbilitySystemComponent->AbilityActorInfo->OwnerActor == AbilitySystemComponent->GetOwnerActor()));
 		if (AbilitySystemComponent->GetOwnerActor() == nullptr)
 		{
 			UninitializeAbilitySystem();
@@ -215,13 +336,15 @@ void UModularPawnExtensionComponent::CheckDefaultInitialization()
 	// Before checking our progress, try progressing any other features we might depend on
 	CheckDefaultInitializationForImplementers();
 
-	static const TArray<FGameplayTag> StateChain = { ModularGameplayTags::InitState_Spawned, ModularGameplayTags::InitState_DataAvailable, ModularGameplayTags::InitState_DataInitialized, ModularGameplayTags::InitState_GameplayReady };
+	static const TArray<FGameplayTag> StateChain = {ModularGameplayTags::InitState_Spawned, ModularGameplayTags::InitState_DataAvailable,
+		ModularGameplayTags::InitState_DataInitialized, ModularGameplayTags::InitState_GameplayReady};
 
 	// This will try to progress from spawned (which is only set in BeginPlay) through the data initialization stages until it gets to gameplay ready
 	ContinueInitStateChain(StateChain);
 }
 
-bool UModularPawnExtensionComponent::CanChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const
+bool UModularPawnExtensionComponent::CanChangeInitState(
+	UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const
 {
 	check(Manager);
 
@@ -233,7 +356,10 @@ bool UModularPawnExtensionComponent::CanChangeInitState(UGameFrameworkComponentM
 		{
 			return true;
 		}
+
+		return false;
 	}
+
 	if (CurrentState == ModularGameplayTags::InitState_Spawned && DesiredState == ModularGameplayTags::InitState_DataAvailable)
 	{
 		// Pawn data is required.
@@ -269,11 +395,20 @@ bool UModularPawnExtensionComponent::CanChangeInitState(UGameFrameworkComponentM
 	return false;
 }
 
-void UModularPawnExtensionComponent::HandleChangeInitState(UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState)
+void UModularPawnExtensionComponent::HandleChangeInitState(
+	UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState)
 {
-	if (DesiredState == ModularGameplayTags::InitState_DataInitialized)
+	if (DesiredState == ModularGameplayTags::InitState_DataAvailable)
 	{
-		// This is currently all handled by other components listening to this state change
+		AActor* const Pawn = GetOwner();
+		InitializeAbilitySystem(Pawn->FindComponentByClass<UModularAbilitySystemComponent>(), Pawn);
+	}
+	else if (DesiredState == ModularGameplayTags::InitState_DataInitialized)
+	{
+		TryAddPawnPartComponent();
+		TryAddPawnAbilities();
+		TryAddPawnComponents();
+		TryActivateFragments();
 	}
 }
 
@@ -309,4 +444,3 @@ void UModularPawnExtensionComponent::OnAbilitySystemUninitialized_Register(FSimp
 		OnAbilitySystemUninitialized.Add(Delegate);
 	}
 }
-

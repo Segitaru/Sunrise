@@ -16,15 +16,12 @@
 #include "Camera/ModularCameraMode.h"
 #include "Components/GameFrameworkComponentManager.h"
 #include "Components/ModularHeroComponent.h"
-#include "Cosmetics/Components/PawnCosmeticCreatorComponent.h"
-#include "Fragments/ModularPawnDataFragment.h"
 #include "GameFeatures/Components/ExperienceManagerComponent.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ModularGameplayTags.h"
 #include "ModularPawnData.h"
 #include "NativeGameplayTags.h"
 #include "Pawn/Components/ModularPawnExtensionComponent.h"
-#include "Pawn/ModularCharacter.h"
 #include "Rosters/Components/GamePawnRosterComponent.h"
 #include "Rosters/Development/GameRostersDeveloperSettings.h"
 #include "Rosters/Messages/GamePawnConfirmationMessage.h"
@@ -67,9 +64,9 @@ void UPlayerPawnManager::SetSelectedPawnDefinition(const UModularPawnData* NewPa
 
 	if (const auto MatchSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<UGamePawnRosterSubsystem>())
 	{
-		if (OwnerPS)
+		if (AModularPlayerState* CurrentPS = Cast<AModularPlayerState>(GetPawn<APawn>()->GetPlayerState()))
 		{
-			const FPlayerWithPayload NewPayload(OwnerPS->GetUniqueId(), OwnerPS->GetAccountId(), SelectedPawnDefinition->GetClass());
+			const FPlayerWithPayload NewPayload(CurrentPS->GetUniqueId(), CurrentPS->GetAccountId(), SelectedPawnDefinition->GetClass());
 			MatchSubsystem->PlayersWithPayload.AddUnique(NewPayload);
 		}
 	}
@@ -133,11 +130,6 @@ void UPlayerPawnManager::SendMessagePlayerPawnSelected() const
 void UPlayerPawnManager::SwapRandom()
 {
 	TryTakeRandomPawn_OnServer();
-}
-
-TSubclassOf<UModularCameraMode> UPlayerPawnManager::GetPawnCameraMode() const
-{
-	return PawnCameraMode;
 }
 
 void UPlayerPawnManager::TryTakePawn_OnServer_Implementation(const UModularPawnData* TakingPawn)
@@ -206,164 +198,6 @@ void UPlayerPawnManager::ResetSelectedPawnConfirmation_OnServer_Implementation()
 	}
 }
 
-void UPlayerPawnManager::TryAddPawnPartComponent()
-{
-	if (!SelectedPawnDefinition)
-	{
-		UE_LOG(LogPlayerPawnManager, Display, TEXT("[Cosmetic]: Pawn definition doesn't existed yet"));
-		return;
-	}
-
-	if (!OwnerPS)
-	{
-		UE_LOG(LogPlayerPawnManager, Display, TEXT("[Cosmetic]: Owner PS doesn't existed"));
-		return;
-	}
-
-	AModularCharacter* Pawn = Cast<AModularCharacter>(OwnerPS->GetPawn());
-	if (!Pawn)
-	{
-		UE_LOG(LogPlayerPawnManager, Error, TEXT("[Cosmetic]: Pawn not valid"));
-		return;
-	}
-	const auto PawnPartComponent = Pawn->FindComponentByClass<UPawnCosmeticCreatorComponent>();
-
-	if (!PawnPartComponent)
-	{
-		UE_LOG(LogPlayerPawnManager, Error, TEXT("[Cosmetic]: Pawn Not have cosmetic component"));
-		return;
-	}
-
-	PawnPartComponent->RemoveAllCharacterParts();
-
-	for (const auto& PawnPart : SelectedPawnDefinition->PawnMeshes)
-	{
-		PawnPartComponent->AddCharacterPart(PawnPart);
-	}
-
-	Pawn->OnCosmeticPartAddedExternal();
-}
-
-void UPlayerPawnManager::TryAddPawnAbilities()
-{
-	if (!SelectedPawnDefinition)
-	{
-		UE_LOG(LogPlayerPawnManager, Display, TEXT("[Abilities]: Pawn definition doesn't existed yet"));
-		return;
-	}
-
-	if (!OwnerPS)
-	{
-		UE_LOG(LogPlayerPawnManager, Error, TEXT("[Abilities]: Owner PS doesn't existed"));
-		return;
-	}
-
-	UModularAbilitySystemComponent* ASC = OwnerPS->GetModularAbilitySystemComponent();
-	if (!ASC)
-	{
-		UE_LOG(LogPlayerPawnManager, Display, TEXT("[Abilities]: Not valid ASC component"));
-		return;
-	}
-
-	RemoveGrantedAbility(ASC);
-
-	AddGrantedAbilities(ASC, SelectedPawnDefinition->AbilitySets);
-}
-
-
-void UPlayerPawnManager::TryAddPawnComponents()
-{
-	if (!SelectedPawnDefinition)
-	{
-		UE_LOG(LogPlayerPawnManager, Display, TEXT("[Components]: Pawn definition doesn't existed yet"));
-		return;
-	}
-
-	if (!OwnerPS)
-	{
-		UE_LOG(LogPlayerPawnManager, Error, TEXT("[Components]: Owner PS doesn't existed"));
-		return;
-	}
-
-	CurrentGrantedComponents.TakeFromActor(GetOwner());
-
-	for (const auto& ComponentSet : SelectedPawnDefinition->ComponentsSets)
-	{
-		ComponentSet.GiveComponentsToActor(GetOwner(), &CurrentGrantedComponents);
-	}
-}
-
-void UPlayerPawnManager::TryActivateFragments()
-{
-	if (!SelectedPawnDefinition)
-	{
-		UE_LOG(LogPlayerPawnManager, Display, TEXT("[Components]: Pawn definition doesn't existed yet"));
-		return;
-	}
-
-	if (!OwnerPS)
-	{
-		UE_LOG(LogPlayerPawnManager, Error, TEXT("[Components]: Owner PS doesn't existed"));
-		return;
-	}
-
-	for (const auto& Fragment : SelectedPawnDefinition->Fragments)
-	{
-		Fragment->Activate(OwnerPS, OwnerPS->GetPawn());
-	}
-}
-
-void UPlayerPawnManager::RemoveGrantedAbility(UModularAbilitySystemComponent* FromASC)
-{
-	CurrentGrantedAbility.TakeFromAbilitySystem(FromASC);
-}
-
-void UPlayerPawnManager::AddGrantedAbilities(
-	UModularAbilitySystemComponent* IntoASC, TArray<TSoftObjectPtr<UModularAbilitySet>> AbilitiesToGrand)
-{
-	for (const auto& AbilitySet : AbilitiesToGrand)
-	{
-		if (const auto LoadedAbilitySet = AbilitySet.LoadSynchronous())
-		{
-			LoadedAbilitySet->GiveToAbilitySystem(IntoASC, &CurrentGrantedAbility, nullptr);
-		}
-	}
-
-	const FName NAME_AbilityReady("ModularAbilitiesReady");
-
-	UGameFrameworkComponentManager::SendGameFrameworkComponentExtensionEvent(GetOwner(), NAME_AbilityReady);
-
-	GetOwner()->ForceNetUpdate();
-}
-
-void UPlayerPawnManager::SetDefaultAbilities()
-{
-	if (!OwnerPS)
-	{
-		UE_LOG(LogPlayerPawnManager, Error, TEXT("[Abilities]: Owner PS doesn't existed on try set default ability set"));
-		return;
-	}
-
-	UModularAbilitySystemComponent* ASC = OwnerPS->GetModularAbilitySystemComponent();
-	if (!ASC)
-	{
-		UE_LOG(LogPlayerPawnManager, Error, TEXT("TryAddPawnAbilities(): Not valid ASC component"));
-		return;
-	}
-
-	ASC->CancelAbilities();
-
-	RemoveGrantedAbility(ASC);
-
-	if (!SelectedPawnDefinition)
-	{
-		UE_LOG(LogPlayerPawnManager, Error, TEXT("[Abilities]: Pawn definition doesn't existed on try set default abilities"));
-		return;
-	}
-
-	AddGrantedAbilities(ASC, SelectedPawnDefinition->AbilitySets);
-}
-
 void UPlayerPawnManager::CommitRandomPawn()
 {
 	bChoseWasRandom = true;
@@ -423,7 +257,8 @@ void UPlayerPawnManager::HandleChangeInitState(
 {
 	if (CurrentState == ModularGameplayTags::InitState_DataAvailable && DesiredState == ModularGameplayTags::InitState_DataInitialized)
 	{
-		TryTakePawnOnGameStarted();
+		const auto* PawnExtension = UModularPawnExtensionComponent::FindPawnExtensionComponent(GetOwner());
+		SetSelectedPawnDefinition(PawnExtension->GetPawnData<UModularPawnData>());
 	}
 }
 
@@ -554,50 +389,6 @@ void UPlayerPawnManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	ClearForceTakeTimer();
 }
 
-void UPlayerPawnManager::OnPawnDataLoaded()
-{
-	if (HasAuthority())
-	{
-		UE_LOG(LogPlayerPawnManager, Display, TEXT("[Initialize]: pawn data loaded: %s"), *GetNameSafe(GetOwner()));
-
-		if (!OwnerPS->GetPawn())
-		{
-			UE_LOG(LogPlayerPawnManager, Warning, TEXT("[Initialize]: Pawn not existed on pawn data loaded: %s"), *GetNameSafe(GetOwner()));
-
-			OwnerPS->OnPawnSet.AddDynamic(this, &UPlayerPawnManager::OnPawnSet);
-			return;
-		}
-
-		if (UModularPawnExtensionComponent* HeroComp = UModularPawnExtensionComponent::FindPawnExtensionComponent(OwnerPS->GetPawn()))
-		{
-			if (!HeroComp->HasReachedInitState(ModularGameplayTags::InitState_GameplayReady))
-			{
-				UE_LOG(LogPlayerPawnManager, Display, TEXT("[Initialize]: Pawn not ready to gameplay on pawn data loaded: %s"),
-					*GetNameSafe(GetOwner()));
-
-				const auto& AscIntializeHandle =
-					FSimpleMulticastDelegate::FDelegate::CreateUObject(this, &ThisClass::OnAbilitySystemInitialized);
-				OnAbilitySystemInitializedHandle = AscIntializeHandle.GetHandle();
-				HeroComp->OnAbilitySystemInitialized_RegisterAndCall(AscIntializeHandle);
-				return;
-			}
-		}
-		else
-		{
-			UE_LOG(LogPlayerPawnManager, Error, TEXT("[Initialize]: not found Hero component on pawn data loaded: %s"),
-				*GetNameSafe(GetOwner()));
-		}
-
-		UE_LOG(LogPlayerPawnManager, Display, TEXT("[Initialize]: Pawn ready to initialize on pawn data loaded: %s"),
-			*GetNameSafe(GetOwner()));
-
-		TryAddPawnPartComponent();
-		TryAddPawnAbilities();
-		TryAddPawnComponents();
-		TryActivateFragments();
-	}
-}
-
 void UPlayerPawnManager::OnExperienceLoadedForBot(const UExperienceDefinition* CurrentExperience)
 {
 	const AGameStateBase* GameStateRef = GetWorld()->GetGameState();
@@ -699,23 +490,7 @@ void UPlayerPawnManager::OnRep_SelectedPawnDefinition()
 		return;
 	}
 
-	RegisterOrCallOnPawnDataLoaded();
-
 	OnPawnDefinitionUpdated.Broadcast(SelectedPawnDefinition);
-
-	PawnCameraMode = SelectedPawnDefinition->DefaultCameraMode.LoadSynchronous()->GetClass();
-}
-
-void UPlayerPawnManager::RegisterOrCallOnPawnDataLoaded()
-{
-	if (HasAuthority())
-	{
-		AModularPlayerState* ModularPS = Cast<AModularPlayerState>(GetOwner());
-
-		UE_LOG(LogPlayerPawnManager, Display, TEXT("[Initialize]: wait pawn data loaded: %s"), *GetNameSafe(GetOwner()));
-
-		ModularPS->CallOrRegister_OnPawnDataReady(FOnPawnDataReady::FDelegate::CreateUObject(this, &UPlayerPawnManager::OnPawnDataLoaded));
-	}
 }
 
 void UPlayerPawnManager::ClearForceTakeTimer()
@@ -789,55 +564,4 @@ void UPlayerPawnManager::ForceTakePawn()
 	UE_LOG(LogPlayerPawnManager, Error, TEXT("[Reconnect]: Founded payload class %s"), *GetNameSafe(PayloadToSearch));
 
 	TryTakeRandomPawnAfterReconnect();
-}
-
-void UPlayerPawnManager::OnPawnSet(APlayerState* Player, APawn* NewPawn, APawn* OldPawn)
-{
-	if (HasAuthority())
-	{
-		UE_LOG(LogPlayerPawnManager, Warning, TEXT("[Initialize]: Pawn set for: %s"), *GetNameSafe(GetOwner()));
-
-		OwnerPS->OnPawnSet.RemoveDynamic(this, &UPlayerPawnManager::OnPawnSet);
-
-		if (UModularPawnExtensionComponent* HeroComp = UModularPawnExtensionComponent::FindPawnExtensionComponent(OwnerPS->GetPawn()))
-		{
-			if (!HeroComp->HasReachedInitState(ModularGameplayTags::InitState_GameplayReady))
-			{
-				UE_LOG(LogPlayerPawnManager, Display, TEXT("[Initialize]: Pawn not ready to gameplay on pawn set: %s"),
-					*GetNameSafe(GetOwner()));
-
-				const auto& AscIntializeHandle =
-					FSimpleMulticastDelegate::FDelegate::CreateUObject(this, &ThisClass::OnAbilitySystemInitialized);
-				OnAbilitySystemInitializedHandle = AscIntializeHandle.GetHandle();
-				HeroComp->OnAbilitySystemInitialized_RegisterAndCall(AscIntializeHandle);
-
-				return;
-			}
-		}
-		else
-		{
-			UE_LOG(LogPlayerPawnManager, Error, TEXT("[Initialize]: not found Hero component on pawn set: %s"), *GetNameSafe(GetOwner()));
-		}
-
-		UE_LOG(LogPlayerPawnManager, Display, TEXT("[Initialize]: Pawn ready to initialize on pawn set: %s"), *GetNameSafe(GetOwner()));
-
-		TryAddPawnPartComponent();
-		TryAddPawnAbilities();
-		TryAddPawnComponents();
-		TryActivateFragments();
-	}
-}
-
-void UPlayerPawnManager::OnAbilitySystemInitialized()
-{
-	if (HasAuthority())
-	{
-		UE_LOG(LogPlayerPawnManager, Display, TEXT("[Initialize]: Pawn ready to initialize on ability system ready: %s"),
-			*GetNameSafe(GetOwner()));
-
-		TryAddPawnPartComponent();
-		TryAddPawnAbilities();
-		TryAddPawnComponents();
-		TryActivateFragments();
-	}
 }

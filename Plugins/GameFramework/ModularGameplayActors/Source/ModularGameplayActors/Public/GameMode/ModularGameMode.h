@@ -32,10 +32,8 @@ class AModularGameModeBase : public AGameModeBase
 
 public:
 	UE_API AModularGameModeBase(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
-	
-	
-	
-	UFUNCTION(BlueprintCallable, Category = "EF|Pawn")
+
+	UFUNCTION(BlueprintCallable, Category = "Sunrise")
 	UE_API const UModularPawnData* GetPawnDataForController(const AController* InController) const;
 
 	//~AGameModeBase interface
@@ -74,7 +72,7 @@ protected:
 
 	UE_API bool TryDedicatedServerLogin();
 	UE_API void HostDedicatedServerMatch(ECommonSessionOnlineMode OnlineMode);
-	
+
 	UFUNCTION()
 	UE_API void OnUserInitializedForDedicatedServer(const UCommonUserInfo* UserInfo, bool bSuccess, FText Error,
 		ECommonUserPrivilege RequestedPrivilege, ECommonUserOnlineContext OnlineContext);
