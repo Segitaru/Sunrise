@@ -39,7 +39,7 @@ void USunriseUnitOrderAbility::ActivateAbility(FGameplayAbilitySpecHandle Handle
 {
 	// GAS carries the event/target data in ServerTryActivateAbilityWithEventData.
 	// Local prediction submits intent only; no client writes to units.
-	const bool bAuthority = ActorInfo && ActorInfo->IsNetAuthority();
+	const bool bAuthority = ActorInfo && ActorInfo->IsLocallyControlled();
 	const bool bSuccess = !bAuthority || (TriggerEventData && ExecuteOrder(*TriggerEventData, ActorInfo));
 	EndAbility(Handle, ActorInfo, ActivationInfo, bAuthority, !bSuccess);
 }

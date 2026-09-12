@@ -38,31 +38,31 @@ public:
 	FVector GetMidPointFromSelectedUnits();
 	void CancelInteraction();
 
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> SelectClickAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> SelectClickAdditiveAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> SelectAllDoubleClickAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> SelectHoldAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> InteractClickAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> SelectionModifierAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> TouchPrimaryHoldAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> TouchSecondaryAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> HeroSquadAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> StopActions;
-	UPROPERTY(EditDefaultsOnly, Category = "Selection", meta = (ClampMin = "0", Units = "cm"))
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Selection", meta = (ClampMin = "0", Units = "cm"))
 	float SelectionRadius = 180.0f;
-	UPROPERTY(EditDefaultsOnly, Category = "Selection")
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Selection")
 	TEnumAsByte<ETraceTypeQuery> SelectionTraceChannel = TraceTypeQuery1;
-	UPROPERTY(EditDefaultsOnly, Category = "Input", meta = (ClampMin = "0", Units = "s"))
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions", meta = (ClampMin = "0", Units = "s"))
 	float TouchDragScrollHoldTime = 0.15f;
 	UFUNCTION(BlueprintImplementableEvent, Category = "Cursor")
 	void BP_CursorFeedback(FVector Location, bool bPositive);

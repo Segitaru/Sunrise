@@ -35,10 +35,7 @@ void USunriseSelectionAbility::ActivateAbility(FGameplayAbilitySpecHandle Handle
 		return;
 	}
 
-	if (AvatarPawn->IsRTSInputReady())
-	{
-		BindInput(Cast<UEnhancedInputComponent>(AvatarPawn->InputComponent));
-	}
+	BindInput(Cast<UEnhancedInputComponent>(AvatarPawn->InputComponent));
 }
 
 void USunriseSelectionAbility::EndAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,

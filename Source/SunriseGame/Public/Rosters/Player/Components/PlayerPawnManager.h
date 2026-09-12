@@ -3,10 +3,8 @@
 #pragma once
 
 #include <Components/GameFrameworkInitStateInterface.h>
-#include <Components/PawnComponent.h>
 #include <NativeGameplayTags.h>
 
-#include "AbilitySystem/ModularAbilitySet.h"
 #include "Components/PlayerStateComponent.h"
 #include "CoreMinimal.h"
 #include "ModularPawnData.h"
@@ -28,7 +26,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPawnDefinitionUpdated, const UMod
 
 UCLASS(BlueprintType, MinimalAPI)
 
-class UPlayerPawnManager : public UPawnComponent, public IGameFrameworkInitStateInterface
+class UPlayerPawnManager : public UPlayerStateComponent, public IGameFrameworkInitStateInterface
 {
 	GENERATED_BODY()
 

@@ -304,10 +304,10 @@ void UModularPawnExtensionComponent::UninitializeAbilitySystem()
 
 void UModularPawnExtensionComponent::HandleControllerChanged()
 {
-	if (AbilitySystemComponent && (AbilitySystemComponent->GetAvatarActor() == GetPawnChecked<APawn>()))
+	if (AbilitySystemComponent && (AbilitySystemComponent->GetAvatarActor() == GetPawnChecked<APawn>()) &&
+		AbilitySystemComponent->AbilityActorInfo)
 	{
-		ensure(AbilitySystemComponent->AbilityActorInfo &&
-			   (AbilitySystemComponent->AbilityActorInfo->OwnerActor == AbilitySystemComponent->GetOwnerActor()));
+		ensure(AbilitySystemComponent->AbilityActorInfo->OwnerActor == AbilitySystemComponent->GetOwnerActor());
 		if (AbilitySystemComponent->GetOwnerActor() == nullptr)
 		{
 			UninitializeAbilitySystem();
