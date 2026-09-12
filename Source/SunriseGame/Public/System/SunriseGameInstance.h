@@ -20,6 +20,9 @@ public:
 
 	UPROPERTY(SaveGame)
 	TArray<FSunriseMatchRecord> MatchHistory;
+
+	UPROPERTY(SaveGame)
+	FPrimaryAssetId SelectedPawnDefinitionId;
 };
 
 /** Persistent settings and match history shared by menu and gameplay maps. */
@@ -47,6 +50,9 @@ public:
 	FText BuildHistoryText(int32 MaxEntries = 5) const;
 	static FText GetDifficultyDisplayName(ESunriseDifficulty Difficulty);
 
+	FPrimaryAssetId GetSelectedPawnDefinitionId() const { return SelectedPawnDefinitionId; }
+	void SetSelectedPawnDefinitionId(const FPrimaryAssetId& NewPawnDefinitionId);
+
 private:
 	void SaveProgress();
 
@@ -55,6 +61,9 @@ private:
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Sunrise|History")
 	TArray<FSunriseMatchRecord> MatchHistory;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Sunrise|Rosters")
+	FPrimaryAssetId SelectedPawnDefinitionId;
 
 	static const FString SaveSlotName;
 	static constexpr int32 SaveUserIndex = 0;

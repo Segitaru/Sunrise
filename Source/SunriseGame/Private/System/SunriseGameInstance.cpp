@@ -11,6 +11,7 @@ void USunriseGameInstance::Init()
 	{
 		SelectedDifficulty = Save->SelectedDifficulty;
 		MatchHistory = Save->MatchHistory;
+		SelectedPawnDefinitionId = Save->SelectedPawnDefinitionId;
 	}
 }
 
@@ -49,6 +50,15 @@ void USunriseGameInstance::RecordMatch(const FSunriseMatchRecord& Record)
 		MatchHistory.SetNum(MaxStoredMatches);
 	}
 	SaveProgress();
+}
+
+void USunriseGameInstance::SetSelectedPawnDefinitionId(const FPrimaryAssetId& NewPawnDefinitionId)
+{
+	if (SelectedPawnDefinitionId != NewPawnDefinitionId)
+	{
+		SelectedPawnDefinitionId = NewPawnDefinitionId;
+		SaveProgress();
+	}
 }
 
 FText USunriseGameInstance::BuildHistoryText(int32 MaxEntries) const
