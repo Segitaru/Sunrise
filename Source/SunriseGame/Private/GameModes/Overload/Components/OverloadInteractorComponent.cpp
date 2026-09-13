@@ -129,16 +129,25 @@ bool UOverloadInteractorComponent::RequestHack(AActor* Target, bool bFromPlayer)
 	{
 		return false;
 	}
+
 	if (!Unit || !Unit->IsAlive() || !Unit->HasAuthority() || !IsValid(Target) || !Target->Implements<UOverloadHackable>() ||
 		!IOverloadHackable::Execute_CanBeHackedByTeam(Target, Unit->GetTeamId()))
 	{
 		return false;
 	}
+
 	if (HackTarget.Get() == Target)
 	{
 		return true;
-	};
+	}
+
+	if (FVector::DistSquared2D(Target->GetActorLocation(), GetOwner()->GetActorLocation()) >= FMath::Square(InteractionRange))
+	{
+		return false;
+	}
+
 	CancelHack();
+
 	if (bFromPlayer)
 	{
 		Unit->StopOrder_Implementation();

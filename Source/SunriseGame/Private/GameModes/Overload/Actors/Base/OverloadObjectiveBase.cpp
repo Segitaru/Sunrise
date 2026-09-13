@@ -39,14 +39,17 @@ void AOverloadObjectiveBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AOverloadObjectiveBase, OriginalTeamId);
 }
+
 UAbilitySystemComponent* AOverloadObjectiveBase::GetAbilitySystemComponent() const
 {
 	return AbilitySystem;
 }
+
 int32 AOverloadObjectiveBase::GetTeamId() const
 {
 	return TeamComponent->GetTeamId();
 }
+
 int32 AOverloadObjectiveBase::GetOriginalTeamId() const
 {
 	return OriginalTeamId;

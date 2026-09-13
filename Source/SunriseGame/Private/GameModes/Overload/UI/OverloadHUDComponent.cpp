@@ -181,11 +181,9 @@ void UOverloadHUDComponent::DrawLaneOverview(ASunriseHUD* HUD, const UOverloadGa
 		const UOverloadWaveSpawnerComponent* WaveSpawner = Lane->GetWaveSpawner();
 		const float WaveSeconds = WaveSpawner ? WaveSpawner->GetSecondsUntilNextWave() : -1.0f;
 		HUD->DrawRect(FLinearColor(0.035f, 0.05f, 0.075f, 0.92f), PanelX + 8.0f, Y - 4.0f, PanelWidth - 16.0f, 25.0f);
-		HUD->DrawText(FString::Printf(TEXT("LANE %d  %s %d/%d -> %s %d/%d | WAVE %s | %d POINTS"), LaneIndex + 1,
+		HUD->DrawText(FString::Printf(TEXT("LANE %d  %s %d -> %s %d | WAVE %s | %d POINTS"), LaneIndex + 1,
 						  *GetTeamLabel(Lane->GetSourceTeamId()), WaveSpawner ? WaveSpawner->GetAliveUnitCount(Lane->GetSourceTeamId()) : 0,
-						  WaveSpawner ? WaveSpawner->GetMaxAliveUnitsForTeam(Lane->GetSourceTeamId()) : 0,
 						  *GetTeamLabel(Lane->GetTargetTeamId()), WaveSpawner ? WaveSpawner->GetAliveUnitCount(Lane->GetTargetTeamId()) : 0,
-						  WaveSpawner ? WaveSpawner->GetMaxAliveUnitsForTeam(Lane->GetTargetTeamId()) : 0,
 						  WaveSeconds >= 0.0f ? *FString::Printf(TEXT("%.1fs"), WaveSeconds) : TEXT("OFF"), Lane->GetSpawnedTowers().Num()),
 			FLinearColor::White, PanelX + 14.0f, Y, GEngine->GetSmallFont(), 0.78f * OverloadHUD::GetCanvasScale(HUD));
 		Y += 27.0f;

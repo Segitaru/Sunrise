@@ -32,21 +32,29 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Overload|Team")
 	int32 GetTeamId() const;
+
 	UFUNCTION(BlueprintPure, Category = "Overload|Team")
 	int32 GetOriginalTeamId() const;
+
 	UFUNCTION(BlueprintPure, Category = "Overload|GAS")
 	UOverloadIntegritySet* GetIntegrityAttributes() const { return IntegrityAttributes; }
+
 	UFUNCTION(BlueprintPure, Category = "Overload|GAS")
 	UOverloadDefenseSet* GetDefenseAttributes() const { return DefenseAttributes; }
+
 	UFUNCTION(BlueprintPure, Category = "Overload|GAS")
 	UOverloadHackSet* GetHackAttributes() const { return HackAttributes; }
+
 	UFUNCTION(BlueprintPure, Category = "Overload|GAS")
 	UOverloadEnergySet* GetEnergyAttributes() const { return EnergyAttributes; }
+
 	UFUNCTION(BlueprintPure, meta = (DeprecatedFunction, DeprecationMessage = "Use focused Overload attribute accessors"),
 		Category = "Overload|GAS")
 	UOverloadAttributeSet* GetOverloadAttributes() const { return LegacyAttributes; }
+
 	UFUNCTION(BlueprintCallable, Category = "Overload|Team")
 	void InitializeTeam(int32 TeamId);
+
 	UFUNCTION(BlueprintCallable, Category = "Overload|GAS")
 	void ApplyDynamicScaling(float AttackMultiplier, float ArmorMultiplier, float ResistanceMultiplier);
 

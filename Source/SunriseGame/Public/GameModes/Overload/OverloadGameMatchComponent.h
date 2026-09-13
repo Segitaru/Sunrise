@@ -9,6 +9,8 @@
 #include "OverloadGameMatchComponent.generated.h"
 
 
+
+struct FPawnFormation;
 class AOverloadEnergyCore;
 class AOverloadGuardTower;
 class AOverloadLaneSpline;
@@ -72,14 +74,19 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Classes")
 	TSubclassOf<AOverloadGuardTower> TowerClass;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Classes")
 	TSubclassOf<AOverloadEnergyCore> CoreClass;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Classes")
-	TArray<TSoftObjectPtr<UModularPawnData>> WaveDefinitions;
+	TArray<FPawnFormation> WaveFormations;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Balance")
 	FOverloadBalanceTuning BalanceTuning;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Setup", meta = (ClampMin = "0.1", Units = "s"))
 	float InitializationRetryDelay = 0.25f;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Setup", meta = (ClampMin = "100.0", Units = "cm"))
 	float HeroSpawnOffset = 700.0f;
 

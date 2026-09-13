@@ -39,19 +39,19 @@ void UOverloadLaneFollowerComponent::TickComponent(float DeltaTime, ELevelTick T
 	{
 		if (UOverloadInteractorComponent* Interactor = Unit->FindComponentByClass<UOverloadInteractorComponent>())
 		{
-			Interactor->RequestHack(Tower);
-			return;
+			if (Interactor->RequestHack(Tower))
+			{
+				return;
+			}
 		}
 	}
 
 	const float NextDistance = FMath::Clamp(CurrentDistance + TravelDirection * WaypointSpacing, 0.0f, Spline->GetSplineLength());
 	FVector NextLocation = Spline->GetLocationAtDistanceAlongSpline(NextDistance, ESplineCoordinateSpace::World);
-	const FVector Right = Spline->GetRightVectorAtDistanceAlongSpline(NextDistance, ESplineCoordinateSpace::World);
-	NextLocation += Right * LateralOffset;
 	Unit->IssueAutonomousMoveOrder(NextLocation);
 }
 
-void UOverloadLaneFollowerComponent::Initialize(AOverloadLaneSpline* InLane, float InLateralOffset)
+void UOverloadLaneFollowerComponent::Initialize(AOverloadLaneSpline* InLane, const FVector& InLateralOffset)
 {
 	Unit = Cast<ASunriseUnit>(GetOwner());
 	Lane = InLane;

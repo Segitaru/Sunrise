@@ -175,7 +175,7 @@ void UOverloadGameMatchComponent::InitializeOverloadMode()
 				GetWorld()->GetGameInstance<USunriseGameInstance>()
 					? GetWorld()->GetGameInstance<USunriseGameInstance>()->GetDifficultyTuning().EnemyCountMultiplier
 					: 1.0f);
-			WaveSpawner->Initialize(Lane, WaveDefinitions);
+			WaveSpawner->Initialize(Lane, WaveFormations);
 		}
 		else
 		{

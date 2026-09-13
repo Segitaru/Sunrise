@@ -28,14 +28,7 @@ AOverloadGuardTower::AOverloadGuardTower()
 	TerminalPoint->SetupAttachment(SceneRoot);
 	// Tower local X follows the spline tangent; local Y keeps the terminal equally distant along the lane for both teams.
 	TerminalPoint->SetRelativeLocation(FVector(0.0f, 180.0f, 0.0f));
-	TerminalVisualMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TerminalVisualMesh"));
-	TerminalVisualMesh->SetupAttachment(TerminalPoint);
-	TerminalVisualMesh->SetRelativeLocation(FVector(0.0f, 0.0f, 55.0f));
-	TerminalVisualMesh->SetRelativeScale3D(FVector(0.35f, 0.55f, 1.1f));
-	if (TowerDummyMesh.Succeeded())
-	{
-		TerminalVisualMesh->SetStaticMesh(TowerDummyMesh.Object);
-	}
+
 	CaptureComponent = CreateDefaultSubobject<UOverloadCaptureComponent>(TEXT("CaptureTerminal"));
 	DefenseComponent = CreateDefaultSubobject<UOverloadTowerDefenseComponent>(TEXT("TowerDefense"));
 	TierOneStats = {350.0f, 24.0f, 10.0f, 1.0f};
@@ -73,6 +66,7 @@ void AOverloadGuardTower::TryTowerAttack(ASunriseUnit* Target)
 	{
 		return;
 	}
+
 	PendingAttackTarget = Target;
 	AbilitySystem->TryActivateAbility(AttackAbilityHandle);
 }
@@ -104,10 +98,12 @@ FVector AOverloadGuardTower::GetHackLocation_Implementation() const
 {
 	return TerminalPoint->GetComponentLocation();
 }
+
 void AOverloadGuardTower::RegisterHacker_Implementation(ASunriseUnit* Unit)
 {
 	CaptureComponent->RegisterHacker(Unit);
 }
+
 void AOverloadGuardTower::UnregisterHacker_Implementation(ASunriseUnit* Unit)
 {
 	CaptureComponent->UnregisterHacker(Unit);
