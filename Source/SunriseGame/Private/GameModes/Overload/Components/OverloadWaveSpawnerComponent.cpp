@@ -124,7 +124,7 @@ void UOverloadWaveSpawnerComponent::SpawnWaveForTeam(int32 TeamId, bool bSpawnAt
 			continue;
 		}
 
-		const FVector ForwardOffset = Forward * LineCount * UnitSpacing;
+		const FVector ForwardOffset = (bSpawnAtSplineStart ? Forward : -Forward) * LineCount * UnitSpacing;
 		LineCount--;
 
 		const int32 ResultCount = Formation.Count * CountMultiplier;
