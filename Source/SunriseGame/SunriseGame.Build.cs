@@ -27,6 +27,7 @@ public class SunriseGame : ModuleRules
 			"InputCore",
 			"AIModule",
 			"NavigationSystem",
+			"GameplayTasks",
 			"StateTreeModule",
 			"GameplayStateTreeModule",
 			"Niagara",

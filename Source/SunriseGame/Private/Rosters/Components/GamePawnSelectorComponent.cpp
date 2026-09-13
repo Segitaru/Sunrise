@@ -3,6 +3,7 @@
 
 #include "Rosters/Components/GamePawnSelectorComponent.h"
 
+#include "GameFeatures/Components/ExperienceManagerComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "Kismet/GameplayStatics.h"
@@ -12,6 +13,7 @@
 #include "Rosters/Player/PickRule/PickModeRule_AllPick.h"
 #include "Rosters/Player/PickRule/PickModeRule_FFA.h"
 #include "Teams/System/ModularTeamSubsystem.h"
+#include "TimerManager.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GamePawnSelectorComponent)
 
@@ -43,8 +45,13 @@ void UGamePawnSelectorComponent::TryTakePawnFromPool(const TObjectPtr<UObject> I
 	int32 PoolId = -1;
 
 	UGamePawnRosterComponent* PawnManager = GetPawnManagerComponent();
-	auto const Pawn = *PawnManager->TaggedRoster.Find(InPawnDeclaration);
-	if (!CurrentPickRule->TryTakePawnFromPool(Instigator, Pawn, PoolId, ReleasedPawn))
+	const TObjectPtr<UModularPawnData>* Entry = PawnManager ? PawnManager->TaggedRoster.Find(InPawnDeclaration) : nullptr;
+	if (!Entry)
+	{
+		return;
+	}
+	const TObjectPtr<UModularPawnData> Pawn = *Entry;
+	if (!Pawn || !CurrentPickRule->TryTakePawnFromPool(Instigator, Pawn, PoolId, ReleasedPawn))
 	{
 		return;
 	}
@@ -129,6 +136,7 @@ void UGamePawnSelectorComponent::ReleasePawnIntoPool(const TObjectPtr<UObject> I
 	if (!IsValid(TeamSubsystem))
 	{
 		ensureMsgf(false, TEXT("%s: Critical Error: Team Subsystem does not exist"), *GetPathNameSafe(this));
+		return;
 	}
 
 	bool bIsPartOfTeam = false;
@@ -205,7 +213,8 @@ void UGamePawnSelectorComponent::BeginPlay()
 
 		for (const auto& [Mode, RuleClass] : RuleForPickMode)
 		{
-			if (UEnum::GetValueAsString(Mode) == CurrentMode)
+			if (StaticEnum<ECharacterPickMode>()->GetNameStringByValue(Mode.GetValue()) == CurrentMode ||
+				UEnum::GetValueAsString(Mode) == CurrentMode)
 			{
 				CurrentPickRule = NewObject<UPickModeRule>(this, RuleClass);
 				break;
@@ -222,6 +231,28 @@ void UGamePawnSelectorComponent::BeginPlay()
 }
 
 void UGamePawnSelectorComponent::OnRosterLoaded()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	UExperienceManagerComponent* ExperienceManager = GetOwner()->FindComponentByClass<UExperienceManagerComponent>();
+	if (ensure(ExperienceManager))
+	{
+		// Team creation runs at high priority. Roster discovery alone does not mean teams exist yet.
+		ExperienceManager->CallOrRegister_OnExperienceLoaded_LowPriority(
+			FOnExperienceLoaded::FDelegate::CreateUObject(this, &ThisClass::CreatePoolsAfterExperienceLoaded));
+	}
+}
+
+void UGamePawnSelectorComponent::CreatePoolsAfterExperienceLoaded(const UExperienceDefinition* Experience)
+{
+	// Register-or-call executes immediately once Loaded is set, even inside the high-priority broadcast.
+	// Defer pool creation until that entire callback stack (including team creation) has completed.
+	GetWorld()->GetTimerManager().SetTimerForNextTick(this, &ThisClass::CreatePoolsForCurrentTeams);
+}
+
+void UGamePawnSelectorComponent::CreatePoolsForCurrentTeams()
 {
 	if (HasAuthority())
 	{

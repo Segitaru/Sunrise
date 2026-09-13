@@ -5,6 +5,7 @@
 #include "AbilitySystem/ModularAbilitySystemComponent.h"
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
+#include "GameFramework/PlayerState.h"
 #include "Net/UnrealNetwork.h"
 #include "UI/SunriseTouchControls.h"
 #include "UI/SunriseWidgets.h"
@@ -37,19 +38,87 @@ void ASunrisePlayerController::SetControllingAgent(TScriptInterface<IIControllab
 
 void ASunrisePlayerController::SetGenericTeamId(const FGenericTeamId& NewTeamId)
 {
-	const int32 NewValue = GenericTeamIdToInteger(NewTeamId);
-	if (!HasAuthority() || ControlledTeamId == NewValue)
+	if (!HasAuthority())
 	{
 		return;
 	}
-	const int32 OldValue = ControlledTeamId;
-	ControlledTeamId = NewValue;
-	OnTeamChanged.Broadcast(this, OldValue, ControlledTeamId);
+	ObservePlayerStateTeam(PlayerState);
+	if (IModularTeamAgentInterface* TeamAgent = Cast<IModularTeamAgentInterface>(PlayerState))
+	{
+		TeamAgent->SetGenericTeamId(NewTeamId);
+	}
+}
+
+FGenericTeamId ASunrisePlayerController::GetGenericTeamId() const
+{
+	const IModularTeamAgentInterface* TeamAgent = IsValid(PlayerState) ? Cast<IModularTeamAgentInterface>(PlayerState) : nullptr;
+	return TeamAgent ? TeamAgent->GetGenericTeamId() : FGenericTeamId::NoTeam;
+}
+
+void ASunrisePlayerController::ObservePlayerStateTeam(APlayerState* NewPlayerState)
+{
+	if (ObservedTeamPlayerState.Get() != NewPlayerState)
+	{
+		if (IModularTeamAgentInterface* Previous = Cast<IModularTeamAgentInterface>(ObservedTeamPlayerState.Get()))
+		{
+			Previous->GetTeamChangedDelegateChecked().RemoveDynamic(this, &ThisClass::HandlePlayerStateTeamChanged);
+		}
+		ObservedTeamPlayerState = NewPlayerState;
+		if (IModularTeamAgentInterface* Current = Cast<IModularTeamAgentInterface>(NewPlayerState))
+		{
+			Current->GetTeamChangedDelegateChecked().AddUniqueDynamic(this, &ThisClass::HandlePlayerStateTeamChanged);
+		}
+	}
+	const IModularTeamAgentInterface* TeamAgent = Cast<IModularTeamAgentInterface>(NewPlayerState);
+	const int32 NewTeamId = TeamAgent ? GenericTeamIdToInteger(TeamAgent->GetGenericTeamId()) : INDEX_NONE;
+	HandlePlayerStateTeamChanged(NewPlayerState, ControlledTeamId, NewTeamId);
+}
+
+void ASunrisePlayerController::HandlePlayerStateTeamChanged(UObject* TeamAgent, int32 OldTeamId, int32 NewTeamId)
+{
+	if (TeamAgent != ObservedTeamPlayerState.Get() || ControlledTeamId == NewTeamId)
+	{
+		return;
+	}
+	const int32 PreviousTeamId = ControlledTeamId;
+	ControlledTeamId = NewTeamId;
+	OnTeamChanged.Broadcast(this, PreviousTeamId, NewTeamId);
+}
+
+void ASunrisePlayerController::InitPlayerState()
+{
+	Super::InitPlayerState();
+	ObservePlayerStateTeam(PlayerState);
+}
+
+void ASunrisePlayerController::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+	ObservePlayerStateTeam(PlayerState);
+}
+
+void ASunrisePlayerController::PostSeamlessTravel()
+{
+	Super::PostSeamlessTravel();
+	ObservePlayerStateTeam(PlayerState);
+}
+
+void ASunrisePlayerController::CleanupPlayerState()
+{
+	ObservePlayerStateTeam(nullptr);
+	Super::CleanupPlayerState();
+}
+
+void ASunrisePlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	ObservePlayerStateTeam(nullptr);
+	Super::EndPlay(EndPlayReason);
 }
 
 void ASunrisePlayerController::BeginPlay()
 {
 	Super::BeginPlay();
+	ObservePlayerStateTeam(PlayerState);
 	UWidgetBlueprintLibrary::SetInputMode_GameAndUIEx(this, nullptr, EMouseLockMode::DoNotLock, false);
 	if (IsLocalPlayerController())
 	{
@@ -84,7 +153,6 @@ void ASunrisePlayerController::RefreshTouchControls()
 void ASunrisePlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ThisClass, ControlledTeamId);
 	DOREPLIFETIME(ThisClass, bCommandsEnabled);
 }
 

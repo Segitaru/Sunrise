@@ -30,6 +30,5 @@ private:
 	static void DrawProgressBar(
 		ASunriseHUD* HUD, float X, float Y, float Width, float Height, float Fraction, const FLinearColor& FillColor);
 
-	static FLinearColor GetTeamColor(int32 TeamId);
 	static FString GetTeamLabel(int32 TeamId);
 };

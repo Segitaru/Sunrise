@@ -5,17 +5,20 @@
 #include <Abilities/SunriseHeroSquadAbility.h>
 
 #include "Blueprint/WidgetBlueprintLibrary.h"
+#include "Components/PrimitiveComponent.h"
 #include "Components/SplineComponent.h"
 #include "EngineUtils.h"
 #include "GameFeatures/Components/ExperienceManagerComponent.h"
 #include "GameFeatures/ExperienceDefinition.h"
 #include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
 #include "GameModes/Overload/Actors/OverloadEnergyCore.h"
 #include "GameModes/Overload/Actors/OverloadGuardTower.h"
 #include "GameModes/Overload/Actors/OverloadLaneSpline.h"
 #include "GameModes/Overload/Components/OverloadInteractorComponent.h"
 #include "GameModes/Overload/Components/OverloadLaneFollowerComponent.h"
 #include "GameModes/Overload/Components/OverloadWaveSpawnerComponent.h"
+#include "GameModes/Overload/Types/OverloadTeamIds.h"
 #include "Kismet/GameplayStatics.h"
 #include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
@@ -26,12 +29,13 @@
 #include "Units/Components/SunriseUnitManagerComponent.h"
 #include "Units/SunriseUnit.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogOverloadHeroSpawn, Log, All);
+
 UOverloadGameMatchComponent::UOverloadGameMatchComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	TowerClass = AOverloadGuardTower::StaticClass();
 	CoreClass = AOverloadEnergyCore::StaticClass();
-	WaveUnitClass = ASunriseUnit::StaticClass();
 }
 
 void UOverloadGameMatchComponent::BeginPlay()
@@ -97,7 +101,9 @@ ESunriseMatchResult UOverloadGameMatchComponent::GetMatchResult() const
 	{
 		return ESunriseMatchResult::InProgress;
 	}
-	return WinnerTeamId == 0 ? ESunriseMatchResult::Victory : ESunriseMatchResult::Defeat;
+	const ASunrisePlayerController* Controller = Cast<ASunrisePlayerController>(UGameplayStatics::GetPlayerController(this, 0));
+	const int32 PlayerTeamId = Controller ? Controller->GetControlledTeamId() : OverloadTeamIds::InitialPlayer;
+	return WinnerTeamId == PlayerTeamId ? ESunriseMatchResult::Victory : ESunriseMatchResult::Defeat;
 }
 
 void UOverloadGameMatchComponent::HandleExperienceLoaded(const UExperienceDefinition* CurrentExperience)
@@ -131,7 +137,8 @@ void UOverloadGameMatchComponent::InitializeOverloadMode()
 
 	for (TActorIterator<AOverloadLaneSpline> It(GetWorld()); It; ++It)
 	{
-		if (It->GetSourceTeamId() < 0 || It->GetTargetTeamId() < 0 || It->GetSourceTeamId() == It->GetTargetTeamId())
+		if (!OverloadTeamIds::IsPlayable(It->GetSourceTeamId()) || !OverloadTeamIds::IsPlayable(It->GetTargetTeamId()) ||
+			It->GetSourceTeamId() == It->GetTargetTeamId())
 		{
 			UE_LOG(LogTemp, Error, TEXT("Overload lane %s has invalid team mapping %d -> %d"), *It->GetName(), It->GetSourceTeamId(),
 				It->GetTargetTeamId());
@@ -168,7 +175,7 @@ void UOverloadGameMatchComponent::InitializeOverloadMode()
 				GetWorld()->GetGameInstance<USunriseGameInstance>()
 					? GetWorld()->GetGameInstance<USunriseGameInstance>()->GetDifficultyTuning().EnemyCountMultiplier
 					: 1.0f);
-			WaveSpawner->Initialize(Lane, WaveUnitClass);
+			WaveSpawner->Initialize(Lane, WaveDefinitions);
 		}
 		else
 		{
@@ -176,45 +183,7 @@ void UOverloadGameMatchComponent::InitializeOverloadMode()
 		}
 	}
 
-	// Heroes are the persistent player-influence units. Lane waves remain autonomous creeps.
-	for (const TPair<int32, TObjectPtr<AOverloadEnergyCore>>& Pair : CoresByTeam)
-	{
-		AOverloadEnergyCore* Core = Pair.Value;
-		if (!Core)
-		{
-			continue;
-		}
-		TScriptInterface<IIControllableEntity> Agent;
-		ASunrisePlayerController* PlayerController = Cast<ASunrisePlayerController>(UGameplayStatics::GetPlayerController(this, 0));
-		if (PlayerController && PlayerController->GetControlledTeamId() == Pair.Key)
-		{
-			Agent = PlayerController->GetControllingAgent();
-		}
-		const FVector Location = ResolveGroundLocation(Core->GetActorLocation() + Core->GetActorForwardVector() * HeroSpawnOffset);
-		if (USunriseUnitManagerComponent* UnitManager = GetUnitManager())
-		{
-			if (ASunriseUnit* Hero = UnitManager->SpawnHeroForTeam(Pair.Key, FTransform(Core->GetActorRotation(), Location), Agent))
-			{
-				AOverloadLaneSpline* HeroLane = nullptr;
-				for (AOverloadLaneSpline* Candidate : Lanes)
-				{
-					if (Candidate && (Candidate->GetSourceTeamId() == Pair.Key || Candidate->GetTargetTeamId() == Pair.Key))
-					{
-						HeroLane = Candidate;
-						break;
-					}
-				}
-
-				if (!Agent.GetObject() && HeroLane)
-				{
-					UOverloadLaneFollowerComponent* Follower =
-						NewObject<UOverloadLaneFollowerComponent>(Hero, TEXT("OverloadHeroLaneFollower"));
-					Follower->RegisterComponent();
-					Follower->Initialize(HeroLane);
-				}
-			}
-		}
-	}
+	EnsurePlayerHeroes();
 
 	// Authored units can also interact with objectives; dynamically spawned wave units receive the same component.
 	for (TActorIterator<ASunriseUnit> It(GetWorld()); It; ++It)
@@ -228,46 +197,83 @@ void UOverloadGameMatchComponent::InitializeOverloadMode()
 	}
 
 	bOverloadInitialized = true;
-	GetWorld()->GetTimerManager().SetTimer(HeroFollowerTimer, this, &ThisClass::EnsureEnemyHeroFollowers, 0.5f, true);
+	GetWorld()->GetTimerManager().SetTimer(PlayerHeroInitializationTimer, this, &ThisClass::EnsurePlayerHeroes, 0.5f, true);
 	RecalculateSupplyAndBalance();
 	UE_LOG(LogTemp, Log, TEXT("Overload initialized: %d teams, %d lanes, %d towers"), CoresByTeam.Num(), Lanes.Num(), Towers.Num());
 }
 
-void UOverloadGameMatchComponent::EnsureEnemyHeroFollowers()
+void UOverloadGameMatchComponent::EnsurePlayerHeroes()
 {
-	if (!GetWorld())
+	USunriseUnitManagerComponent* UnitManager = GetUnitManager();
+	const AGameStateBase* GameState = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	if (!HasAuthority() || !GameState || !UnitManager || WinnerTeamId != INDEX_NONE)
 	{
 		return;
 	}
-
-	for (TActorIterator<ASunriseUnit> It(GetWorld()); It; ++It)
+	for (APlayerState* PlayerState : GameState->PlayerArray)
 	{
-		ASunriseUnit* Hero = *It;
-		if (!Hero || !Hero->IsHero() || !Hero->IsAlive() || Hero->GetControllingAgent().GetObject())
+		AController* Controller = IsValid(PlayerState) ? Cast<AController>(PlayerState->GetOwner()) : nullptr;
+		const IModularTeamAgentInterface* TeamAgent = Cast<IModularTeamAgentInterface>(PlayerState);
+		if (!IsValid(Controller) || Controller->PlayerState != PlayerState || !TeamAgent || PlayerState->IsInactive() ||
+			PlayerState->IsOnlyASpectator())
 		{
 			continue;
 		}
-		if (Hero->FindComponentByClass<UOverloadLaneFollowerComponent>())
+		const int32 TeamId = GenericTeamIdToInteger(TeamAgent->GetGenericTeamId());
+		if (!OverloadTeamIds::IsPlayable(TeamId))
 		{
 			continue;
 		}
-		AOverloadLaneSpline* HeroLane = nullptr;
-		for (AOverloadLaneSpline* Candidate : Lanes)
+		AOverloadEnergyCore* Core = GetCoreForTeam(TeamId);
+		if (!IsValid(Core) || Core->GetCoreState() == EOverloadCoreState::Destroyed)
 		{
-			if (Candidate && (Candidate->GetSourceTeamId() == Hero->GetTeamId() || Candidate->GetTargetTeamId() == Hero->GetTeamId()))
+			continue;
+		}
+		ASunriseUnit* Hero = UnitManager->GetHeroForPlayer(Controller);
+		if (!Hero)
+		{
+			FTransform SpawnTransform;
+			if (!TryResolveHeroSpawnTransform(Core, TeamId, SpawnTransform))
 			{
-				HeroLane = Candidate;
-				break;
+				UE_LOG(LogOverloadHeroSpawn, Verbose, TEXT("Waiting for ground near core: PlayerState=%s Team=%d Core=%s Location=%s"),
+					*GetNameSafe(PlayerState), TeamId, *GetNameSafe(Core), *Core->GetActorLocation().ToString());
+				continue;
+			}
+			Hero = UnitManager->SpawnHeroForPlayer(Controller, SpawnTransform);
+			if (Hero)
+			{
+				UE_LOG(LogOverloadHeroSpawn, Log, TEXT("Hero placed: Hero=%s Team=%d Core=%s CoreLocation=%s HeroLocation=%s"),
+					*GetNameSafe(Hero), TeamId, *GetNameSafe(Core), *Core->GetActorLocation().ToString(),
+					*Hero->GetActorLocation().ToString());
 			}
 		}
-		if (HeroLane)
+		if (!Hero)
 		{
-			UOverloadLaneFollowerComponent* Follower = NewObject<UOverloadLaneFollowerComponent>(Hero, TEXT("OverloadHeroLaneFollower"));
-			Follower->RegisterComponent();
-			Follower->Initialize(HeroLane);
+			continue; // Selection or its PawnData may arrive after Experience/initial login.
+		}
+		if (!Hero->FindComponentByClass<UOverloadInteractorComponent>())
+		{
+			UOverloadInteractorComponent* Interactor = NewObject<UOverloadInteractorComponent>(Hero, TEXT("OverloadInteractor"));
+			Interactor->RegisterComponent();
+			Interactor->InitializeForUnit();
+		}
+		if (!Hero->GetControllingAgent().GetInterface() && !Hero->FindComponentByClass<UOverloadLaneFollowerComponent>())
+		{
+			for (AOverloadLaneSpline* Lane : Lanes)
+			{
+				if (Lane && (Lane->GetSourceTeamId() == TeamId || Lane->GetTargetTeamId() == TeamId))
+				{
+					UOverloadLaneFollowerComponent* Follower =
+						NewObject<UOverloadLaneFollowerComponent>(Hero, TEXT("OverloadHeroLaneFollower"));
+					Follower->RegisterComponent();
+					Follower->Initialize(Lane);
+					break;
+				}
+			}
 		}
 	}
 }
+
 void UOverloadGameMatchComponent::HandleTowerCaptured(AOverloadGuardTower* Tower, int32 PreviousTeamId, int32 NewTeamId)
 {
 	UE_LOG(LogTemp, Log, TEXT("Overload tower %s captured: team %d -> %d"), *GetNameSafe(Tower), PreviousTeamId, NewTeamId);
@@ -310,7 +316,9 @@ void UOverloadGameMatchComponent::BuildObjectivesForLane(AOverloadLaneSpline* La
 	for (int32 Index = 0; Index < CheckpointCount; ++Index)
 	{
 		const bool bNeutralTower = bHasNeutralCenter && Index == CenterIndex;
-		const int32 InitialTeamId = bNeutralTower ? INDEX_NONE : Index < HalfCount ? Lane->GetSourceTeamId() : Lane->GetTargetTeamId();
+		const int32 InitialTeamId = bNeutralTower		? OverloadTeamIds::Neutral
+									: Index < HalfCount ? Lane->GetSourceTeamId()
+														: Lane->GetTargetTeamId();
 		const int32 TierIndex = bNeutralTower ? 1 : Index < HalfCount ? HalfCount - Index : Index - (CheckpointCount - 1) / 2;
 		const float Distance = Lane->GetCheckpointDistance(Index);
 		const FVector Location = ResolveGroundLocation(Spline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World));
@@ -335,7 +343,7 @@ void UOverloadGameMatchComponent::BuildObjectivesForLane(AOverloadLaneSpline* La
 
 void UOverloadGameMatchComponent::EnsureCore(int32 TeamId, const FVector& DesiredLocation, const FRotator& DesiredRotation)
 {
-	if (CoresByTeam.Contains(TeamId))
+	if (!OverloadTeamIds::IsPlayable(TeamId) || CoresByTeam.Contains(TeamId))
 	{
 		return;
 	}
@@ -368,6 +376,10 @@ void UOverloadGameMatchComponent::RecalculateSupplyAndBalance()
 		}
 		const int32 Original = Tower->GetOriginalTeamId();
 		const int32 Current = Tower->GetTeamId();
+		if (!OverloadTeamIds::IsPlayable(Original))
+		{
+			continue; // Neutral objectives are not part of a core supply chain.
+		}
 		OriginalPointCount.FindOrAdd(Original)++;
 		if (Current != Original)
 		{
@@ -414,6 +426,74 @@ void UOverloadGameMatchComponent::RecalculateSupplyAndBalance()
 	}
 }
 
+bool UOverloadGameMatchComponent::TryResolveHeroSpawnTransform(
+	const AOverloadEnergyCore* Core, int32 TeamId, FTransform& OutTransform) const
+{
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	if (!IsValid(Core) || !Navigation || UNavigationSystemV1::IsNavigationBeingBuiltOrLocked(GetWorld()))
+	{
+		return false;
+	}
+
+	// Use the endpoint nearest this team's core, directed into the lane at either end.
+	const USplineComponent* SpawnSpline = nullptr;
+	bool bAtStart = false;
+	double ClosestDistanceSquared = TNumericLimits<double>::Max();
+	for (const AOverloadLaneSpline* Lane : Lanes)
+	{
+		if (!IsValid(Lane) || (Lane->GetSourceTeamId() != TeamId && Lane->GetTargetTeamId() != TeamId))
+		{
+			continue;
+		}
+		const USplineComponent* Spline = Lane->GetLaneSpline();
+		if (!Spline || Spline->GetSplineLength() <= KINDA_SMALL_NUMBER)
+		{
+			continue;
+		}
+		const bool bSource = Lane->GetSourceTeamId() == TeamId;
+		const FVector Endpoint =
+			Spline->GetLocationAtDistanceAlongSpline(bSource ? 0.0f : Spline->GetSplineLength(), ESplineCoordinateSpace::World);
+		const double DistanceSquared = FVector::DistSquared2D(Core->GetActorLocation(), Endpoint);
+		if (DistanceSquared < ClosestDistanceSquared)
+		{
+			ClosestDistanceSquared = DistanceSquared;
+			SpawnSpline = Spline;
+			bAtStart = bSource;
+		}
+	}
+	if (!SpawnSpline)
+	{
+		return false;
+	}
+
+	const float Length = SpawnSpline->GetSplineLength();
+	const float Inset = FMath::Clamp(HeroSpawnOffset, 0.0f, Length * 0.25f);
+	const float Distance = bAtStart ? Inset : Length - Inset;
+	const FVector Endpoint = SpawnSpline->GetLocationAtDistanceAlongSpline(bAtStart ? 0.0f : Length, ESplineCoordinateSpace::World);
+	const FVector LaneLocation = SpawnSpline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
+	const FVector Candidate = Core->GetActorLocation() + LaneLocation - Endpoint;
+	FNavLocation Projected;
+	if (!Navigation->ProjectPointToNavigation(Candidate, Projected, FVector(250.0f, 250.0f, 500.0f)))
+	{
+		return false;
+	}
+
+	// A failed ground trace must never become a spawn in empty space.
+	FHitResult Hit;
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(OverloadHeroSpawnGround), false, Core);
+	const FVector Start = Projected.Location + FVector(0.0f, 0.0f, 100.0f);
+	const FVector End = Projected.Location - FVector(0.0f, 0.0f, 200.0f);
+	if (!GetWorld()->LineTraceSingleByObjectType(Hit, Start, End, FCollisionObjectQueryParams(ECC_WorldStatic), QueryParams) ||
+		!Hit.GetComponent() || Hit.GetComponent()->GetCollisionResponseToChannel(ECC_Pawn) != ECR_Block)
+	{
+		return false;
+	}
+	FVector Direction = SpawnSpline->GetDirectionAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
+	Direction *= bAtStart ? 1.0f : -1.0f;
+	OutTransform = FTransform(FRotator(0.0f, Direction.Rotation().Yaw, 0.0f), Hit.ImpactPoint);
+	return true;
+}
+
 FVector UOverloadGameMatchComponent::ResolveGroundLocation(const FVector& DesiredLocation) const
 {
 	FVector Result = DesiredLocation;
@@ -440,12 +520,23 @@ void UOverloadGameMatchComponent::PresentMatchResult()
 		{
 			FSunriseMatchRecord Record;
 			const ASunrisePlayerController* Controller = Cast<ASunrisePlayerController>(UGameplayStatics::GetPlayerController(this, 0));
-			const int32 PlayerTeamId = Controller ? Controller->GetControlledTeamId() : 0;
+			const int32 PlayerTeamId = Controller ? Controller->GetControlledTeamId() : OverloadTeamIds::InitialPlayer;
 			Record.Result = WinnerTeamId == PlayerTeamId ? ESunriseMatchResult::Victory : ESunriseMatchResult::Defeat;
 			Record.Difficulty = GameInstance->GetSelectedDifficulty();
 			Record.DurationSeconds = GetWorld()->GetTimeSeconds();
 			Record.FriendlySurvivors = GetAliveUnitCountForTeam(PlayerTeamId);
-			Record.EnemiesDefeated = GetAliveUnitCountForTeam(PlayerTeamId == 0 ? 1 : 0);
+			Record.EnemiesDefeated = 0;
+			if (const USunriseUnitManagerComponent* UnitManager = GetUnitManager())
+			{
+				for (const ASunriseUnit* Unit : UnitManager->GetUnits())
+				{
+					if (IsValid(Unit) && !Unit->IsAlive() && OverloadTeamIds::IsPlayable(Unit->GetTeamId()) &&
+						Unit->GetTeamId() != PlayerTeamId)
+					{
+						++Record.EnemiesDefeated;
+					}
+				}
+			}
 			Record.CompletedAt = FDateTime::Now();
 			GameInstance->RecordMatch(Record);
 			bMatchRecorded = true;

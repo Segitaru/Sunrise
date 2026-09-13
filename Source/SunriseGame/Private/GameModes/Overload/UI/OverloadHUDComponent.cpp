@@ -12,6 +12,7 @@
 #include "GameModes/Overload/Components/OverloadCaptureComponent.h"
 #include "GameModes/Overload/Components/OverloadWaveSpawnerComponent.h"
 #include "GameModes/Overload/OverloadGameMatchComponent.h"
+#include "GameModes/Overload/Types/OverloadTeamIds.h"
 #include "Player/SunrisePlayerController.h"
 #include "UI/SunriseHUD.h"
 
@@ -124,7 +125,7 @@ void UOverloadHUDComponent::DrawCoreOverview(ASunriseHUD* HUD, const UOverloadGa
 		}
 
 		const float Y = 52.0f + Index * RowHeight;
-		const FLinearColor TeamColor = GetTeamColor(Core->GetTeamId());
+		const FLinearColor TeamColor = HUD->GetTeamColor(Core->GetTeamId());
 		const float HeroRespawn = GameMode->GetHeroRespawnSeconds(Core->GetTeamId());
 		FString HeroState = TEXT("HERO NONE");
 		if (GameMode->GetLivingHeroForTeam(Core->GetTeamId()))
@@ -182,9 +183,9 @@ void UOverloadHUDComponent::DrawLaneOverview(ASunriseHUD* HUD, const UOverloadGa
 		HUD->DrawRect(FLinearColor(0.035f, 0.05f, 0.075f, 0.92f), PanelX + 8.0f, Y - 4.0f, PanelWidth - 16.0f, 25.0f);
 		HUD->DrawText(FString::Printf(TEXT("LANE %d  %s %d/%d -> %s %d/%d | WAVE %s | %d POINTS"), LaneIndex + 1,
 						  *GetTeamLabel(Lane->GetSourceTeamId()), WaveSpawner ? WaveSpawner->GetAliveUnitCount(Lane->GetSourceTeamId()) : 0,
-						  WaveSpawner ? WaveSpawner->GetMaxAliveUnitsPerTeam() : 0, *GetTeamLabel(Lane->GetTargetTeamId()),
-						  WaveSpawner ? WaveSpawner->GetAliveUnitCount(Lane->GetTargetTeamId()) : 0,
-						  WaveSpawner ? WaveSpawner->GetMaxAliveUnitsPerTeam() : 0,
+						  WaveSpawner ? WaveSpawner->GetMaxAliveUnitsForTeam(Lane->GetSourceTeamId()) : 0,
+						  *GetTeamLabel(Lane->GetTargetTeamId()), WaveSpawner ? WaveSpawner->GetAliveUnitCount(Lane->GetTargetTeamId()) : 0,
+						  WaveSpawner ? WaveSpawner->GetMaxAliveUnitsForTeam(Lane->GetTargetTeamId()) : 0,
 						  WaveSeconds >= 0.0f ? *FString::Printf(TEXT("%.1fs"), WaveSeconds) : TEXT("OFF"), Lane->GetSpawnedTowers().Num()),
 			FLinearColor::White, PanelX + 14.0f, Y, GEngine->GetSmallFont(), 0.78f * OverloadHUD::GetCanvasScale(HUD));
 		Y += 27.0f;
@@ -211,7 +212,8 @@ void UOverloadHUDComponent::DrawLaneOverview(ASunriseHUD* HUD, const UOverloadGa
 					IntegrityPercent * 100.0f, Defense->GetAttackPower(), Defense->GetArmor(), Hack->GetHackResistance(),
 					*GetTeamLabel(Capture->GetActiveHackingTeamId()), Capture->GetActiveCapturingUnitCount(),
 					Capture->GetCaptureProgress() * 100.0f, Capture->IsCaptureContested() ? TEXT(" CONTESTED") : TEXT("")),
-				GetTeamColor(Tower->GetTeamId()), PanelX + 17.0f, Y, GEngine->GetSmallFont(), 0.68f * OverloadHUD::GetCanvasScale(HUD));
+				HUD->GetTeamColor(Tower->GetTeamId()), PanelX + 17.0f, Y, GEngine->GetSmallFont(),
+				0.68f * OverloadHUD::GetCanvasScale(HUD));
 			Y += 17.0f;
 		}
 		Y += 10.0f;
@@ -253,9 +255,9 @@ void UOverloadHUDComponent::DrawCoreWorldOverlay(ASunriseHUD* HUD, const AOverlo
 	HUD->DrawRect(FLinearColor(0.005f, 0.01f, 0.02f, 0.88f), X, Y, 220.0f, 50.0f);
 	HUD->DrawText(
 		FString::Printf(TEXT("CORE %s  %s"), *GetTeamLabel(Core->GetTeamId()), *OverloadHUD::GetCoreStateLabel(Core->GetCoreState())),
-		GetTeamColor(Core->GetTeamId()), X + 6.0f, Y + 3.0f, GEngine->GetSmallFont(), 0.75f * OverloadHUD::GetCanvasScale(HUD));
+		HUD->GetTeamColor(Core->GetTeamId()), X + 6.0f, Y + 3.0f, GEngine->GetSmallFont(), 0.75f * OverloadHUD::GetCanvasScale(HUD));
 	DrawProgressBar(HUD, X + 6.0f, Y + 20.0f, 208.0f, 8.0f,
-		OverloadHUD::SafeFraction(Attributes->GetIntegrity(), Attributes->GetMaxIntegrity()), GetTeamColor(Core->GetTeamId()));
+		OverloadHUD::SafeFraction(Attributes->GetIntegrity(), Attributes->GetMaxIntegrity()), HUD->GetTeamColor(Core->GetTeamId()));
 	DrawProgressBar(HUD, X + 6.0f, Y + 34.0f, 208.0f, 8.0f, Core->GetOverloadPercent(), FLinearColor(1.0f, 0.2f, 0.02f, 1.0f));
 }
 
@@ -282,10 +284,11 @@ void UOverloadHUDComponent::DrawTowerWorldOverlay(ASunriseHUD* HUD, const AOverl
 	const float Y = Screen.Y;
 	HUD->DrawRect(FLinearColor(0.005f, 0.01f, 0.02f, 0.86f), X, Y, 170.0f, 43.0f);
 	HUD->DrawText(FString::Printf(TEXT("TOWER %s  L%d"), *GetTeamLabel(Tower->GetTeamId()), Tower->GetTierIndex()),
-		GetTeamColor(Tower->GetTeamId()), X + 5.0f, Y + 2.0f, GEngine->GetSmallFont(), 0.7f * OverloadHUD::GetCanvasScale(HUD));
+		HUD->GetTeamColor(Tower->GetTeamId()), X + 5.0f, Y + 2.0f, GEngine->GetSmallFont(), 0.7f * OverloadHUD::GetCanvasScale(HUD));
 	DrawProgressBar(HUD, X + 5.0f, Y + 17.0f, 160.0f, 7.0f,
-		OverloadHUD::SafeFraction(Attributes->GetIntegrity(), Attributes->GetMaxIntegrity()), GetTeamColor(Tower->GetTeamId()));
-	DrawProgressBar(HUD, X + 5.0f, Y + 29.0f, 160.0f, 7.0f, Capture->GetCaptureProgress(), GetTeamColor(Capture->GetActiveHackingTeamId()));
+		OverloadHUD::SafeFraction(Attributes->GetIntegrity(), Attributes->GetMaxIntegrity()), HUD->GetTeamColor(Tower->GetTeamId()));
+	DrawProgressBar(
+		HUD, X + 5.0f, Y + 29.0f, 160.0f, 7.0f, Capture->GetCaptureProgress(), HUD->GetTeamColor(Capture->GetActiveHackingTeamId()));
 }
 
 void UOverloadHUDComponent::DrawProgressBar(
@@ -295,24 +298,7 @@ void UOverloadHUDComponent::DrawProgressBar(
 	HUD->DrawRect(FillColor, X + 1.0f, Y + 1.0f, (Width - 2.0f) * FMath::Clamp(Fraction, 0.0f, 1.0f), Height - 2.0f);
 }
 
-FLinearColor UOverloadHUDComponent::GetTeamColor(int32 TeamId)
-{
-	if (TeamId == INDEX_NONE)
-	{
-		return FLinearColor(0.62f, 0.66f, 0.72f, 1.0f);
-	}
-	if (TeamId == 0)
-	{
-		return FLinearColor(0.12f, 0.62f, 1.0f, 1.0f);
-	}
-	if (TeamId == 1)
-	{
-		return FLinearColor(1.0f, 0.2f, 0.12f, 1.0f);
-	}
-	return FLinearColor::MakeFromHSV8(static_cast<uint8>((TeamId * 67) % 255), 190, 255);
-}
-
 FString UOverloadHUDComponent::GetTeamLabel(int32 TeamId)
 {
-	return TeamId == INDEX_NONE ? TEXT("N") : FString::Printf(TEXT("T%d"), TeamId);
+	return TeamId == INDEX_NONE ? TEXT("-") : TeamId == OverloadTeamIds::Neutral ? TEXT("N") : FString::Printf(TEXT("T%d"), TeamId);
 }

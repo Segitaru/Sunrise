@@ -131,7 +131,7 @@ bool USunriseUnitOrderAbility::ExecuteOrder(const FGameplayEventData& Event, con
 			{
 				continue;
 			}
-			if (Unit->GetUnitRole() != ESunriseUnitRole::Healer || Unit->CanTargetWithWeapon(TargetUnit))
+			if (!Unit->HasPawnTag(SunrisePawnTags::Class_Healer) || Unit->CanTargetWithWeapon(TargetUnit))
 			{
 				ISunriseOrderReceiver::Execute_IssueTargetOrder(Unit, TargetUnit);
 			}

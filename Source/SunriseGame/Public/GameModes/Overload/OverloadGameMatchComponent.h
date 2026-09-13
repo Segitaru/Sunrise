@@ -13,6 +13,7 @@ class AOverloadEnergyCore;
 class AOverloadGuardTower;
 class AOverloadLaneSpline;
 class ASunriseUnit;
+class UModularPawnData;
 class UExperienceDefinition;
 class USunriseEndScreenWidget;
 class USunriseUnitManagerComponent;
@@ -62,7 +63,8 @@ protected:
 	void EnsureCore(int32 TeamId, const FVector& DesiredLocation, const FRotator& DesiredRotation);
 	void RecalculateSupplyAndBalance();
 	UFUNCTION()
-	void EnsureEnemyHeroFollowers();
+	void EnsurePlayerHeroes();
+	bool TryResolveHeroSpawnTransform(const AOverloadEnergyCore* Core, int32 TeamId, FTransform& OutTransform) const;
 	FVector ResolveGroundLocation(const FVector& DesiredLocation) const;
 	USunriseUnitManagerComponent* GetUnitManager() const;
 	UFUNCTION()
@@ -73,7 +75,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Classes")
 	TSubclassOf<AOverloadEnergyCore> CoreClass;
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Classes")
-	TSubclassOf<ASunriseUnit> WaveUnitClass;
+	TArray<TSoftObjectPtr<UModularPawnData>> WaveDefinitions;
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Balance")
 	FOverloadBalanceTuning BalanceTuning;
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Setup", meta = (ClampMin = "0.1", Units = "s"))
@@ -94,7 +96,7 @@ private:
 	TArray<AOverloadGuardTower*> TowerView;
 	TArray<AOverloadEnergyCore*> CoreView;
 	FTimerHandle InitializationTimer;
-	FTimerHandle HeroFollowerTimer;
+	FTimerHandle PlayerHeroInitializationTimer;
 	int32 InitializationAttempts = 0;
 	UPROPERTY(ReplicatedUsing = OnRep_RuntimeState)
 	bool bOverloadInitialized = false;

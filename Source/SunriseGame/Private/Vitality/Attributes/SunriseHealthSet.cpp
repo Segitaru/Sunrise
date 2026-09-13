@@ -22,6 +22,11 @@ void USunriseHealthSet::PreAttributeChange(const FGameplayAttribute& Attribute, 
 {
 	Super::PreAttributeChange(Attribute, NewValue);
 	ClampAttribute(Attribute, NewValue);
+	if (Attribute == GetHealthAttribute() && NewValue > 0.0f)
+	{
+		// Direct base-value restoration must re-arm the next out-of-health event too.
+		bOutOfHealth = false;
+	}
 }
 
 void USunriseHealthSet::ClampAttribute(const FGameplayAttribute& Attribute, float& NewValue) const

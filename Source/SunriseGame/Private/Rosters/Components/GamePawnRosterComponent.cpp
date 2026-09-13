@@ -47,7 +47,7 @@ void UGamePawnRosterComponent::CallOrRegister_OnRosterLoaded(FOnRosterLoaded::FD
 
 void UGamePawnRosterComponent::CallOrRegister_OnRosterReady(FOnRosterReady::FDelegate&& Delegate)
 {
-	if (CurrentRoster.Num() > 0)
+	if (bPoolsReady)
 	{
 		Delegate.Execute();
 	}
@@ -66,6 +66,7 @@ void UGamePawnRosterComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 
 void UGamePawnRosterComponent::CreatePools(TArray<int32> TeamIDs)
 {
+	bPoolsReady = false;
 	FRosterPool RosterPool;
 	RosterPool.AvailablePawnsFromRoster = CurrentRoster;
 
@@ -110,6 +111,7 @@ void UGamePawnRosterComponent::CreatePools(TArray<int32> TeamIDs)
 	}
 
 	UE_LOG(LogGamePawnRosterComponent, Display, TEXT("Pools created, ready to interact with players"));
+	bPoolsReady = true;
 	OnRosterReady.Broadcast();
 	OnRosterReady.Clear();
 }

@@ -27,6 +27,11 @@ public:
 	ASunrisePlayerController();
 
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void InitPlayerState() override;
+	virtual void CleanupPlayerState() override;
+	virtual void OnRep_PlayerState() override;
+	virtual void PostSeamlessTravel() override;
 
 	virtual void SetupInputComponent() override;
 
@@ -42,14 +47,15 @@ public:
 
 #pragma region IModularTeamAgentInterface
 	virtual void SetGenericTeamId(const FGenericTeamId& NewTeamId) override;
-	virtual FGenericTeamId GetGenericTeamId() const override { return IntegerToGenericTeamId(ControlledTeamId); }
+	virtual FGenericTeamId GetGenericTeamId() const override;
 	virtual FOnTeamIndexChangedDelegate* GetOnTeamIndexChangedDelegate() override { return &OnTeamChanged; }
 
-	UFUNCTION(BlueprintPure, Category = "Sunrise|Team")
-	int32 GetControlledTeamId() const { return ControlledTeamId; }
+	UFUNCTION(BlueprintGetter, Category = "Sunrise|Team")
+	int32 GetControlledTeamId() const { return GenericTeamIdToInteger(GetGenericTeamId()); }
 
-	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Sunrise|Team")
-	int32 ControlledTeamId = 0;
+	// Read-only compatibility view; PlayerState owns and replicates the team.
+	UPROPERTY(VisibleInstanceOnly, Transient, BlueprintGetter = GetControlledTeamId, Category = "Sunrise|Team")
+	int32 ControlledTeamId = INDEX_NONE;
 
 	UPROPERTY()
 	FOnTeamIndexChangedDelegate OnTeamChanged;
@@ -60,6 +66,11 @@ public:
 	void RefreshTouchControls();
 
 protected:
+	void ObservePlayerStateTeam(APlayerState* NewPlayerState);
+	UFUNCTION()
+	void HandlePlayerStateTeamChanged(UObject* TeamAgent, int32 OldTeamId, int32 NewTeamId);
+	TWeakObjectPtr<APlayerState> ObservedTeamPlayerState;
+
 	void TogglePauseMenu();
 	UFUNCTION()
 	void OnRep_CommandsEnabled();

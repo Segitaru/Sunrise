@@ -10,6 +10,7 @@
 
 AOverloadLaneSpline::AOverloadLaneSpline()
 {
+	bReplicates = true;
 	LaneSpline = CreateDefaultSubobject<USplineComponent>(TEXT("LaneSpline"));
 	SetRootComponent(LaneSpline);
 

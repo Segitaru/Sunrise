@@ -9,6 +9,7 @@
 #include "EnvironmentQuery/EnvQueryTypes.h"
 #include "ModularCharacter.h"
 #include "Teams/System/ModularTeamAgentInterface.h"
+#include "Units/SunrisePawnTags.h"
 #include "Units/SunriseUnitInterfaces.h"
 #include "Units/SunriseUnitTypes.h"
 #include "Vitality/VitalityComponent.h"
@@ -20,6 +21,9 @@ class UEnvQuery;
 class UEnvQueryInstanceBlueprintWrapper;
 class USphereComponent;
 class UAbilitySystemComponent;
+class UModularAbilitySystemComponent;
+class USunriseDeathAbility;
+class USunriseRespawnAbility;
 class USunriseHealthSet;
 class USunriseCombatSet;
 class USunriseMovementSet;
@@ -30,6 +34,7 @@ class USunriseWeapon;
 class USunriseHeroSquadAbility;
 class UModularTeamActorComponent;
 class UModularPawnExtensionComponent;
+class UUserFacingModularPawnDefinition;
 
 struct FOnAttributeChangeData;
 
@@ -101,15 +106,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Orders")
 	FVector GetMovementGoal() const { return CurrentMovementGoal; }
 
-	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	ESunriseTeam GetTeam() const;
-
 	/** Numeric authority used by multi-team modes. 0=player, 1=legacy enemy, -1=neutral. */
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
 	int32 GetTeamId() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Sunrise|Unit")
-	void SetTeam(ESunriseTeam NewTeam);
 
 	UFUNCTION(BlueprintCallable, Category = "Sunrise|Unit")
 	void SetTeamId(int32 NewTeamId);
@@ -124,17 +123,12 @@ public:
 	virtual void SetControllingAgent(TScriptInterface<IIControllableEntity> NewAgent) override;
 	virtual FOnControllingAgentChanged* GetOnControllingAgentChangedDelegate() override { return &OnControllingAgentChanged; }
 
+	/** Identity is read directly from the replicated PawnExtension's PawnData.Specification. */
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	ESunriseUnitRole GetUnitRole() const { return UnitRole; }
-
-	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	ESunriseCombatRole GetCombatRole() const;
+	bool HasPawnTag(FGameplayTag Tag) const;
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
 	FText GetUnitClassDisplayName() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Sunrise|Unit")
-	void SetUnitRole(ESunriseUnitRole NewRole, bool bApplyDefaults = true);
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
 	ESunriseOrderState GetOrderState() const { return OrderState; }
@@ -155,16 +149,15 @@ public:
 	USunriseMovementSet* GetMovementSet() const { return MovementSet; }
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	ESunriseUnitKind GetUnitKind() const { return UnitKind; }
-
-	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	bool IsHero() const { return UnitKind == ESunriseUnitKind::Hero; }
-
-	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	float GetHeroRespawnDelay() const { return HeroRespawnDelay; }
+	bool IsHero() const { return HasPawnTag(SunrisePawnTags::Kind_Hero); }
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Unit")
-	void ConfigureControl(ESunriseUnitKind NewKind, TScriptInterface<IIControllableEntity> NewAgent);
+	void ConfigureControl(TScriptInterface<IIControllableEntity> NewAgent);
+
+	float GetRespawnSeconds() const;
+	const FTransform& GetInitialSpawnTransform() const { return InitialSpawnTransform; }
+	bool RestoreAfterDeath(const FTransform& Transform);
+	void SetRespawnReadyTime(float Time);
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Weapon")
 	USunriseWeapon* GetWeapon() const { return Weapon; }
@@ -204,6 +197,11 @@ public:
 	FOnSunriseUnitDied OnDied;
 
 protected:
+	// Presentation-only cache; avoids loading the same UI asset on every HUD draw.
+	UPROPERTY(Transient)
+	mutable TObjectPtr<UUserFacingModularPawnDefinition> CachedPawnUIDefinition;
+	mutable FSoftObjectPath CachedPawnUIPath;
+
 	void ApplyRoleDefaults();
 	void EquipDefaultWeaponForRole();
 	void InitializeAbilityAttributes(float HealthPercent = 1.0f);
@@ -250,6 +248,9 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Sunrise|Presentation", meta = (DisplayName = "Unit Died"))
 	void BP_UnitDied();
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Sunrise|Presentation")
+	void BP_UnitRespawned();
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<USphereComponent> InteractionRange;
 
@@ -257,7 +258,7 @@ protected:
 	TObjectPtr<UDecalComponent> SelectionDecal;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|GAS")
-	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
+	TObjectPtr<UModularAbilitySystemComponent> AbilitySystemComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|GAS")
 	TObjectPtr<USunriseHealthSet> HealthSet;
@@ -276,12 +277,13 @@ protected:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Instanced, Transient, Category = "Sunrise|Weapon")
 	TObjectPtr<USunriseWeapon> Weapon;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sunrise|Identity")
-	ESunriseUnitRole UnitRole = ESunriseUnitRole::Melee;
-	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Sunrise|Identity")
-	ESunriseUnitKind UnitKind = ESunriseUnitKind::Creep;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sunrise|Hero", meta = (ClampMin = "1.0", Units = "s"))
-	float HeroRespawnDelay = 12.0f;
+	/** Optional override. Native fallback is death for units and respawn for heroes. */
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Lifecycle")
+	TSubclassOf<USunriseDeathAbility> DeathAbilityClass;
+	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Sunrise|Lifecycle")
+	float RespawnReadyTime = -1.0f;
+	FTransform InitialSpawnTransform;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sunrise|Hero", meta = (ClampMin = "1.0"))
 	float HeroHealthMultiplier = 3.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sunrise|Hero", meta = (ClampMin = "1.0"))

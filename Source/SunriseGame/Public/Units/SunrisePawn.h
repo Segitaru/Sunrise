@@ -68,15 +68,9 @@ public:
 	void FocusCameraOnHero(ASunriseUnit* Hero);
 
 
-	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	ESunriseTeam GetTeam() const;
-
 	/** Numeric authority used by multi-team modes. 0=player, 1=legacy enemy, -1=neutral. */
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
 	int32 GetTeamId() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Sunrise|Unit")
-	void SetTeam(ESunriseTeam NewTeam);
 
 	UFUNCTION(BlueprintCallable, Category = "Sunrise|Unit")
 	void SetTeamId(int32 NewTeamId);

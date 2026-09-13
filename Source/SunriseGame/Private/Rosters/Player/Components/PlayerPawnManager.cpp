@@ -15,13 +15,12 @@
 // Confirmation Pawn
 #include "Camera/ModularCameraMode.h"
 #include "Components/GameFrameworkComponentManager.h"
-#include "Components/ModularHeroComponent.h"
 #include "GameFeatures/Components/ExperienceManagerComponent.h"
+#include "GameFramework/Controller.h"
 #include "GameFramework/GameplayMessageSubsystem.h"
 #include "ModularGameplayTags.h"
 #include "ModularPawnData.h"
 #include "NativeGameplayTags.h"
-#include "Pawn/Components/ModularPawnExtensionComponent.h"
 #include "Rosters/Components/GamePawnRosterComponent.h"
 #include "Rosters/Development/GameRostersDeveloperSettings.h"
 #include "Rosters/Messages/GamePawnConfirmationMessage.h"
@@ -29,6 +28,7 @@
 #include "Rosters/Systems/GamePawnRosterSubsystem.h"
 #include "System/SunriseGameInstance.h"
 #include "Teams/System/ModularTeamAgentInterface.h"
+#include "Units/SunrisePawnTags.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PlayerPawnManager)
 
@@ -60,8 +60,16 @@ UModularPawnData* UPlayerPawnManager::GetSelectedPawnDefinition() const
 
 void UPlayerPawnManager::SetSelectedPawnDefinition(const UModularPawnData* NewPawnDefinition)
 {
+	if (!HasAuthority())
+	{
+		return;
+	}
 	SelectedPawnDefinition = const_cast<UModularPawnData*>(NewPawnDefinition);
 	OnRep_SelectedPawnDefinition();
+	if (!SelectedPawnDefinition)
+	{
+		return;
+	}
 
 	if (const auto MatchSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<UGamePawnRosterSubsystem>())
 	{
@@ -222,53 +230,37 @@ void UPlayerPawnManager::TryTakeRandomPawnAfterReconnect()
 	}
 }
 
+void UPlayerPawnManager::OnRegister()
+{
+	Super::OnRegister();
+	RegisterInitStateFeature();
+}
+
 void UPlayerPawnManager::BeginPlay()
 {
 	Super::BeginPlay();
-
-	// Listen for when the pawn extension component changes init state
-	BindOnActorInitStateChanged(UModularHeroComponent::NAME_ActorFeatureName, FGameplayTag(), false);
-
-	// Notifies that we are done spawning, then try the rest of initialization
+	OwnerPS = GetPlayerState<AModularPlayerState>();
 	ensure(TryToChangeInitState(ModularGameplayTags::InitState_Spawned));
 	CheckDefaultInitialization();
+	if (HasAuthority() && !SelectedPawnDefinition)
+	{
+		TryTakePawnOnGameStarted();
+	}
 }
 
 bool UPlayerPawnManager::CanChangeInitState(
 	UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const
 {
-	if (CurrentState == ModularGameplayTags::InitState_DataAvailable && DesiredState == ModularGameplayTags::InitState_DataInitialized)
+	if (!CurrentState.IsValid() && DesiredState == ModularGameplayTags::InitState_Spawned)
 	{
-		// Wait for player state and extension component
-		AModularPlayerState* ModularPS = GetPlayerState<AModularPlayerState>();
-
-		return ModularPS && Manager->HasFeatureReachedInitState(
-								GetOwner(), UModularHeroComponent::NAME_ActorFeatureName, ModularGameplayTags::InitState_DataInitialized);
+		return GetPlayerState<APlayerState>() != nullptr;
 	}
-
+	if (CurrentState == ModularGameplayTags::InitState_Spawned && DesiredState == ModularGameplayTags::InitState_DataAvailable)
+	{
+		return IsValid(SelectedPawnDefinition);
+	}
+	// Selection belongs to PlayerState and must be ready before its combat Pawn can exist.
 	return true;
-}
-
-void UPlayerPawnManager::HandleChangeInitState(
-	UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState)
-{
-	if (CurrentState == ModularGameplayTags::InitState_DataAvailable && DesiredState == ModularGameplayTags::InitState_DataInitialized)
-	{
-		const auto* PawnExtension = UModularPawnExtensionComponent::FindPawnExtensionComponent(GetOwner());
-		SetSelectedPawnDefinition(PawnExtension->GetPawnData<UModularPawnData>());
-	}
-}
-
-void UPlayerPawnManager::OnActorInitStateChanged(const FActorInitStateChangedParams& Params)
-{
-	if (Params.FeatureName == UModularHeroComponent::NAME_ActorFeatureName)
-	{
-		if (Params.FeatureState == ModularGameplayTags::InitState_DataInitialized)
-		{
-			// If the extension component says all other components are initialized, try to progress to next state
-			CheckDefaultInitialization();
-		}
-	}
 }
 
 void UPlayerPawnManager::CheckDefaultInitialization()
@@ -362,6 +354,11 @@ void UPlayerPawnManager::ForceUpdate()
 
 void UPlayerPawnManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	UnregisterInitStateFeature();
+	if (IModularTeamAgentInterface* TeamAgent = Cast<IModularTeamAgentInterface>(GetOwner()))
+	{
+		TeamAgent->GetTeamChangedDelegateChecked().RemoveDynamic(this, &ThisClass::OnTeamChanged);
+	}
 	Super::EndPlay(EndPlayReason);
 
 	const UWorld* CurrentWorld = GetWorld();
@@ -388,6 +385,11 @@ void UPlayerPawnManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void UPlayerPawnManager::OnExperienceLoadedForBot(const UExperienceDefinition* CurrentExperience)
 {
+	WaitForRosterReady();
+}
+
+void UPlayerPawnManager::WaitForRosterReady()
+{
 	const AGameStateBase* GameStateRef = GetWorld()->GetGameState();
 
 	if (!GameStateRef)
@@ -397,66 +399,83 @@ void UPlayerPawnManager::OnExperienceLoadedForBot(const UExperienceDefinition* C
 
 	if (UGamePawnRosterComponent* PawnManager = GameStateRef->FindComponentByClass<UGamePawnRosterComponent>())
 	{
-		PawnManager->CallOrRegister_OnRosterReady(FOnRosterLoaded::FDelegate::CreateUObject(this, &UPlayerPawnManager::OnRosterReady));
+		PawnManager->CallOrRegister_OnRosterReady(FOnRosterReady::FDelegate::CreateUObject(this, &UPlayerPawnManager::OnRosterReady));
 	}
 }
 
 void UPlayerPawnManager::OnExperienceLoadedForPlayer(const UExperienceDefinition* CurrentExperience)
 {
-	if (const auto MatchSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<UGamePawnRosterSubsystem>())
+	const UGamePawnRosterSubsystem* RosterSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<UGamePawnRosterSubsystem>();
+	if (RosterSubsystem && RosterSubsystem->bIsPlayWorld)
 	{
-		if (MatchSubsystem->bIsPlayWorld)
+		WaitForRosterReady();
+	}
+}
+
+void UPlayerPawnManager::RestoreSavedPawnSelection_OnClient_Implementation()
+{
+	const USunriseGameInstance* GameInstance = GetWorld() ? GetWorld()->GetGameInstance<USunriseGameInstance>() : nullptr;
+	const UModularPawnData* SavedDefinition = GameInstance ? GameInstance->GetSelectedPawnDefinitionId() : nullptr;
+	RestoreSavedPawnSelection_OnServer(IsValid(SavedDefinition) ? SavedDefinition->PawnDeclaration : FGameplayTag());
+}
+
+void UPlayerPawnManager::RestoreSavedPawnSelection_OnServer_Implementation(const FGameplayTag& PawnDeclaration)
+{
+	const APlayerState* PlayerState = GetPlayerState<APlayerState>();
+	const AController* Controller = PlayerState ? Cast<AController>(PlayerState->GetOwner()) : nullptr;
+	if (!HasAuthority() || !IsValid(Controller) || Controller->PlayerState != PlayerState || PlayerState->IsInactive() ||
+		PlayerState->IsOnlyASpectator() || bCharacterConfirmed || SelectedPawnDefinition)
+	{
+		return;
+	}
+	const AGameStateBase* GameState = GetWorld()->GetGameState();
+	const UGamePawnRosterComponent* Roster = GameState ? GameState->FindComponentByClass<UGamePawnRosterComponent>() : nullptr;
+	UGamePawnSelectorComponent* Selector = GetPawnSelector();
+	if (!Roster || !Selector)
+	{
+		return;
+	}
+	const TObjectPtr<UModularPawnData>* Entry = Roster->TaggedRoster.Find(PawnDeclaration);
+	if (Entry && IsValid(Entry->Get()) && (*Entry)->Specification.HasTag(SunrisePawnTags::Kind_Hero))
+	{
+		Selector->TryTakePawnFromPool(GetOwner(), PawnDeclaration);
+		if (SelectedPawnDefinition)
 		{
-			if (OwnerPS)
-			{
-				const FPlayerWithPayload NewPayload(OwnerPS->GetUniqueId(), OwnerPS->GetAccountId());
-
-				const bool bPayloadHistoryExisted = MatchSubsystem->PlayersWithPayload.Contains(NewPayload);
-				const bool bDefinitionValid = IsValid(SelectedPawnDefinition);
-
-				if (bPayloadHistoryExisted && bDefinitionValid)
-				{
-					return;
-				}
-
-				if (!bPayloadHistoryExisted)
-				{
-					UE_LOG(
-						LogPlayerPawnManager, Display, TEXT("[Reconnect]: player removed from payload history %s"), *GetNameSafe(OwnerPS));
-				}
-
-				if (!bDefinitionValid)
-				{
-					UE_LOG(LogPlayerPawnManager, Display, TEXT("[Reconnect]: pawn definition dosn't existed %s"), *GetNameSafe(OwnerPS));
-
-					// We must wait copy properties!
-					bForceTakePawn = true;
-					GetWorld()->GetTimerManager().SetTimer(ForceTakePawnHandle, this, &ThisClass::ForceTakePawn, 0.5f, false);
-					return;
-				}
-
-				UE_LOG(LogPlayerPawnManager, Warning, TEXT("[Reconnect]: take random pawn definition %s"), *GetNameSafe(OwnerPS));
-				TryTakeRandomPawnAfterReconnect();
-			}
+			UE_LOG(
+				LogPlayerPawnManager, Log, TEXT("Restored saved hero %s for %s"), *PawnDeclaration.ToString(), *GetNameSafe(PlayerState));
+			return;
 		}
 	}
+	// No saved choice, or the current roster/pick rule does not permit it.
+	TryTakeRandomPawn_OnServer();
 }
 
 void UPlayerPawnManager::OnRosterReady()
 {
-	if (SelectedPawnDefinition)
+	if (!HasAuthority() || SelectedPawnDefinition)
 	{
 		return;
 	}
 
 	IModularTeamAgentInterface* TeamAgent = Cast<IModularTeamAgentInterface>(GetOwner());
+	if (!ensureMsgf(TeamAgent, TEXT("PlayerPawnManager requires a PlayerState with a team interface")))
+	{
+		return;
+	}
 	if (TeamAgent->GetGenericTeamId() != FGenericTeamId::NoTeam)
 	{
-		TryTakeRandomPawn_OnServer();
+		if (OwnerPS && OwnerPS->IsABot())
+		{
+			TryTakeRandomPawn_OnServer();
+		}
+		else
+		{
+			RestoreSavedPawnSelection_OnClient();
+		}
 		return;
 	}
 
-	TeamAgent->GetTeamChangedDelegateChecked().AddDynamic(this, &ThisClass::OnTeamChanged);
+	TeamAgent->GetTeamChangedDelegateChecked().AddUniqueDynamic(this, &ThisClass::OnTeamChanged);
 }
 
 void UPlayerPawnManager::OnTeamChanged(UObject* ObjectChangingTeam, int32 OldTeamID, int32 NewTeamID)
@@ -466,9 +485,9 @@ void UPlayerPawnManager::OnTeamChanged(UObject* ObjectChangingTeam, int32 OldTea
 		return;
 	}
 
-	if (NewTeamID != -1)
+	if (HasAuthority() && NewTeamID != INDEX_NONE)
 	{
-		TryTakeRandomPawn_OnServer();
+		OnRosterReady();
 	}
 }
 
@@ -479,6 +498,7 @@ void UPlayerPawnManager::OnRep_bCharacterConfirmed()
 
 void UPlayerPawnManager::OnRep_SelectedPawnDefinition()
 {
+	CheckDefaultInitialization();
 	SendMessagePlayerPawnSelected();
 
 	if (!SelectedPawnDefinition)

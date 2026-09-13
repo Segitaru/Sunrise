@@ -63,6 +63,8 @@ protected:
 	virtual void BeginPlay() override;
 
 	virtual void OnRosterLoaded();
+	void CreatePoolsAfterExperienceLoaded(const UExperienceDefinition* Experience);
+	void CreatePoolsForCurrentTeams();
 
 	UFUNCTION(NetMulticast, Reliable)
 	void SendPoolChange_Multicast(int32 PawnPoolId, bool bIsLocked, const UModularPawnData* ChangedPawn);

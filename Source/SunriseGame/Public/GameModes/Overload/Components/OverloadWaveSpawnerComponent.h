@@ -9,6 +9,7 @@
 
 class AOverloadLaneSpline;
 class ASunriseUnit;
+class UModularPawnData;
 
 UCLASS(ClassGroup = (Overload), BlueprintType, meta = (BlueprintSpawnableComponent))
 class SUNRISEGAME_API UOverloadWaveSpawnerComponent : public UActorComponent
@@ -16,7 +17,8 @@ class SUNRISEGAME_API UOverloadWaveSpawnerComponent : public UActorComponent
 	GENERATED_BODY()
 public:
 	UOverloadWaveSpawnerComponent();
-	void Initialize(AOverloadLaneSpline* InLane, TSubclassOf<ASunriseUnit> InUnitClass);
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	void Initialize(AOverloadLaneSpline* InLane, const TArray<TSoftObjectPtr<UModularPawnData>>& InDefinitions);
 	void ApplyEnemyDifficulty(float CountMultiplier);
 	UFUNCTION(BlueprintCallable, Category = "Overload|Wave")
 	void SpawnWave();
@@ -28,6 +30,8 @@ public:
 	int32 GetAliveUnitCount(int32 TeamId) const;
 	UFUNCTION(BlueprintPure, Category = "Overload|Wave")
 	int32 GetMaxAliveUnitsPerTeam() const { return MaxAliveUnitsPerTeam; }
+	UFUNCTION(BlueprintPure, Category = "Overload|Wave")
+	int32 GetMaxAliveUnitsForTeam(int32 TeamId) const;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Overload|Wave", meta = (ClampMin = "1.0", Units = "s"))
@@ -51,8 +55,10 @@ private:
 	void PruneTrackedUnits();
 
 	TWeakObjectPtr<AOverloadLaneSpline> Lane;
-	TSubclassOf<ASunriseUnit> UnitClass;
+	UPROPERTY()
+	TArray<TSoftObjectPtr<UModularPawnData>> UnitDefinitions;
 	TArray<TWeakObjectPtr<ASunriseUnit>> SpawnedUnits;
 	FTimerHandle WaveTimer;
+	UPROPERTY(Replicated)
 	float EnemyWaveMultiplier = 1.0f;
 };

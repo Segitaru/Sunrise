@@ -10,6 +10,7 @@
 #include "GameModes/Overload/Components/OverloadLaneFollowerComponent.h"
 #include "ModularPawnData.h"
 #include "NativeGameplayTags.h"
+#include "Units/Components/SunriseUnitManagerComponent.h"
 #include "Units/SunriseUnit.h"
 
 UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_Sunrise_HeroSquadCooldown, "Cooldown.Sunrise.HeroSquad");
@@ -114,24 +115,20 @@ bool USunriseHeroSquadAbility::SpawnSquad(ASunriseUnit* Hero)
 	{
 		UModularPawnData* Definition = SquadDefinitions[Index].LoadSynchronous();
 		TSubclassOf<APawn> UnitClass = Definition ? Definition->PawnClass.LoadSynchronous() : nullptr;
-		if (!UnitClass)
+		if (!UnitClass || Definition->Specification.HasTag(SunrisePawnTags::Kind_Hero))
 		{
 			continue;
 		}
 		const float Angle = Index * UE_PI;
 		const FVector Location = Hero->GetActorLocation() + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.0f) * FormationSpacing;
-		FActorSpawnParameters Params;
-		Params.Owner = Hero->GetOwner();
-		Params.Instigator = Hero;
-		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-		ASunriseUnit* Unit = World->SpawnActor<ASunriseUnit>(UnitClass, Location, Hero->GetActorRotation(), Params);
+		ASunriseUnit* Unit = USunriseUnitManagerComponent::SpawnUnit(Definition, FTransform(Hero->GetActorRotation(), Location), Hero);
 		if (!Unit)
 		{
 			continue;
 		}
-		Unit->SetTeamId(Hero->GetTeamId());
+		Unit->SetGenericTeamId(Hero->GetGenericTeamId());
 		const bool bPlayerSummon = Hero->GetControllingAgent().GetObject() != nullptr;
-		Unit->ConfigureControl(bPlayerSummon ? ESunriseUnitKind::Summoned : ESunriseUnitKind::Creep, Hero->GetControllingAgent());
+		Unit->ConfigureControl(Hero->GetControllingAgent());
 		Unit->SpawnDefaultController();
 		if (UControllableComponent* Controllable = UControllableComponent::FindControllableComponent(Unit))
 		{

@@ -77,6 +77,7 @@ public:
 	void ClearForceTakeTimer();
 
 protected:
+	virtual void OnRegister() override;
 	virtual void BeginPlay() override;
 
 	/** The name of this component-implemented feature */
@@ -86,9 +87,6 @@ protected:
 	virtual FName GetFeatureName() const override { return NAME_ActorFeatureName; }
 	virtual bool CanChangeInitState(
 		UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) const override;
-	virtual void HandleChangeInitState(
-		UGameFrameworkComponentManager* Manager, FGameplayTag CurrentState, FGameplayTag DesiredState) override;
-	virtual void OnActorInitStateChanged(const FActorInitStateChangedParams& Params) override;
 	virtual void CheckDefaultInitialization() override;
 	//~ End IGameFrameworkInitStateInterface interface
 
@@ -98,6 +96,13 @@ protected:
 
 	virtual void OnExperienceLoadedForBot(const UExperienceDefinition* CurrentExperience);
 	virtual void OnExperienceLoadedForPlayer(const UExperienceDefinition* CurrentExperience);
+	void WaitForRosterReady();
+
+	UFUNCTION(Client, Reliable)
+	void RestoreSavedPawnSelection_OnClient();
+
+	UFUNCTION(Server, Reliable)
+	void RestoreSavedPawnSelection_OnServer(const FGameplayTag& PawnDeclaration);
 
 	UFUNCTION(Server, Reliable)
 	void ConfirmSelectedPawn_OnServer();

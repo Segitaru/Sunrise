@@ -9,6 +9,7 @@
 #include "GameModes/Overload/AbilitySystem/OverloadAttributeSet.h"
 #include "GameModes/Overload/Components/OverloadCaptureComponent.h"
 #include "GameModes/Overload/Components/OverloadTowerDefenseComponent.h"
+#include "GameModes/Overload/Types/OverloadTeamIds.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Units/SunriseUnit.h"
 #include "Weapons/Effects/SunriseWeaponEffects.h"
@@ -96,7 +97,7 @@ void AOverloadGuardTower::ExecuteTowerAttack()
 
 bool AOverloadGuardTower::CanBeHackedByTeam_Implementation(int32 TeamId) const
 {
-	return TeamId >= 0 && TeamId != GetTeamId();
+	return OverloadTeamIds::IsPlayable(TeamId) && TeamId != GetTeamId();
 }
 
 FVector AOverloadGuardTower::GetHackLocation_Implementation() const

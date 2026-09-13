@@ -8,6 +8,7 @@
 #include "SunriseGameMatchComponent.generated.h"
 
 class ASunriseUnit;
+class UModularPawnData;
 class UExperienceDefinition;
 class USunriseEndScreenWidget;
 class USunriseUnitManagerComponent;
@@ -50,11 +51,13 @@ protected:
 	UFUNCTION()
 	void OnRep_MatchResult();
 	ASunriseUnit* SpawnUnitAtAvailableLocation(
-		ESunriseTeam Team, ESunriseUnitRole InRole, const FVector& ArmyCenter, float SpawnRadius, int32 FormationIndex);
+		const UModularPawnData* PawnData, const FVector& ArmyCenter, float SpawnRadius, int32 FormationIndex);
 	USunriseUnitManagerComponent* GetUnitManager() const;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Scenario")
-	TSubclassOf<ASunriseUnit> UnitClass;
+	TArray<TSoftObjectPtr<UModularPawnData>> FriendlyArmyDefinitions;
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Scenario")
+	TArray<TSoftObjectPtr<UModularPawnData>> EnemyArmyDefinitions;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Scenario", meta = (ClampMin = "1"))
 	int32 BaseFriendlyUnitCount = 5;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Scenario", meta = (ClampMin = "1"))

@@ -28,6 +28,7 @@ public:
 	void DragSelectUpdate(FVector2D Start, FVector2D WidthAndHeight, FVector2D CurrentPosition, bool bDraw);
 	void CommandDragUpdate(ASunriseUnit* SourceUnit, FVector2D CursorPosition, bool bDraw);
 	UCanvas* GetDrawingCanvas() const { return Canvas; }
+	FLinearColor GetTeamColor(int32 TeamId) const;
 
 protected:
 	void DrawUnitOverlays();

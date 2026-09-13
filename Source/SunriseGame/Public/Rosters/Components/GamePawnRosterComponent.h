@@ -82,4 +82,5 @@ protected:
 	TArray<FPrimaryAssetId> DefinitionsForUpload;
 	FOnRosterLoaded OnRosterLoaded;
 	FOnRosterReady OnRosterReady;
+	bool bPoolsReady = false;
 };

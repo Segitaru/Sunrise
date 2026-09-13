@@ -441,23 +441,9 @@ void ASunrisePawn::FocusCameraOnHero(ASunriseUnit* Hero)
 	bHeroFocusConsumed = true;
 }
 
-ESunriseTeam ASunrisePawn::GetTeam() const
-{
-	return StaticCast<ESunriseTeam>(TeamComponent->GetTeamId());
-}
-
 int32 ASunrisePawn::GetTeamId() const
 {
 	return TeamComponent->GetTeamId();
-}
-
-void ASunrisePawn::SetTeam(ESunriseTeam NewTeam)
-{
-	SetTeamId(NewTeam == ESunriseTeam::Friendly ? 0 : NewTeam == ESunriseTeam::Enemy ? 1 : INDEX_NONE);
-	if (NewTeam != ESunriseTeam::Friendly && bSelected)
-	{
-		ISunriseSelectable::Execute_SetSunriseSelected(this, false);
-	}
 }
 
 void ASunrisePawn::SetTeamId(int32 NewTeamId)

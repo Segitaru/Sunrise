@@ -11,6 +11,7 @@
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
+#include "GameModes/Overload/Types/OverloadTeamIds.h"
 #include "GameModes/SunriseGameMatchComponent.h"
 #include "Player/SunrisePlayerController.h"
 #include "UI/Components/SunriseHUDComponent.h"
@@ -141,7 +142,7 @@ void ASunriseHUD::DrawUnitOverlays()
 		}
 
 		const float Width = 54.0f;
-		const FLinearColor TeamColor = Unit->GetTeamId() == PC->GetControlledTeamId() ? FriendlyColor : EnemyColor;
+		const FLinearColor TeamColor = GetTeamColor(Unit->GetTeamId());
 		DrawRect(FLinearColor(0.015f, 0.015f, 0.015f, 0.9f), Screen.X - Width * 0.5f, Screen.Y, Width, 7.0f);
 		DrawRect(TeamColor, Screen.X - Width * 0.5f + 1.0f, Screen.Y + 1.0f, (Width - 2.0f) * Unit->GetHealthPercent(), 5.0f);
 
@@ -199,4 +200,15 @@ void ASunriseHUD::DrawMatchPanel()
 
 	DrawText(TEXT("LMB select/box | Drag unit to target | RMB move/camera | Edge scroll | Esc"), FLinearColor(0.75f, 0.8f, 0.85f), 34.0f,
 		83.0f, GEngine->GetSmallFont(), 0.95f);
+}
+
+FLinearColor ASunriseHUD::GetTeamColor(int32 TeamId) const
+{
+	const ASunrisePlayerController* Controller = Cast<ASunrisePlayerController>(GetOwningPlayerController());
+	const int32 PlayerTeamId = Controller ? Controller->GetControlledTeamId() : INDEX_NONE;
+	if (TeamId == INDEX_NONE || TeamId == OverloadTeamIds::Neutral || PlayerTeamId == INDEX_NONE)
+	{
+		return FLinearColor(0.62f, 0.66f, 0.72f, 1.0f);
+	}
+	return TeamId == PlayerTeamId ? FriendlyColor : EnemyColor;
 }

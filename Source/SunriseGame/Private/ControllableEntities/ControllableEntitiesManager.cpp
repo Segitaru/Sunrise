@@ -7,6 +7,7 @@
 #include "ModularPawnData.h"
 #include "Net/UnrealNetwork.h"
 #include "Teams/System/ModularTeamSubsystem.h"
+#include "Units/Components/SunriseUnitManagerComponent.h"
 #include "Units/SunriseUnit.h"
 
 UControllableEntitiesManager::UControllableEntitiesManager()
@@ -62,7 +63,7 @@ void UControllableEntitiesManager::ClearSummonedUnits()
 	for (int32 Index = ControlledEntities.Num() - 1; Index >= 0; --Index)
 	{
 		ASunriseUnit* Unit = Cast<ASunriseUnit>(ControlledEntities[Index]);
-		if (Unit && Unit->GetUnitKind() == ESunriseUnitKind::Summoned)
+		if (Unit && Unit->HasPawnTag(SunrisePawnTags::Kind_Summoned))
 		{
 			OnEntityUnregistered.Broadcast(Unit);
 			ControlledEntities.RemoveAtSwap(Index);
@@ -82,12 +83,11 @@ TArray<APawn*> UControllableEntitiesManager::SpawnControlledUnitsAtLocations(
 	}
 	UModularPawnData* Definition = RequiredEntity.LoadSynchronous();
 	UClass* UnitClass = Definition ? Definition->PawnClass.LoadSynchronous() : nullptr;
-	if (!UnitClass)
+	if (!UnitClass || !Definition->Specification.HasTag(SunrisePawnTags::Kind_Summoned) ||
+		Definition->Specification.HasTag(SunrisePawnTags::Kind_Hero))
 	{
 		return Result;
 	}
-	UModularTeamSubsystem* TeamSubsystem = GetWorld()->GetSubsystem<UModularTeamSubsystem>();
-	const int32 TeamId = TeamSubsystem ? TeamSubsystem->FindTeamFromObject(Controller) : INDEX_NONE;
 	TScriptInterface<IIControllableEntity> Agent;
 	Agent.SetObject(Controller);
 	Agent.SetInterface(Cast<IIControllableEntity>(Controller));
@@ -98,21 +98,10 @@ TArray<APawn*> UControllableEntitiesManager::SpawnControlledUnitsAtLocations(
 
 	for (const FVector& Location : TargetLocations)
 	{
-		FActorSpawnParameters Params;
-		Params.Owner = Controller;
-		Params.Instigator = Controller->GetPawn();
-		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
-		ASunriseUnit* Unit = GetWorld()->SpawnActor<ASunriseUnit>(UnitClass, Location, FRotator::ZeroRotator, Params);
+		ASunriseUnit* Unit = USunriseUnitManagerComponent::SpawnUnit(Definition, FTransform(FRotator::ZeroRotator, Location), Controller);
 		if (!Unit)
 		{
 			continue;
-		}
-		Unit->SpawnDefaultController();
-		Unit->SetTeamId(TeamId);
-		Unit->ConfigureControl(ESunriseUnitKind::Summoned, Agent);
-		if (UControllableComponent* Component = UControllableComponent::FindControllableComponent(Unit))
-		{
-			Component->SetEntityDefinition(Definition);
 		}
 		RegisterControlledEntity(Unit);
 		Result.Add(Unit);

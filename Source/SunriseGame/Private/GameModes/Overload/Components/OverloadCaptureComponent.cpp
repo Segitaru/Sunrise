@@ -7,6 +7,7 @@
 #include "GameModes/Overload/AbilitySystem/OverloadAttributeSet.h"
 #include "GameModes/Overload/Actors/Base/OverloadObjectiveBase.h"
 #include "GameModes/Overload/Interfaces/OverloadHackable.h"
+#include "GameModes/Overload/Types/OverloadTeamIds.h"
 #include "Net/UnrealNetwork.h"
 #include "Teams/Components/ModularTeamActorComponent.h"
 #include "Units/SunriseUnit.h"
@@ -99,7 +100,7 @@ void UOverloadCaptureComponent::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 
 void UOverloadCaptureComponent::RegisterHacker(ASunriseUnit* Unit)
 {
-	if (GetOwner()->HasAuthority() && IsValid(Unit) && Unit->IsAlive() && TeamComponent && Unit->GetTeamId() >= 0 &&
+	if (GetOwner()->HasAuthority() && IsValid(Unit) && Unit->IsAlive() && TeamComponent && OverloadTeamIds::IsPlayable(Unit->GetTeamId()) &&
 		Unit->GetTeamId() != TeamComponent->GetTeamId())
 	{
 		Hackers.AddUnique(Unit);
@@ -118,7 +119,8 @@ void UOverloadCaptureComponent::PruneAndCountHackers(TMap<int32, int32>& OutCoun
 	for (int32 Index = Hackers.Num() - 1; Index >= 0; --Index)
 	{
 		ASunriseUnit* Unit = Hackers[Index].Get();
-		if (!Unit || !Unit->IsAlive() || !TeamComponent || Unit->GetTeamId() == TeamComponent->GetTeamId() ||
+		if (!Unit || !Unit->IsAlive() || !OverloadTeamIds::IsPlayable(Unit->GetTeamId()) || !TeamComponent ||
+			Unit->GetTeamId() == TeamComponent->GetTeamId() ||
 			FVector::DistSquared2D(Unit->GetActorLocation(), CaptureLocation) > FMath::Square(HackRadius))
 		{
 			Hackers.RemoveAtSwap(Index);
@@ -139,7 +141,7 @@ void UOverloadCaptureComponent::CountPresentTeams(const FVector& CaptureLocation
 	for (const FOverlapResult& Overlap : Overlaps)
 	{
 		ASunriseUnit* Unit = Cast<ASunriseUnit>(Overlap.GetActor());
-		if (Unit && Unit->IsAlive() && Unit->GetTeamId() >= 0)
+		if (Unit && Unit->IsAlive() && OverloadTeamIds::IsPlayable(Unit->GetTeamId()))
 		{
 			UniqueUnits.Add(Unit);
 		}

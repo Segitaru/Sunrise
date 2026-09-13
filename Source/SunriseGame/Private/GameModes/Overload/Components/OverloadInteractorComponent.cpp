@@ -52,6 +52,11 @@ void UOverloadInteractorComponent::TickComponent(float DeltaTime, ELevelTick Tic
 	{
 		return;
 	}
+	if (!Unit->IsAlive())
+	{
+		CancelHack();
+		return;
+	}
 	if (Unit->HasActivePlayerOrder())
 	{
 		CancelHack();
@@ -124,7 +129,7 @@ bool UOverloadInteractorComponent::RequestHack(AActor* Target, bool bFromPlayer)
 	{
 		return false;
 	}
-	if (!Unit || !Unit->HasAuthority() || !IsValid(Target) || !Target->Implements<UOverloadHackable>() ||
+	if (!Unit || !Unit->IsAlive() || !Unit->HasAuthority() || !IsValid(Target) || !Target->Implements<UOverloadHackable>() ||
 		!IOverloadHackable::Execute_CanBeHackedByTeam(Target, Unit->GetTeamId()))
 	{
 		return false;
@@ -171,7 +176,7 @@ void UOverloadInteractorComponent::CancelHack()
 
 void UOverloadInteractorComponent::CommitHack()
 {
-	if (!Unit || !HackTarget.IsValid())
+	if (!Unit || !Unit->IsAlive() || !HackTarget.IsValid())
 	{
 		return;
 	}
@@ -195,7 +200,7 @@ void UOverloadInteractorComponent::StartApproachQuery()
 void UOverloadInteractorComponent::HandleApproachQueryFinished(TSharedPtr<FEnvQueryResult> Result)
 {
 	bApproachQueryPending = false;
-	if (!Unit || !HackTarget.IsValid())
+	if (!Unit || !Unit->IsAlive() || !HackTarget.IsValid())
 	{
 		return;
 	}
@@ -242,7 +247,7 @@ bool UOverloadInteractorComponent::ShouldAbortHackForThreat() const
 
 void UOverloadInteractorComponent::IssueApproachMove()
 {
-	if (bApproachMoveIssued || !Unit)
+	if (bApproachMoveIssued || !Unit || !Unit->IsAlive())
 	{
 		return;
 	}
