@@ -2,6 +2,8 @@
 
 #include "Pawn/Components/ModularPawnExtensionComponent.h"
 
+#include <GameFramework/PlayerState.h>
+
 #include "AbilitySystem/ModularAbilitySystemComponent.h"
 #include "Components/GameFrameworkComponentDelegates.h"
 #include "Components/GameFrameworkComponentManager.h"
@@ -304,18 +306,22 @@ void UModularPawnExtensionComponent::UninitializeAbilitySystem()
 
 void UModularPawnExtensionComponent::HandleControllerChanged()
 {
-	if (AbilitySystemComponent && (AbilitySystemComponent->GetAvatarActor() == GetPawnChecked<APawn>()) &&
-		AbilitySystemComponent->AbilityActorInfo)
+	APawn* const Pawn = GetPawnChecked<APawn>();
+	if (AbilitySystemComponent)
 	{
-		ensure(AbilitySystemComponent->AbilityActorInfo->OwnerActor == AbilitySystemComponent->GetOwnerActor());
-		if (AbilitySystemComponent->GetOwnerActor() == nullptr)
+		if (const AController* Controller = Pawn->GetController())
 		{
-			UninitializeAbilitySystem();
+			if (IsValid(Controller->PlayerState))
+			{
+				AbilitySystemComponent->SetOwnerActor(Controller->PlayerState);
+			}
+			else
+			{
+				AbilitySystemComponent->SetOwnerActor(Pawn);
+			}
 		}
-		else
-		{
-			AbilitySystemComponent->RefreshAbilityActorInfo();
-		}
+
+		AbilitySystemComponent->RefreshAbilityActorInfo();
 	}
 
 	CheckDefaultInitialization();

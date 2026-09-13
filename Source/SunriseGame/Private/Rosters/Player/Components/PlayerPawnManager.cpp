@@ -84,7 +84,10 @@ void UPlayerPawnManager::TryTakePawn(UModularPawnData* TakingPawn)
 	{
 		return;
 	}
-
+	if (!TakingPawn)
+	{
+		return;
+	}
 	TryTakePawn_OnServer(TakingPawn->PawnDeclaration);
 }
 

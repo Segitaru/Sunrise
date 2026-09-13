@@ -143,7 +143,7 @@ protected:
 	float MinZoomLevel = 1000.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Camera", meta = (ClampMin = "1"))
-	float MaxZoomLevel = 3500.0f;
+	float MaxZoomLevel = 7000.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Camera", meta = (ClampMin = "0"))
 	float ZoomScaling = 120.0f;
@@ -152,7 +152,7 @@ protected:
 	float DragMultiplier = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Camera", meta = (ClampMin = "1"))
-	float DefaultZoom = 1500.0f;
+	float DefaultZoom = 3500.0f;
 
 private:
 	void ReleaseRTSInput();

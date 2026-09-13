@@ -215,6 +215,7 @@ FVector USunriseSelectionAbility::GetMidPointFromSelectedUnits()
 	}
 	return ControlledUnits.IsEmpty() ? Result : Result / ControlledUnits.Num();
 }
+
 bool USunriseSelectionAbility::DoSelectCommand(const FVector& SelectLocation, bool bAdditiveSelection)
 {
 	if (!CanInteract() || SelectLocation.ContainsNaN())
