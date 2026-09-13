@@ -190,15 +190,24 @@ void USunriseMainMenuWidget::OnExperienceLoaded(const UExperienceDefinition* Cur
 
 void USunriseMainMenuWidget::OnRosterReady()
 {
-	RefreshPawnList();
 	if (APlayerController* Controller = GetOwningPlayer())
 	{
 		if (UPlayerPawnManager* Manager =
 				Controller->PlayerState ? Controller->PlayerState->FindComponentByClass<UPlayerPawnManager>() : nullptr)
 		{
 			Manager->OnPawnDefinitionUpdated.AddUniqueDynamic(this, &USunriseMainMenuWidget::OnPawnDefinitionUpdated);
+
+			if (USunriseGameInstance* CurrentGameInstance = Cast<USunriseGameInstance>(Controller->GetGameInstance());
+				IsValid(CurrentGameInstance))
+			{
+				Manager->TryTakePawn(CurrentGameInstance->GetSelectedPawnDefinitionId());
+			}
 		}
 	}
+
+
+
+	RefreshPawnList();
 }
 
 
@@ -249,6 +258,12 @@ FReply USunriseMainMenuWidget::SelectPawn(int32 PawnIndex)
 			{
 				Manager->TryTakePawn(AvailablePawns[PawnIndex]);
 				RefreshPawnList();
+
+				if (USunriseGameInstance* CurrentGameInstance = Cast<USunriseGameInstance>(Controller->GetGameInstance());
+					IsValid(CurrentGameInstance))
+				{
+					CurrentGameInstance->SetSelectedPawnDefinitionId(AvailablePawns[PawnIndex]);
+				}
 			}
 		}
 	}

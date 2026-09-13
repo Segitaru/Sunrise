@@ -9,6 +9,8 @@
 
 #include "SunriseGameInstance.generated.h"
 
+
+class UModularPawnData;
 UCLASS()
 class SUNRISEGAME_API USunriseProgressSaveGame : public USaveGame
 {
@@ -50,8 +52,8 @@ public:
 	FText BuildHistoryText(int32 MaxEntries = 5) const;
 	static FText GetDifficultyDisplayName(ESunriseDifficulty Difficulty);
 
-	FPrimaryAssetId GetSelectedPawnDefinitionId() const { return SelectedPawnDefinitionId; }
-	void SetSelectedPawnDefinitionId(const FPrimaryAssetId& NewPawnDefinitionId);
+	UModularPawnData* GetSelectedPawnDefinitionId() const { return SelectedPawnDefinition; }
+	void SetSelectedPawnDefinitionId(UModularPawnData* NewPawnDefinition);
 
 private:
 	void SaveProgress();
@@ -63,7 +65,7 @@ private:
 	TArray<FSunriseMatchRecord> MatchHistory;
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Sunrise|Rosters")
-	FPrimaryAssetId SelectedPawnDefinitionId;
+	TObjectPtr<UModularPawnData> SelectedPawnDefinition;
 
 	static const FString SaveSlotName;
 	static constexpr int32 SaveUserIndex = 0;

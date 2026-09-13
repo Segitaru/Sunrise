@@ -65,7 +65,7 @@ void UPlayerPawnManager::SetSelectedPawnDefinition(const UModularPawnData* NewPa
 
 	if (const auto MatchSubsystem = GetWorld()->GetGameInstance()->GetSubsystem<UGamePawnRosterSubsystem>())
 	{
-		if (AModularPlayerState* CurrentPS = Cast<AModularPlayerState>(GetPawn<APawn>()->GetPlayerState()))
+		if (AModularPlayerState* CurrentPS = Cast<AModularPlayerState>(GetOwner()))
 		{
 			const FPlayerWithPayload NewPayload(CurrentPS->GetUniqueId(), CurrentPS->GetAccountId(), SelectedPawnDefinition->GetClass());
 			MatchSubsystem->PlayersWithPayload.AddUnique(NewPayload);
