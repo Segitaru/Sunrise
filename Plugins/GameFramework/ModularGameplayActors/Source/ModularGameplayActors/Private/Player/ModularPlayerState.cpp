@@ -8,6 +8,7 @@
 #include "Components/GameFrameworkComponentManager.h"
 #include "Components/ModularPawnExtensionComponent.h"
 #include "Components/PlayerStateComponent.h"
+#include "GameFeatures/Components/ExperienceManagerComponent.h"
 #include "ModularAbilitySet.h"
 #include "ModularLogChannels.h"
 #include "ModularPawnData.h"
@@ -27,6 +28,9 @@ AModularPlayerState::AModularPlayerState(const FObjectInitializer& ObjectInitial
 	{
 		AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
 	}
+
+	MyTeamID = FGenericTeamId::NoTeam;
+	MySquadID = INDEX_NONE;
 }
 
 UAbilitySystemComponent* AModularPlayerState::GetAbilitySystemComponent() const
@@ -99,6 +103,10 @@ void AModularPlayerState::CallOrRegister_OnPawnDataReady(FOnPawnDataReady::FDele
 	}
 }
 
+void AModularPlayerState::OnExperienceLoaded(const UExperienceDefinition* CurrentExperience)
+{
+}
+
 void AModularPlayerState::OnRep_PawnData()
 {
 }
@@ -109,6 +117,17 @@ void AModularPlayerState::PostInitializeComponents()
 
 	check(AbilitySystemComponent);
 	AbilitySystemComponent->InitAbilityActorInfo(this, GetPawn());
+
+	UWorld* World = GetWorld();
+	if (World && World->IsGameWorld() && World->GetNetMode() != NM_Client)
+	{
+		AGameStateBase* GameState = World->GetGameState();
+		check(GameState);
+		UExperienceManagerComponent* ExperienceComponent = GameState->FindComponentByClass<UExperienceManagerComponent>();
+		check(ExperienceComponent);
+		ExperienceComponent->CallOrRegister_OnExperienceLoaded(
+			FOnExperienceLoaded::FDelegate::CreateUObject(this, &ThisClass::OnExperienceLoaded));
+	}
 }
 
 void AModularPlayerState::PreInitializeComponents()
@@ -169,6 +188,52 @@ void AModularPlayerState::Reset()
 const FString& AModularPlayerState::GetAccountId() const
 {
 	return PlayerAccountId;
+}
+
+void AModularPlayerState::SetSquadID(int32 NewSquadId)
+{
+	if (HasAuthority())
+	{
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, MySquadID, this);
+
+		MySquadID = NewSquadId;
+	}
+}
+
+void AModularPlayerState::SetGenericTeamId(const FGenericTeamId& NewTeamID)
+{
+	if (HasAuthority())
+	{
+		const FGenericTeamId OldTeamID = MyTeamID;
+
+		MARK_PROPERTY_DIRTY_FROM_NAME(ThisClass, MyTeamID, this);
+		MyTeamID = NewTeamID;
+		ConditionalBroadcastTeamChanged(this, this, OldTeamID, NewTeamID);
+	}
+	else
+	{
+		UE_LOG(LogModularTeams, Error, TEXT("Cannot set team for %s on non-authority"), *GetPathName(this));
+	}
+}
+
+FGenericTeamId AModularPlayerState::GetGenericTeamId() const
+{
+	return MyTeamID;
+}
+
+FOnTeamIndexChangedDelegate* AModularPlayerState::GetOnTeamIndexChangedDelegate()
+{
+	return &OnTeamChangedDelegate;
+}
+
+void AModularPlayerState::OnRep_MyTeamID(FGenericTeamId OldTeamID)
+{
+	ConditionalBroadcastTeamChanged(this, this, OldTeamID, MyTeamID);
+}
+
+void AModularPlayerState::OnRep_MySquadID()
+{
+	//@TODO: Let the squad subsystem know (once that exists)
 }
 
 void AModularPlayerState::CopyProperties(APlayerState* PlayerState)

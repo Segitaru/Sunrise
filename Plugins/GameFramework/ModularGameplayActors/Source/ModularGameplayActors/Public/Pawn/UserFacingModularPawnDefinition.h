@@ -10,8 +10,8 @@
 /**
  *
  */
-UCLASS(MinimalAPI, BlueprintType, Const, Meta = (DisplayName = "UI Data", ShortTooltip = "Data asset used to define cosmetic info about a Pawn."),
-	CollapseCategories)
+UCLASS(MinimalAPI, BlueprintType, Const,
+	Meta = (DisplayName = "UI Data", ShortTooltip = "Data asset used to define cosmetic info about a Pawn."), CollapseCategories)
 class UUserFacingModularPawnDefinition : public UDataAsset
 {
 	GENERATED_BODY()
@@ -21,7 +21,7 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	FText PawnDisplayedName = FText::FromString("None");
-	
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TSoftObjectPtr<UTexture2D> PawnMiniIcon;
 

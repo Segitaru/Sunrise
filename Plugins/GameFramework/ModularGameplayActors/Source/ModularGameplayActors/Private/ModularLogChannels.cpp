@@ -5,3 +5,4 @@
 DEFINE_LOG_CATEGORY(LogModularGameplayActors);
 DEFINE_LOG_CATEGORY(LogModularAbilitySystem);
 DEFINE_LOG_CATEGORY(LogExperienceFramework);
+DEFINE_LOG_CATEGORY(LogModularTeams);

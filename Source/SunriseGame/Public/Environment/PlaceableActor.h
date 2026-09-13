@@ -6,7 +6,7 @@
 #include "ControllableEntities/IControllableEntity.h"
 #include "GameFramework/Actor.h"
 #include "GameplayTagAssetInterface.h"
-#include "System/SunriseTeamAgentInterface.h"
+#include "Teams/System/ModularTeamAgentInterface.h"
 #include "Vitality/VitalityComponent.h"
 
 #include "PlaceableActor.generated.h"
@@ -20,7 +20,7 @@ class USunriseHealthSet;
 UCLASS(Blueprintable)
 class SUNRISEGAME_API APlaceableActor : public AActor,
 										public IIControllableEntity,
-										public ISunriseTeamAgentInterface,
+										public IModularTeamAgentInterface,
 										public IAbilitySystemInterface,
 										public IGameplayTagAssetInterface
 {

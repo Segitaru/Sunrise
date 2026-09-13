@@ -7,7 +7,8 @@
 #include "ModularPawnData.h"
 #include "Rosters/Components/GamePawnRosterComponent.h"
 #include "Rosters/Player/Components/PlayerPawnManager.h"
-#include "System/SunriseTeamSubsystem.h"
+#include "Teams/System/ModularTeamSubsystem.h"
+
 
 DEFINE_LOG_CATEGORY_STATIC(LogPickModeRule, All, All)
 
@@ -44,7 +45,7 @@ bool UPickModeRule::GetTeamIdFromTarget(const UObject* TargetObject, int32& Curr
 		ensureMsgf(false, TEXT("%s: Critical Error: World does not exist"), *GetPathNameSafe(this));
 	}
 
-	const USunriseTeamSubsystem* const TeamSubsystem = GetWorld()->GetSubsystem<USunriseTeamSubsystem>();
+	const UModularTeamSubsystem* const TeamSubsystem = GetWorld()->GetSubsystem<UModularTeamSubsystem>();
 
 	if (!IsValid(TeamSubsystem))
 	{
@@ -58,8 +59,8 @@ bool UPickModeRule::GetTeamIdFromTarget(const UObject* TargetObject, int32& Curr
 	return bIsPartOfTeam;
 }
 
-bool UPickModeRule::TryTakePawnFromPool(const UObject* Instigator, const TObjectPtr<UModularPawnData> TakingPawn,
-	int32& PoolId, TObjectPtr<UModularPawnData>& ReleasedPawn)
+bool UPickModeRule::TryTakePawnFromPool(
+	const UObject* Instigator, const TObjectPtr<UModularPawnData> TakingPawn, int32& PoolId, TObjectPtr<UModularPawnData>& ReleasedPawn)
 {
 	if (!GetTeamIdFromTarget(Instigator, PoolId))
 	{
@@ -103,8 +104,8 @@ bool UPickModeRule::TryTakePawnFromPool(const UObject* Instigator, const TObject
 	return true;
 }
 
-bool UPickModeRule::TryTakeRandomPawnFromPool(const UObject* Instigator, int32& PoolId,
-	TObjectPtr<UModularPawnData>& TakingPawn, TObjectPtr<UModularPawnData>& ReleasedPawn)
+bool UPickModeRule::TryTakeRandomPawnFromPool(
+	const UObject* Instigator, int32& PoolId, TObjectPtr<UModularPawnData>& TakingPawn, TObjectPtr<UModularPawnData>& ReleasedPawn)
 {
 	if (!GetTeamIdFromTarget(Instigator, PoolId))
 	{
@@ -161,9 +162,8 @@ bool UPickModeRule::TryTakeRandomPawnFromPool(const UObject* Instigator, int32& 
 	}
 	return true;
 }
-bool UPickModeRule::TryTakePawnFromPoolByClass(const UObject* Instigator, int32& PoolId,
-	TSubclassOf<UObject> ClassToSearch, TObjectPtr<UModularPawnData>& TakingPawn,
-	TObjectPtr<UModularPawnData>& ReleasedPawn)
+bool UPickModeRule::TryTakePawnFromPoolByClass(const UObject* Instigator, int32& PoolId, TSubclassOf<UObject> ClassToSearch,
+	TObjectPtr<UModularPawnData>& TakingPawn, TObjectPtr<UModularPawnData>& ReleasedPawn)
 {
 
 	if (!GetTeamIdFromTarget(Instigator, PoolId))
@@ -222,13 +222,13 @@ bool UPickModeRule::TryTakePawnFromPoolByClass(const UObject* Instigator, int32&
 	return true;
 }
 
-bool UPickModeRule::OnPawnConfirmed(const UObject* Instigator, const TObjectPtr<UModularPawnData> ConfirmedPawn,
-	int32& PoolId, TArray<TObjectPtr<UModularPawnData>>& BlockedPawn)
+bool UPickModeRule::OnPawnConfirmed(const UObject* Instigator, const TObjectPtr<UModularPawnData> ConfirmedPawn, int32& PoolId,
+	TArray<TObjectPtr<UModularPawnData>>& BlockedPawn)
 {
 	return true;
 }
-bool UPickModeRule::OnPawnReleased(const UObject* Instigator, const TObjectPtr<UModularPawnData> ConfirmedPawn,
-	int32& PoolId, TArray<TObjectPtr<UModularPawnData>>& BlockedPawn)
+bool UPickModeRule::OnPawnReleased(const UObject* Instigator, const TObjectPtr<UModularPawnData> ConfirmedPawn, int32& PoolId,
+	TArray<TObjectPtr<UModularPawnData>>& BlockedPawn)
 {
 	return true;
 }

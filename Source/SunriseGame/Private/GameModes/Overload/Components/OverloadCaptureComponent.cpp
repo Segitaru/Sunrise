@@ -2,13 +2,13 @@
 
 #include "GameModes/Overload/Components/OverloadCaptureComponent.h"
 
-#include "Components/SunriseTeamActorComponent.h"
 #include "Engine/OverlapResult.h"
 #include "Engine/World.h"
 #include "GameModes/Overload/AbilitySystem/OverloadAttributeSet.h"
 #include "GameModes/Overload/Actors/Base/OverloadObjectiveBase.h"
 #include "GameModes/Overload/Interfaces/OverloadHackable.h"
 #include "Net/UnrealNetwork.h"
+#include "Teams/Components/ModularTeamActorComponent.h"
 #include "Units/SunriseUnit.h"
 
 UOverloadCaptureComponent::UOverloadCaptureComponent()
@@ -21,7 +21,7 @@ UOverloadCaptureComponent::UOverloadCaptureComponent()
 void UOverloadCaptureComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	TeamComponent = GetOwner()->FindComponentByClass<USunriseTeamActorComponent>();
+	TeamComponent = GetOwner()->FindComponentByClass<UModularTeamActorComponent>();
 }
 
 void UOverloadCaptureComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)

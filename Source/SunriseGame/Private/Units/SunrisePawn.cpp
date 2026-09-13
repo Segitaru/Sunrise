@@ -4,7 +4,6 @@
 #include "AbilitySystem/ModularAbilitySystemComponent.h"
 #include "Camera/ModularCameraComponent.h"
 #include "Components/ModularHeroComponent.h"
-#include "Components/SunriseTeamActorComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
 #include "Engine/LocalPlayer.h"
 #include "EnhancedInputComponent.h"
@@ -14,6 +13,7 @@
 #include "Pawn/Components/ModularPawnExtensionComponent.h"
 #include "Player/Camera/SunriseTopDownCameraMode.h"
 #include "Player/SunrisePlayerController.h"
+#include "Teams/Components/ModularTeamActorComponent.h"
 #include "Units/SunriseUnit.h"
 #include "Widgets/Input/SVirtualJoystick.h"
 
@@ -21,7 +21,7 @@ ASunrisePawn::ASunrisePawn(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
-	TeamComponent = CreateDefaultSubobject<USunriseTeamActorComponent>(TEXT("Team"));
+	TeamComponent = CreateDefaultSubobject<UModularTeamActorComponent>(TEXT("Team"));
 	TeamComponent->OnTeamChanged.AddDynamic(this, &ThisClass::HandleTeamChanged);
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	ModularAbilitySystemComponent = CreateDefaultSubobject<UModularAbilitySystemComponent>(TEXT("AbilitySystemComponent"));

@@ -2,14 +2,11 @@
 #pragma once
 
 #include "AbilitySystemInterface.h"
-#include "ControllableEntities/IControllableEntity.h"
-#include "GameplayAbilitySpecHandle.h"
 #include "ModularPawn.h"
 #include "SunriseUnitTypes.h"
-#include "System/SunriseTeamAgentInterface.h"
+#include "Teams/System/ModularTeamAgentInterface.h"
 
 #include "SunrisePawn.generated.h"
-
 
 class UModularAbilitySystemComponent;
 class ASunriseUnit;
@@ -18,16 +15,14 @@ class UModularPawnExtensionComponent;
 class UModularCameraComponent;
 class UFloatingPawnMovement;
 class UEnhancedInputComponent;
-
-
 class UInputAction;
-class USunriseTeamActorComponent;
+class UModularTeamActorComponent;
 
 struct FInputActionValue;
 
 /** Local RTS camera/input avatar; the PlayerState owns its modular ASC. */
 UCLASS(Blueprintable)
-class SUNRISEGAME_API ASunrisePawn : public AModularPawn, public IAbilitySystemInterface, public ISunriseTeamAgentInterface
+class SUNRISEGAME_API ASunrisePawn : public AModularPawn, public IAbilitySystemInterface, public IModularTeamAgentInterface
 {
 	GENERATED_BODY()
 public:
@@ -93,7 +88,7 @@ public:
 	void HandleTeamChanged(UObject* TeamAgent, int32 PreviousTeamId, int32 NewTeamId);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|Team")
-	TObjectPtr<USunriseTeamActorComponent> TeamComponent;
+	TObjectPtr<UModularTeamActorComponent> TeamComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UModularHeroComponent> HeroComponent;

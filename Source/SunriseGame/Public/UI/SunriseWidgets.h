@@ -10,6 +10,9 @@
 
 class SWidget;
 class STextBlock;
+class SScrollBox;
+class UModularPawnData;
+class UExperienceDefinition;
 class USunriseSettingsWidget;
 class UUserFacingExperienceDefinition;
 
@@ -25,6 +28,13 @@ protected:
 
 private:
 	TSharedRef<SWidget> BuildExperienceList();
+	TSharedRef<SWidget> BuildPawnList();
+	void RefreshPawnList();
+	void OnExperienceLoaded(const UExperienceDefinition* CurrentExperience);
+	void OnRosterReady();
+	UFUNCTION()
+	void OnPawnDefinitionUpdated(const UModularPawnData* NewDefinition);
+	FReply SelectPawn(int32 PawnIndex);
 	FReply StartGame(int32 ExperienceIndex);
 	FReply OpenSettings();
 	FReply QuitGame();
@@ -36,9 +46,13 @@ private:
 
 	TSharedPtr<STextBlock> DifficultyLabel;
 	TSharedPtr<STextBlock> ExperienceStatusLabel;
+	TSharedPtr<SScrollBox> PawnList;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UUserFacingExperienceDefinition>> AvailableExperiences;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UModularPawnData>> AvailablePawns;
 
 	UPROPERTY(Transient)
 	TObjectPtr<USunriseSettingsWidget> SettingsWidget;

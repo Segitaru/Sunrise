@@ -7,10 +7,16 @@
 #include "Components/Widget.h"
 #include "Engine/AssetManager.h"
 #include "Engine/World.h"
+#include "GameFeatures/Components/ExperienceManagerComponent.h"
 #include "GameFeatures/UserFacingExperienceDefinition.h"
+#include "GameFramework/GameStateBase.h"
 #include "GameSettingsLocal.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Pawn/ModularPawnData.h"
+#include "Pawn/UserFacingModularPawnDefinition.h"
+#include "Rosters/Components/GamePawnRosterComponent.h"
+#include "Rosters/Player/Components/PlayerPawnManager.h"
 #include "Styling/CoreStyle.h"
 #include "System/SunriseGameInstance.h"
 #include "UI/SunriseSettingsWidget.h"
@@ -74,6 +80,7 @@ TSharedRef<SWidget> USunriseMainMenuWidget::RebuildWidget()
 						  SHorizontalBox::Slot().AutoWidth().Padding(4.0f)[SunriseWidgets::MakeButton(
 							  FText::FromString(TEXT("HARD")), FOnClicked::CreateUObject(this, &USunriseMainMenuWidget::SelectHard))]] +
 				SVerticalBox::Slot().AutoHeight().Padding(8.0f)[BuildExperienceList()] +
+				SVerticalBox::Slot().AutoHeight().Padding(8.0f)[BuildPawnList()] +
 				SVerticalBox::Slot().AutoHeight().Padding(8.0f)[SAssignNew(ExperienceStatusLabel, STextBlock)
 																	.Text(FText::GetEmpty())
 																	.ColorAndOpacity(FLinearColor(1.0f, 0.5f, 0.3f))
@@ -156,6 +163,96 @@ TSharedRef<SWidget> USunriseMainMenuWidget::BuildExperienceList()
 						0.0f, 12.0f, 0.0f, 0.0f)[SNew(STextBlock).Text(NSLOCTEXT("SunriseMainMenu", "PlayExperience", "PLAY"))]]]];
 	}
 	return SNew(SBox).WidthOverride(880.0f).HeightOverride(260.0f)[ExperienceList];
+}
+
+TSharedRef<SWidget> USunriseMainMenuWidget::BuildPawnList()
+{
+	SAssignNew(PawnList, SScrollBox).Orientation(Orient_Horizontal);
+	if (const AGameStateBase* GameState = GetWorld() ? GetWorld()->GetGameState() : nullptr)
+	{
+		if (UExperienceManagerComponent* Experience = GameState->FindComponentByClass<UExperienceManagerComponent>())
+		{
+			Experience->CallOrRegister_OnExperienceLoaded(
+				FOnExperienceLoaded::FDelegate::CreateUObject(this, &USunriseMainMenuWidget::OnExperienceLoaded));
+		}
+	}
+	return SNew(SBox).WidthOverride(880.0f).HeightOverride(180.0f)[PawnList.ToSharedRef()];
+}
+
+void USunriseMainMenuWidget::OnExperienceLoaded(const UExperienceDefinition* CurrentExperience)
+{
+	const AGameStateBase* GameState = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	if (UGamePawnRosterComponent* Roster = GameState ? GameState->FindComponentByClass<UGamePawnRosterComponent>() : nullptr)
+	{
+		Roster->CallOrRegister_OnRosterReady(FOnRosterReady::FDelegate::CreateUObject(this, &USunriseMainMenuWidget::OnRosterReady));
+	}
+}
+
+void USunriseMainMenuWidget::OnRosterReady()
+{
+	RefreshPawnList();
+	if (APlayerController* Controller = GetOwningPlayer())
+	{
+		if (UPlayerPawnManager* Manager =
+				Controller->PlayerState ? Controller->PlayerState->FindComponentByClass<UPlayerPawnManager>() : nullptr)
+		{
+			Manager->OnPawnDefinitionUpdated.AddUniqueDynamic(this, &USunriseMainMenuWidget::OnPawnDefinitionUpdated);
+		}
+	}
+}
+
+
+void USunriseMainMenuWidget::OnPawnDefinitionUpdated(const UModularPawnData* NewDefinition)
+{
+	RefreshPawnList();
+}
+
+void USunriseMainMenuWidget::RefreshPawnList()
+{
+	PawnList->ClearChildren();
+	AvailablePawns.Reset();
+	const AGameStateBase* GameState = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	const UGamePawnRosterComponent* Roster = GameState ? GameState->FindComponentByClass<UGamePawnRosterComponent>() : nullptr;
+	if (!Roster)
+	{
+		return;
+	}
+	AvailablePawns = Roster->CurrentRoster;
+	const APlayerController* Controller = GetOwningPlayer();
+	const UPlayerPawnManager* PawnManager =
+		Controller && Controller->PlayerState ? Controller->PlayerState->FindComponentByClass<UPlayerPawnManager>() : nullptr;
+	const UModularPawnData* SelectedPawn = PawnManager ? PawnManager->GetSelectedPawnDefinition() : nullptr;
+	for (int32 Index = 0; Index < AvailablePawns.Num(); ++Index)
+	{
+		const UModularPawnData* Pawn = AvailablePawns[Index];
+		const UUserFacingModularPawnDefinition* UI = Pawn ? Pawn->PawnUIDefinition.LoadSynchronous() : nullptr;
+		const FText Name = UI ? UI->PawnDisplayedName : FText::FromName(Pawn->GetPrimaryAssetId().PrimaryAssetName);
+		const FText Info = UI ? UI->Info : FText::GetEmpty();
+		const FLinearColor ButtonColor = Pawn == SelectedPawn ? FLinearColor(0.15f, 0.65f, 1.0f, 1.0f) : FLinearColor::White;
+		PawnList->AddSlot().Padding(6.0f)[SNew(SBox).WidthOverride(
+			260.0f)[SNew(SButton)
+						.ButtonColorAndOpacity(ButtonColor)
+						.OnClicked(FOnClicked::CreateUObject(this, &USunriseMainMenuWidget::SelectPawn,
+							Index))[SNew(SVerticalBox) + SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Name).AutoWrapText(true)] +
+									SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Info).AutoWrapText(true)]]]];
+	}
+}
+
+FReply USunriseMainMenuWidget::SelectPawn(int32 PawnIndex)
+{
+	if (AvailablePawns.IsValidIndex(PawnIndex) && AvailablePawns[PawnIndex])
+	{
+		if (APlayerController* Controller = GetOwningPlayer())
+		{
+			if (UPlayerPawnManager* Manager =
+					Controller->PlayerState ? Controller->PlayerState->FindComponentByClass<UPlayerPawnManager>() : nullptr)
+			{
+				Manager->TryTakePawn(AvailablePawns[PawnIndex]);
+				RefreshPawnList();
+			}
+		}
+	}
+	return FReply::Handled();
 }
 
 FReply USunriseMainMenuWidget::StartGame(int32 ExperienceIndex)

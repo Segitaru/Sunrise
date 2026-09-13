@@ -27,7 +27,8 @@
 #include "Rosters/Messages/GamePawnConfirmationMessage.h"
 #include "Rosters/Messages/GamePawnSelectionMessage.h"
 #include "Rosters/Systems/GamePawnRosterSubsystem.h"
-#include "System/SunriseTeamAgentInterface.h"
+#include "System/SunriseGameInstance.h"
+#include "Teams/System/ModularTeamAgentInterface.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(PlayerPawnManager)
 
@@ -72,7 +73,7 @@ void UPlayerPawnManager::SetSelectedPawnDefinition(const UModularPawnData* NewPa
 	}
 }
 
-void UPlayerPawnManager::TryTakePawn(const UModularPawnData* TakingPawn)
+void UPlayerPawnManager::TryTakePawn(UModularPawnData* TakingPawn)
 {
 	if (bCharacterConfirmed)
 	{
@@ -84,7 +85,7 @@ void UPlayerPawnManager::TryTakePawn(const UModularPawnData* TakingPawn)
 		return;
 	}
 
-	TryTakePawn_OnServer(TakingPawn);
+	TryTakePawn_OnServer(TakingPawn->PawnDeclaration);
 }
 
 void UPlayerPawnManager::ConfirmSelectedPawn()
@@ -132,18 +133,11 @@ void UPlayerPawnManager::SwapRandom()
 	TryTakeRandomPawn_OnServer();
 }
 
-void UPlayerPawnManager::TryTakePawn_OnServer_Implementation(const UModularPawnData* TakingPawn)
+void UPlayerPawnManager::TryTakePawn_OnServer_Implementation(const FGameplayTag& InPawnDeclaration)
 {
-	if (!TakingPawn)
-	{
-		return;
-	}
-
-	const TObjectPtr<UModularPawnData> CopyObject = const_cast<UModularPawnData*>(TakingPawn);
-
 	if (UGamePawnSelectorComponent* PawnSelector = GetPawnSelector())
 	{
-		PawnSelector->TryTakePawnFromPool(GetOwner(), CopyObject);
+		PawnSelector->TryTakePawnFromPool(GetOwner(), InPawnDeclaration);
 	}
 }
 
@@ -452,7 +446,7 @@ void UPlayerPawnManager::OnRosterReady()
 		return;
 	}
 
-	ISunriseTeamAgentInterface* TeamAgent = Cast<ISunriseTeamAgentInterface>(GetOwner());
+	IModularTeamAgentInterface* TeamAgent = Cast<IModularTeamAgentInterface>(GetOwner());
 	if (TeamAgent->GetGenericTeamId() != FGenericTeamId::NoTeam)
 	{
 		TryTakeRandomPawn_OnServer();

@@ -6,7 +6,7 @@
 #include "GameFramework/Pawn.h"
 #include "ModularPawnData.h"
 #include "Net/UnrealNetwork.h"
-#include "System/SunriseTeamSubsystem.h"
+#include "Teams/System/ModularTeamSubsystem.h"
 #include "Units/SunriseUnit.h"
 
 UControllableEntitiesManager::UControllableEntitiesManager()
@@ -86,7 +86,7 @@ TArray<APawn*> UControllableEntitiesManager::SpawnControlledUnitsAtLocations(
 	{
 		return Result;
 	}
-	USunriseTeamSubsystem* TeamSubsystem = GetWorld()->GetSubsystem<USunriseTeamSubsystem>();
+	UModularTeamSubsystem* TeamSubsystem = GetWorld()->GetSubsystem<UModularTeamSubsystem>();
 	const int32 TeamId = TeamSubsystem ? TeamSubsystem->FindTeamFromObject(Controller) : INDEX_NONE;
 	TScriptInterface<IIControllableEntity> Agent;
 	Agent.SetObject(Controller);

@@ -25,10 +25,13 @@ class UModularPawnData;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPawnDefinitionUpdated, const UModularPawnData*, NewDefinition);
 
 UCLASS(BlueprintType, MinimalAPI)
-
 class UPlayerPawnManager : public UPlayerStateComponent, public IGameFrameworkInitStateInterface
 {
 	GENERATED_BODY()
+
+public:
+	UPROPERTY(BlueprintAssignable)
+	FOnPawnDefinitionUpdated OnPawnDefinitionUpdated;
 
 protected:
 	UPROPERTY(ReplicatedUsing = OnRep_SelectedPawnDefinition)
@@ -36,9 +39,6 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_bCharacterConfirmed)
 	bool bCharacterConfirmed = false;
-
-	UPROPERTY(BlueprintAssignable)
-	FOnPawnDefinitionUpdated OnPawnDefinitionUpdated;
 
 public:
 	UPlayerPawnManager(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
@@ -50,7 +50,7 @@ public:
 	void SetSelectedPawnDefinition(const UModularPawnData* NewPawnDefinition);
 
 	UFUNCTION(BlueprintCallable)
-	void TryTakePawn(const UModularPawnData* TakingPawn);
+	void TryTakePawn(UModularPawnData* TakingPawn);
 
 	UFUNCTION(BlueprintCallable)
 	void ConfirmSelectedPawn();
@@ -103,7 +103,7 @@ protected:
 	void ConfirmSelectedPawn_OnServer();
 
 	UFUNCTION(Server, Reliable)
-	void TryTakePawn_OnServer(const UModularPawnData* TakingPawn);
+	void TryTakePawn_OnServer(const FGameplayTag& InPawnDeclaration);
 
 	UFUNCTION(Server, Reliable)
 	void ResetSelectedPawnConfirmation_OnServer();

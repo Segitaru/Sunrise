@@ -14,7 +14,7 @@
 #include "NativeGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 #include "Rosters/Player/Components/PlayerPawnManager.h"
-#include "System/SunriseTeamSubsystem.h"
+#include "Teams/System/ModularTeamSubsystem.h"
 #include "UserFacingModularPawnDefinition.h"
 
 namespace Rosters::Gameplay::Tags
@@ -74,7 +74,7 @@ void UGamePawnRosterComponent::CreatePools(TArray<int32> TeamIDs)
 		RosterPoolsById.Add(TeamID, RosterPool);
 	}
 
-	const USunriseTeamSubsystem* const TeamSubsystem = GetWorld()->GetSubsystem<USunriseTeamSubsystem>();
+	const UModularTeamSubsystem* const TeamSubsystem = GetWorld()->GetSubsystem<UModularTeamSubsystem>();
 	if (!TeamSubsystem)
 	{
 		return;
@@ -295,20 +295,16 @@ void UGamePawnRosterComponent::LoadRoster()
 		for (auto PawnAsset : FindingPawnAssets)
 		{
 			FSoftObjectPath AssetPath = AssetManager.GetPrimaryAssetPath(PawnAsset);
+			auto* const LoadedObject = Cast<UModularPawnData>(AssetPath.TryLoad());
 
-			TSubclassOf<UModularPawnData> AssetClass = Cast<UClass>(AssetPath.TryLoad()->GetClass());
+			check(LoadedObject);
 
-			check(AssetClass);
-
-			auto LoaddedPawnAsset = const_cast<UModularPawnData*>(GetDefault<UModularPawnData>(AssetClass));
-
-			check(LoaddedPawnAsset != nullptr);
-
-			if (!LoaddedPawnAsset->ShowInGame())
+			if (!LoadedObject->ShowInGame())
 			{
 				continue;
 			}
-			PawnsToAppendInRoster.Add(LoaddedPawnAsset);
+			PawnsToAppendInRoster.Add(LoadedObject);
+			TaggedRoster.Add(LoadedObject->PawnDeclaration, LoadedObject);
 		}
 
 		UE_LOG(LogGamePawnRosterComponent, Display, TEXT("Loading Roster was ended"));

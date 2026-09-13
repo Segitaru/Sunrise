@@ -8,7 +8,7 @@
 #include "OverloadCaptureComponent.generated.h"
 
 class ASunriseUnit;
-class USunriseTeamActorComponent;
+class UModularTeamActorComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnOverloadCaptureProgress, int32, HackingTeamId, float, NormalizedProgress);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnOverloadCaptureCompleted, int32, PreviousTeamId, int32, NewTeamId);
@@ -68,6 +68,6 @@ private:
 	UPROPERTY(Replicated)
 	bool bCaptureContested = false;
 	UPROPERTY()
-	TObjectPtr<USunriseTeamActorComponent> TeamComponent;
+	TObjectPtr<UModularTeamActorComponent> TeamComponent;
 	TArray<TWeakObjectPtr<ASunriseUnit>> Hackers;
 };

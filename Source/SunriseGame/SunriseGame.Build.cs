@@ -22,8 +22,6 @@ public class SunriseGame : ModuleRules
 			"GameplayTags",
 			"CommonGame",
 			"AsyncMixin",
-			"SunriseTeamFrameworkCore",
-			
 		});
 		PrivateDependencyModuleNames.AddRange(new string[] {
 			"InputCore",
@@ -35,7 +33,6 @@ public class SunriseGame : ModuleRules
 			"UMG",
 			"Slate",
 			"SlateCore",
-			"SunriseTeamFrameworkCore",
 			"GameSettingsCore",
 			"EnhancedInput",
 			"CommonUser",

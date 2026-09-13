@@ -4,7 +4,7 @@
 #include "ControllableEntities/IControllableEntity.h"
 #include "CoreMinimal.h"
 #include "Player/ModularPlayerController.h"
-#include "System/SunriseTeamAgentInterface.h"
+#include "Teams/System/ModularTeamAgentInterface.h"
 
 #include "SunrisePlayerController.generated.h"
 
@@ -20,7 +20,7 @@ class USunriseTouchControls;
 UCLASS(Blueprintable)
 class SUNRISEGAME_API ASunrisePlayerController : public AModularPlayerController,
 												 public IIControllableEntity,
-												 public ISunriseTeamAgentInterface
+												 public IModularTeamAgentInterface
 {
 	GENERATED_BODY()
 public:
@@ -40,28 +40,29 @@ public:
 
 	virtual FOnControllingAgentChanged* GetOnControllingAgentChangedDelegate() override { return &OnControllingAgentChanged; }
 
+#pragma region IModularTeamAgentInterface
 	virtual void SetGenericTeamId(const FGenericTeamId& NewTeamId) override;
-
-	virtual FGenericTeamId GetGenericTeamId() const override { return IntegerToSunriseTeamId(ControlledTeamId); }
-
+	virtual FGenericTeamId GetGenericTeamId() const override { return IntegerToGenericTeamId(ControlledTeamId); }
 	virtual FOnTeamIndexChangedDelegate* GetOnTeamIndexChangedDelegate() override { return &OnTeamChanged; }
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Team")
 	int32 GetControlledTeamId() const { return ControlledTeamId; }
 
+	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Sunrise|Team")
+	int32 ControlledTeamId = 0;
+
+	UPROPERTY()
+	FOnTeamIndexChangedDelegate OnTeamChanged;
+#pragma endregion IModularTeamAgentInterface
+
 	void SetCommandsEnabled(bool bEnabled);
-
 	bool AreCommandsEnabled() const { return bCommandsEnabled; }
-
 	void RefreshTouchControls();
 
 protected:
 	void TogglePauseMenu();
 	UFUNCTION()
 	void OnRep_CommandsEnabled();
-
-	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Sunrise|Team")
-	int32 ControlledTeamId = 0;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|Control")
 	TObjectPtr<UControllableEntitiesManager> ControllableEntitiesManager;
@@ -82,6 +83,4 @@ protected:
 	bool bCommandsEnabled = true;
 	UPROPERTY()
 	FOnControllingAgentChanged OnControllingAgentChanged;
-	UPROPERTY()
-	FOnTeamIndexChangedDelegate OnTeamChanged;
 };

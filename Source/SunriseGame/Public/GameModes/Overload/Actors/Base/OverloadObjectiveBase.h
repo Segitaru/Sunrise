@@ -15,7 +15,7 @@ class UOverloadIntegritySet;
 class UOverloadDefenseSet;
 class UOverloadHackSet;
 class UOverloadEnergySet;
-class USunriseTeamActorComponent;
+class UModularTeamActorComponent;
 class USceneComponent;
 class UStaticMeshComponent;
 class UGameplayEffect;
@@ -72,7 +72,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Overload|Components")
 	TObjectPtr<UOverloadEnergySet> EnergyAttributes;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Overload|Components")
-	TObjectPtr<USunriseTeamActorComponent> TeamComponent;
+	TObjectPtr<UModularTeamActorComponent> TeamComponent;
 	UPROPERTY(Replicated, VisibleInstanceOnly, BlueprintReadOnly, Category = "Overload|Team")
 	int32 OriginalTeamId = INDEX_NONE;
 

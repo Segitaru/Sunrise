@@ -2,8 +2,11 @@
 
 #pragma once
 
-#include "Engine/DataAsset.h"
+#include <GameplayTagContainer.h>
+
 #include "Cosmetics/System/PawnCosmeticPartTypes.h"
+#include "Engine/DataAsset.h"
+
 #include "ModularPawnData.generated.h"
 
 #define UE_API MODULARGAMEPLAYACTORS_API
@@ -61,17 +64,23 @@ public:
 	UModularPawnData(const FObjectInitializer& ObjectInitializer);
 
 	bool ShowInGame() const;
-	
+
 	virtual FPrimaryAssetId GetPrimaryAssetId() const override;
 
 #if WITH_EDITOR
 	virtual EDataValidationResult IsDataValid(FDataValidationContext& Context) const override;
 #endif
-	
+
 	// Class to instantiate for this pawn (should usually derive from AModularPawn or AModularCharacter).
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gameplay")
 	TSoftClassPtr<APawn> PawnClass;
-	
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gameplay")
+	FGameplayTag PawnDeclaration;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gameplay")
+	FGameplayTag PawnRole;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "System")
 	FPrimaryAssetType ItemType;
 
@@ -80,29 +89,29 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "System")
 	bool bShowInEditor = true;
-	
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Cosmetic")
 	TSoftObjectPtr<UUserFacingModularPawnDefinition> PawnUIDefinition;
-	
+
 	// Ability sets to grant to this pawn's ability system.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Abilities")
 	TArray<TSoftObjectPtr<UModularAbilitySet>> AbilitySets;
-	
+
 	// What mapping of ability tags to use for actions taking by this pawn
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Abilities")
 	TObjectPtr<UModularAbilityTagRelationshipMapping> TagRelationshipMapping;
-	
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gameplay")
 	TArray<FPawnComponentList> ComponentsSets;
-	
+
 	// Input configuration used by player controlled pawns to create input mappings and bind input actions.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Input")
 	TObjectPtr<UModularInputConfig> InputConfig;
-	
+
 	// Default camera mode used by player controlled pawns.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	TSoftClassPtr<UModularCameraMode> DefaultCameraMode;
-	
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Instanced, Category = "Gameplay")
 	TArray<TObjectPtr<UModularPawnDataFragment>> Fragments;
 

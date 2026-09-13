@@ -13,7 +13,7 @@ public class ModularGameplayActors : ModuleRules
 			new string[] {
 				Path.Combine(ModuleDirectory, "Public/AbilitySystem"),
 				Path.Combine(ModuleDirectory, "Public/AI"),
-				Path.Combine(ModuleDirectory, "Public/GameMode"),
+				Path.Combine(ModuleDirectory, "Public/GameModes"),
 				Path.Combine(ModuleDirectory, "Public/Pawn"),
 				Path.Combine(ModuleDirectory, "Public/Player"),
 				Path.Combine(ModuleDirectory, "Public/Input"),
@@ -63,7 +63,8 @@ public class ModularGameplayActors : ModuleRules
 				"PhysicsCore",
 				"DeveloperSettings",
 				"EngineSettings",
-				"GameSettingsCore",
+				"GameSettingsCore", 
+				"Niagara",
 			}
 		);
 		

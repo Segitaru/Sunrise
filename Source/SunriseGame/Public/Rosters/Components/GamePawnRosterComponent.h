@@ -55,6 +55,9 @@ public:
 	virtual TObjectPtr<UModularPawnData> GetRandomPawnFromPool(int32 PoolId);
 	virtual TObjectPtr<UModularPawnData> GetPawnFromPoolByClass(int32 PoolId, TSubclassOf<UObject> SearchClass);
 
+	UPROPERTY(BlueprintReadOnly)
+	TMap<FGameplayTag, TObjectPtr<UModularPawnData>> TaggedRoster;
+
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_CurrentRoster)
 	TArray<TObjectPtr<UModularPawnData>> CurrentRoster;
 

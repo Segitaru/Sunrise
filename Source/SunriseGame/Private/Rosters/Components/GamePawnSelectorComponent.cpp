@@ -11,7 +11,7 @@
 #include "Rosters/Messages/GamePoolChangesMessage.h"
 #include "Rosters/Player/PickRule/PickModeRule_AllPick.h"
 #include "Rosters/Player/PickRule/PickModeRule_FFA.h"
-#include "System/SunriseTeamSubsystem.h"
+#include "Teams/System/ModularTeamSubsystem.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(GamePawnSelectorComponent)
 
@@ -32,8 +32,7 @@ UGamePawnSelectorComponent::UGamePawnSelectorComponent(const FObjectInitializer&
 	RuleForPickMode.Add(FreeForAll, UPickModeRule_FFA::StaticClass());
 }
 
-void UGamePawnSelectorComponent::TryTakePawnFromPool(
-	const TObjectPtr<UObject> Instigator, const TObjectPtr<UModularPawnData> TakingPawn)
+void UGamePawnSelectorComponent::TryTakePawnFromPool(const TObjectPtr<UObject> Instigator, const FGameplayTag& InPawnDeclaration)
 {
 	if (!CurrentPickRule)
 	{
@@ -43,7 +42,9 @@ void UGamePawnSelectorComponent::TryTakePawnFromPool(
 	TObjectPtr<UModularPawnData> ReleasedPawn;
 	int32 PoolId = -1;
 
-	if (!CurrentPickRule->TryTakePawnFromPool(Instigator, TakingPawn, PoolId, ReleasedPawn))
+	UGamePawnRosterComponent* PawnManager = GetPawnManagerComponent();
+	auto const Pawn = *PawnManager->TaggedRoster.Find(InPawnDeclaration);
+	if (!CurrentPickRule->TryTakePawnFromPool(Instigator, Pawn, PoolId, ReleasedPawn))
 	{
 		return;
 	}
@@ -53,7 +54,7 @@ void UGamePawnSelectorComponent::TryTakePawnFromPool(
 		return;
 	}
 
-	SendPoolChange_Multicast(PoolId, true, TakingPawn);
+	SendPoolChange_Multicast(PoolId, true, Pawn);
 	if (ReleasedPawn)
 	{
 		SendPoolChange_Multicast(PoolId, false, ReleasedPawn);
@@ -87,8 +88,7 @@ void UGamePawnSelectorComponent::TryTakeRandomPawnFromPool(const UObject* Instig
 		SendPoolChange_Multicast(PoolId, false, ReleasedPawn);
 	}
 }
-void UGamePawnSelectorComponent::TryTakePawnFromPoolByClass(
-	const UObject* Instigator, TSubclassOf<UObject> ClassToSearch)
+void UGamePawnSelectorComponent::TryTakePawnFromPoolByClass(const UObject* Instigator, TSubclassOf<UObject> ClassToSearch)
 {
 	if (!CurrentPickRule)
 	{
@@ -116,17 +116,15 @@ void UGamePawnSelectorComponent::TryTakePawnFromPoolByClass(
 	}
 }
 
-void UGamePawnSelectorComponent::TryLockPawnInPool(
-	const TObjectPtr<UObject> Instigator, const TObjectPtr<UModularPawnData> LockingPawn)
+void UGamePawnSelectorComponent::TryLockPawnInPool(const TObjectPtr<UObject> Instigator, const TObjectPtr<UModularPawnData> LockingPawn)
 {
 }
 
-void UGamePawnSelectorComponent::ReleasePawnIntoPool(
-	const TObjectPtr<UObject> Instigator, const TObjectPtr<UModularPawnData> ReleasePawn)
+void UGamePawnSelectorComponent::ReleasePawnIntoPool(const TObjectPtr<UObject> Instigator, const TObjectPtr<UModularPawnData> ReleasePawn)
 {
 	UGamePawnRosterComponent* PawnManager = GetPawnManagerComponent();
 
-	USunriseTeamSubsystem* const TeamSubsystem = GetWorld()->GetSubsystem<USunriseTeamSubsystem>();
+	UModularTeamSubsystem* const TeamSubsystem = GetWorld()->GetSubsystem<UModularTeamSubsystem>();
 
 	if (!IsValid(TeamSubsystem))
 	{
@@ -148,8 +146,7 @@ void UGamePawnSelectorComponent::ReleasePawnIntoPool(
 	}
 }
 
-void UGamePawnSelectorComponent::OnPawnConfirmed(
-	const TObjectPtr<UObject> Instigator, const TObjectPtr<UModularPawnData> ConfirmedPawn)
+void UGamePawnSelectorComponent::OnPawnConfirmed(const TObjectPtr<UObject> Instigator, const TObjectPtr<UModularPawnData> ConfirmedPawn)
 {
 	if (!CurrentPickRule)
 	{
@@ -169,8 +166,7 @@ void UGamePawnSelectorComponent::OnPawnConfirmed(
 		SendPoolChange_Multicast(PoolId, true, Pawn);
 	}
 }
-void UGamePawnSelectorComponent::OnPawnReset(
-	const TObjectPtr<UObject> Instigator, const TObjectPtr<UModularPawnData> ReleasedPawn)
+void UGamePawnSelectorComponent::OnPawnReset(const TObjectPtr<UObject> Instigator, const TObjectPtr<UModularPawnData> ReleasedPawn)
 {
 	if (!CurrentPickRule)
 	{
@@ -229,7 +225,7 @@ void UGamePawnSelectorComponent::OnRosterLoaded()
 {
 	if (HasAuthority())
 	{
-		USunriseTeamSubsystem* const TeamSubsystem = GetWorld()->GetSubsystem<USunriseTeamSubsystem>();
+		UModularTeamSubsystem* const TeamSubsystem = GetWorld()->GetSubsystem<UModularTeamSubsystem>();
 
 		if (!IsValid(TeamSubsystem))
 		{
@@ -239,12 +235,11 @@ void UGamePawnSelectorComponent::OnRosterLoaded()
 		if (UGamePawnRosterComponent* PawnManager = GetPawnManagerComponent())
 		{
 			UE_LOG(LogGamePawnSelectorComponent, Display, TEXT("An event for creating pools has been dispatched"));
-			PawnManager->CreatePools(TeamSubsystem->GetTeamIds());
+			PawnManager->CreatePools(TeamSubsystem->GetTeamIDs());
 		}
 		else
 		{
-			ensureMsgf(
-				false, TEXT("%s: Critical Error: Game Pawn Roster Component does not exist!"), *GetPathNameSafe(this));
+			ensureMsgf(false, TEXT("%s: Critical Error: Game Pawn Roster Component does not exist!"), *GetPathNameSafe(this));
 		}
 	}
 }
@@ -270,8 +265,7 @@ UGamePawnRosterComponent* UGamePawnSelectorComponent::GetPawnManagerComponent() 
 		return nullptr;
 	}
 
-	UGamePawnRosterComponent* PawnManager =
-		GetGameState<AGameStateBase>()->FindComponentByClass<UGamePawnRosterComponent>();
+	UGamePawnRosterComponent* PawnManager = GetGameState<AGameStateBase>()->FindComponentByClass<UGamePawnRosterComponent>();
 
 	return PawnManager;
 }

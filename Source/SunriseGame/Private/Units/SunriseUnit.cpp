@@ -8,7 +8,6 @@
 #include "Components/DecalComponent.h"
 #include "Components/ModularPawnExtensionComponent.h"
 #include "Components/SphereComponent.h"
-#include "Components/SunriseTeamActorComponent.h"
 #include "ControllableEntities/ControllableComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
 #include "Engine/OverlapResult.h"
@@ -18,6 +17,7 @@
 #include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/SunrisePlayerController.h"
+#include "Teams/Components/ModularTeamActorComponent.h"
 #include "Units/AI/SunriseUnitAIController.h"
 #include "Units/Components/SunriseUnitManagerComponent.h"
 #include "Vitality/Attributes/SunriseCombatSet.h"
@@ -88,7 +88,7 @@ ASunriseUnit::ASunriseUnit(const FObjectInitializer& ObjectInitializer)
 	VitalityComponent->OnVitalityStateChanged.AddDynamic(this, &ThisClass::HandleVitalityStateChanged);
 
 	ControllableComponent = CreateDefaultSubobject<UControllableComponent>(TEXT("Controllable"));
-	TeamComponent = CreateDefaultSubobject<USunriseTeamActorComponent>(TEXT("Team"));
+	TeamComponent = CreateDefaultSubobject<UModularTeamActorComponent>(TEXT("Team"));
 	TeamComponent->OnTeamChanged.AddDynamic(this, &ThisClass::HandleTeamChanged);
 
 	InteractionRange = CreateDefaultSubobject<USphereComponent>(TEXT("InteractionRange"));

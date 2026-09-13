@@ -10,17 +10,14 @@
 void USunriseFrontendComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
-	if (!PlayerController || !PlayerController->IsLocalController())
-	{
-		return;
-	}
+
+	APlayerController* const Controller = GetController<APlayerController>();
 	UGameSettingsLocal::Get()->SetShouldUseFrontendPerformanceSettings(true);
-	MenuWidget = CreateWidget<USunriseMainMenuWidget>(PlayerController, USunriseMainMenuWidget::StaticClass());
+	MenuWidget = CreateWidget<USunriseMainMenuWidget>(Controller, USunriseMainMenuWidget::StaticClass());
 	if (MenuWidget)
 	{
 		MenuWidget->AddToViewport(100);
-		UWidgetBlueprintLibrary::SetInputMode_UIOnlyEx(PlayerController, MenuWidget, EMouseLockMode::DoNotLock);
-		PlayerController->bShowMouseCursor = true;
+		UWidgetBlueprintLibrary::SetInputMode_UIOnlyEx(Controller, MenuWidget, EMouseLockMode::DoNotLock);
+		Controller->bShowMouseCursor = true;
 	}
 }

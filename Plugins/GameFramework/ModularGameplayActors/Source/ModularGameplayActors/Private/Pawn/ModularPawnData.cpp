@@ -18,8 +18,7 @@ void FPawnComponentList::GiveComponentsToActor(AActor* OwnerActor, FGrantedPawnC
 	{
 		if (const auto LoadedComponent = Component.LoadSynchronous())
 		{
-			if (UActorComponent* NewComponent =
-					OwnerActor->AddComponentByClass(LoadedComponent, false, FTransform(), false))
+			if (UActorComponent* NewComponent = OwnerActor->AddComponentByClass(LoadedComponent, false, FTransform(), false))
 			{
 				IssuedComponents->AddComponent(NewComponent);
 			}
@@ -47,7 +46,14 @@ UModularPawnData::UModularPawnData(const FObjectInitializer& ObjectInitializer)
 
 bool UModularPawnData::ShowInGame() const
 {
-	return true;
+#if WITH_EDITOR
+	if (bShowInEditor)
+	{
+		return true;
+	}
+#endif
+
+	return bShowInFrontend;
 }
 
 FPrimaryAssetId UModularPawnData::GetPrimaryAssetId() const
