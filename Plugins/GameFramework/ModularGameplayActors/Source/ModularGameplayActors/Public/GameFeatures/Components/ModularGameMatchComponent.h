@@ -54,7 +54,6 @@ public:
 
 	virtual void InitializeComponent() override;
 
-
 	void SetTeamData(FGameMatchTeamData NewTeamData);
 
 protected:

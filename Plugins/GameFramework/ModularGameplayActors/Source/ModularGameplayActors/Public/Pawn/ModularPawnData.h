@@ -79,7 +79,7 @@ public:
 	FGameplayTag PawnDeclaration;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gameplay")
-	FGameplayTag PawnRole;
+	FGameplayTagContainer Specification;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "System")
 	FPrimaryAssetType ItemType;
