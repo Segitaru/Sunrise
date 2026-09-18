@@ -35,6 +35,7 @@ public class ModularGameplayActors : ModuleRules
 				"Engine",
 				"CommonLoadingScreen",
 				"GameplayTags",
+				"AIModule",
 			}
 		);
 

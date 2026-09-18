@@ -101,7 +101,6 @@ public:
 	void UnitSelected();
 	void UnitDeselected();
 	void Interact(ASunriseUnit* Interactor);
-	void MoveToLocation(const FVector& Location, bool bInteract = false, const TArray<ASunriseUnit*> IgnoreList = {});
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Orders")
 	FVector GetMovementGoal() const { return CurrentMovementGoal; }
@@ -326,7 +325,7 @@ protected:
 	TObjectPtr<AAIController> AIController;
 	TObjectPtr<UEnvQueryInstanceBlueprintWrapper> EnvQueryInstance;
 	FVector CurrentMovementGoal = FVector::ZeroVector;
-	TArray<TObjectPtr<ASunriseUnit>> InteractIgnoreList;
+
 	float DecisionTimeRemaining = 0.0f;
 	float ActionTimeRemaining = 0.0f;
 	bool bSelected = false;

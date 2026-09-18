@@ -1,14 +1,20 @@
 #include "Units/AI/SunriseUnitAIController.h"
 
+#include <Components/GameFrameworkComponentManager.h>
+#include <Perception/AIPerceptionComponent.h>
+
+#include "Components/ModularPawnExtensionComponent.h"
 #include "Components/StateTreeComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "ModularGameplayTags.h"
 #include "Navigation/CrowdFollowingComponent.h"
 #include "StateTree.h"
 
 ASunriseUnitAIController::ASunriseUnitAIController(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	PerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("PerceptionComponent"));
 	StateTreeComponent = CreateDefaultSubobject<UStateTreeComponent>(TEXT("StateTree"));
 	StateTreeComponent->SetStartLogicAutomatically(false);
 	BrainComponent = StateTreeComponent;
@@ -18,6 +24,30 @@ ASunriseUnitAIController::ASunriseUnitAIController(const FObjectInitializer& Obj
 void ASunriseUnitAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
+
+
+	if (UGameFrameworkComponentManager* Manager = UGameFrameworkComponentManager::GetForActor(InPawn))
+	{
+		// Bind as a weak lambda because this is not a UObject but is guaranteed to be valid as long as ThisObject is
+		FActorInitStateChangedDelegate Delegate = FActorInitStateChangedDelegate::CreateWeakLambda(this,
+			[this](const FActorInitStateChangedParams& Params)
+			{
+				if (UModularPawnExtensionComponent* PawnExtensionComponent =
+						UModularPawnExtensionComponent::FindPawnExtensionComponent(Params.OwningActor))
+				{
+					if (UBehaviorTree* const LoadedTree =
+							PawnExtensionComponent->GetPawnData<UModularPawnData>()->BehaviorTree.LoadSynchronous())
+					{
+						RunBehaviorTree(LoadedTree);
+					}
+				}
+			});
+
+		Manager->RegisterAndCallForActorInitState(InPawn, UModularPawnExtensionComponent::NAME_ActorFeatureName,
+			ModularGameplayTags::InitState_DataInitialized, MoveTemp(Delegate), true);
+	}
+
+
 	ConfigureCrowdFollowing();
 	if (DecisionStateTree && StateTreeComponent)
 	{
@@ -25,10 +55,10 @@ void ASunriseUnitAIController::OnPossess(APawn* InPawn)
 		{
 			StateTreeComponent->StopLogic(TEXT("Sunrise unit repossessed"));
 		}
-#if UE_VERSION_5_8_x		
+#if UE_VERSION_5_8_x
 		StateTreeComponent->SetStateTree(DecisionStateTree);
 #endif
-		
+
 		StateTreeComponent->StartLogic();
 	}
 

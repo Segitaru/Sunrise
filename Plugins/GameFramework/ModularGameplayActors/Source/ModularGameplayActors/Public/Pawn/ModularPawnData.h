@@ -4,6 +4,7 @@
 
 #include <GameplayTagContainer.h>
 
+#include "BehaviorTree/BehaviorTree.h"
 #include "Cosmetics/System/PawnCosmeticPartTypes.h"
 #include "Engine/DataAsset.h"
 
@@ -74,6 +75,9 @@ public:
 	// Class to instantiate for this pawn (should usually derive from AModularPawn or AModularCharacter).
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gameplay")
 	TSoftClassPtr<APawn> PawnClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gameplay")
+	TSoftObjectPtr<UBehaviorTree> BehaviorTree;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Gameplay")
 	FGameplayTag PawnDeclaration;

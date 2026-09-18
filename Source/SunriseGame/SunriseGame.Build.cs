@@ -42,6 +42,11 @@ public class SunriseGame : ModuleRules
 			"DeveloperSettings",
 			"NetCore"
 		});
+
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.AddRange(new string[] { "UnrealEd", });
+		}
 		SetupGameplayDebuggerSupport(Target);
 		SetupIrisSupport(Target);
 		PrivateDependencyModuleNames.AddRange(new string[] { });

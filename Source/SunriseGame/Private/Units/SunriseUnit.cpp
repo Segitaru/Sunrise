@@ -358,17 +358,6 @@ void ASunriseUnit::Interact(ASunriseUnit* Interactor)
 	}
 }
 
-void ASunriseUnit::MoveToLocation(const FVector& Location, bool bInteract, const TArray<ASunriseUnit*> IgnoreList)
-{
-	bInteractOnArrival = bInteract;
-	InteractIgnoreList.Reset();
-	for (ASunriseUnit* Unit : IgnoreList)
-	{
-		InteractIgnoreList.Add(Unit);
-	}
-	IssueMoveOrderInternal(Location, false);
-}
-
 int32 ASunriseUnit::GetTeamId() const
 {
 	return TeamComponent->GetTeamId();
