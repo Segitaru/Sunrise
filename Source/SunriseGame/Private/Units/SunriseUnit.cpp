@@ -189,11 +189,11 @@ void ASunriseUnit::IssueMoveOrder_Implementation(const FVector& Destination)
 	}
 }
 
-void ASunriseUnit::IssueTargetOrder_Implementation(AActor* TargetActor)
+void ASunriseUnit::IssueTargetOrder_Implementation(AActor* InTargetActor)
 {
 	if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController()))
 	{
-		AI->IssueTargetOrder(Cast<ASunriseUnit>(TargetActor), true);
+		AI->IssueTargetOrder(Cast<ASunriseUnit>(InTargetActor), true);
 	}
 }
 

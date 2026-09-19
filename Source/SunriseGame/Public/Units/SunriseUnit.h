@@ -74,7 +74,7 @@ public:
 
 	// ISunriseOrderReceiver
 	virtual void IssueMoveOrder_Implementation(const FVector& Destination) override;
-	virtual void IssueTargetOrder_Implementation(AActor* TargetActor) override;
+	virtual void IssueTargetOrder_Implementation(AActor* InTargetActor) override;
 	virtual void StopOrder_Implementation() override;
 
 	/** Internal autonomous navigation command. It never overrides an active player order. Returns true when the destination was accepted. */

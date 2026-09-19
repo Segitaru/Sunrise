@@ -11,12 +11,12 @@
 #include "GameFeatures/Components/ExperienceManagerComponent.h"
 #include "GameFeatures/ExperienceDefinition.h"
 #include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerStart.h"
 #include "GameFramework/PlayerState.h"
 #include "GameModes/Overload/Actors/OverloadEnergyCore.h"
 #include "GameModes/Overload/Actors/OverloadGuardTower.h"
 #include "GameModes/Overload/Actors/OverloadLaneSpline.h"
 #include "GameModes/Overload/Components/OverloadInteractorComponent.h"
-#include "GameModes/Overload/Components/OverloadLaneFollowerComponent.h"
 #include "GameModes/Overload/Components/OverloadWaveSpawnerComponent.h"
 #include "GameModes/Overload/Types/OverloadTeamIds.h"
 #include "Kismet/GameplayStatics.h"
@@ -257,20 +257,6 @@ void UOverloadGameMatchComponent::EnsurePlayerHeroes()
 			Interactor->RegisterComponent();
 			Interactor->InitializeForUnit();
 		}
-		if (!Hero->GetControllingAgent().GetInterface() && !Hero->FindComponentByClass<UOverloadLaneFollowerComponent>())
-		{
-			for (AOverloadLaneSpline* Lane : Lanes)
-			{
-				if (Lane && (Lane->GetSourceTeamId() == TeamId || Lane->GetTargetTeamId() == TeamId))
-				{
-					UOverloadLaneFollowerComponent* Follower =
-						NewObject<UOverloadLaneFollowerComponent>(Hero, TEXT("OverloadHeroLaneFollower"));
-					Follower->RegisterComponent();
-					Follower->Initialize(Lane);
-					break;
-				}
-			}
-		}
 	}
 }
 
@@ -429,68 +415,39 @@ void UOverloadGameMatchComponent::RecalculateSupplyAndBalance()
 bool UOverloadGameMatchComponent::TryResolveHeroSpawnTransform(
 	const AOverloadEnergyCore* Core, int32 TeamId, FTransform& OutTransform) const
 {
-	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
-	if (!IsValid(Core) || !Navigation || UNavigationSystemV1::IsNavigationBeingBuiltOrLocked(GetWorld()))
+	(void)TeamId;
+	if (!IsValid(Core))
 	{
 		return false;
 	}
 
-	// Use the endpoint nearest this team's core, directed into the lane at either end.
-	const USplineComponent* SpawnSpline = nullptr;
-	bool bAtStart = false;
-	double ClosestDistanceSquared = TNumericLimits<double>::Max();
-	for (const AOverloadLaneSpline* Lane : Lanes)
+	TArray<AActor*> PlayerStarts;
+	UGameplayStatics::GetAllActorsOfClass(this, APlayerStart::StaticClass(), PlayerStarts);
+	APlayerStart* BestStart = nullptr;
+	float BestDistanceSquared = TNumericLimits<float>::Max();
+	for (AActor* Actor : PlayerStarts)
 	{
-		if (!IsValid(Lane) || (Lane->GetSourceTeamId() != TeamId && Lane->GetTargetTeamId() != TeamId))
+		APlayerStart* Candidate = Cast<APlayerStart>(Actor);
+		if (!IsValid(Candidate))
 		{
 			continue;
 		}
-		const USplineComponent* Spline = Lane->GetLaneSpline();
-		if (!Spline || Spline->GetSplineLength() <= KINDA_SMALL_NUMBER)
+
+		const float DistanceSquared = FVector::DistSquared2D(Candidate->GetActorLocation(), Core->GetActorLocation());
+		if (DistanceSquared < BestDistanceSquared)
 		{
-			continue;
-		}
-		const bool bSource = Lane->GetSourceTeamId() == TeamId;
-		const FVector Endpoint =
-			Spline->GetLocationAtDistanceAlongSpline(bSource ? 0.0f : Spline->GetSplineLength(), ESplineCoordinateSpace::World);
-		const double DistanceSquared = FVector::DistSquared2D(Core->GetActorLocation(), Endpoint);
-		if (DistanceSquared < ClosestDistanceSquared)
-		{
-			ClosestDistanceSquared = DistanceSquared;
-			SpawnSpline = Spline;
-			bAtStart = bSource;
+			BestDistanceSquared = DistanceSquared;
+			BestStart = Candidate;
 		}
 	}
-	if (!SpawnSpline)
+
+	if (!BestStart)
 	{
 		return false;
 	}
 
-	const float Length = SpawnSpline->GetSplineLength();
-	const float Inset = FMath::Clamp(HeroSpawnOffset, 0.0f, Length * 0.25f);
-	const float Distance = bAtStart ? Inset : Length - Inset;
-	const FVector Endpoint = SpawnSpline->GetLocationAtDistanceAlongSpline(bAtStart ? 0.0f : Length, ESplineCoordinateSpace::World);
-	const FVector LaneLocation = SpawnSpline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
-	const FVector Candidate = Core->GetActorLocation() + LaneLocation - Endpoint;
-	FNavLocation Projected;
-	if (!Navigation->ProjectPointToNavigation(Candidate, Projected, FVector(250.0f, 250.0f, 500.0f)))
-	{
-		return false;
-	}
-
-	// A failed ground trace must never become a spawn in empty space.
-	FHitResult Hit;
-	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(OverloadHeroSpawnGround), false, Core);
-	const FVector Start = Projected.Location + FVector(0.0f, 0.0f, 100.0f);
-	const FVector End = Projected.Location - FVector(0.0f, 0.0f, 200.0f);
-	if (!GetWorld()->LineTraceSingleByObjectType(Hit, Start, End, FCollisionObjectQueryParams(ECC_WorldStatic), QueryParams) ||
-		!Hit.GetComponent() || Hit.GetComponent()->GetCollisionResponseToChannel(ECC_Pawn) != ECR_Block)
-	{
-		return false;
-	}
-	FVector Direction = SpawnSpline->GetDirectionAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
-	Direction *= bAtStart ? 1.0f : -1.0f;
-	OutTransform = FTransform(FRotator(0.0f, Direction.Rotation().Yaw, 0.0f), Hit.ImpactPoint);
+	// SpawnHeroForPlayer adds the capsule half-height and performs the authoritative collision check.
+	OutTransform = BestStart->GetActorTransform();
 	return true;
 }
 
