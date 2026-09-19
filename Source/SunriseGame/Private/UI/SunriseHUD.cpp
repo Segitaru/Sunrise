@@ -2,12 +2,8 @@
 
 #include "UI/SunriseHUD.h"
 
-#include <AbilitySystemComponent.h>
-#include <AbilitySystemGlobals.h>
-#include <GameplayAbilitySpec.h>
-
-#include "Abilities/SunriseSelectionAbility.h"
 #include "Components/GameFrameworkComponentManager.h"
+#include "ControllableEntities/ControllableEntitiesManager.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "EngineUtils.h"
@@ -45,23 +41,26 @@ void ASunriseHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void ASunriseHUD::DrawSelectedUnitsCount(ASunrisePlayerController* PC)
 {
-	const auto* const ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(PC->GetPawn());
-	if (!ASC)
+	const auto* const EntitiesManager = PC->FindComponentByClass<UControllableEntitiesManager>();
+	if (!EntitiesManager)
 	{
 		return;
 	}
-	FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromClass(USunriseSelectionAbility::StaticClass());
-	if (!AbilitySpec)
+
+	TArray<ASunriseUnit*> Units;
+
+	for (AActor* CurrentEntity : EntitiesManager->GetSelectedEntities())
 	{
-		return;
-	}
-	if (USunriseSelectionAbility* Selection = Cast<USunriseSelectionAbility>(AbilitySpec->Ability); IsValid(Selection))
-	{
-		const TArray<ASunriseUnit*>& Selected = Selection->GetSelectedUnits();
-		if (UIWidget)
+		ASunriseUnit* const Unit = Cast<ASunriseUnit>(CurrentEntity);
+		if (IsValid(Unit) && Unit->IsAlive() && EntitiesManager && EntitiesManager->CanControlEntity(Unit))
 		{
-			UIWidget->SetSelectedUnitsCount(Selected.Num());
+			Units.Add(Unit);
 		}
+	}
+
+	if (UIWidget)
+	{
+		UIWidget->SetSelectedUnitsCount(Units.Num());
 	}
 }
 
@@ -187,21 +186,26 @@ void ASunriseHUD::DrawMatchPanel()
 		FString::Printf(TEXT("PLAYER  %d"), GameMode->GetFriendlyAlive()), FriendlyColor, 34.0f, 30.0f, GEngine->GetMediumFont(), 1.2f);
 	DrawText(FString::Printf(TEXT("ENEMY   %d"), GameMode->GetEnemyAlive()), EnemyColor, 180.0f, 30.0f, GEngine->GetMediumFont(), 1.2f);
 
-	const auto* const ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(PC->GetPawn());
-	if (!ASC)
+
+	const auto* const EntitiesManager = PC->FindComponentByClass<UControllableEntitiesManager>();
+	if (!EntitiesManager)
 	{
 		return;
 	}
-	FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromClass(USunriseSelectionAbility::StaticClass());
-	if (!AbilitySpec)
+
+	TArray<ASunriseUnit*> Units;
+
+	for (AActor* CurrentEntity : EntitiesManager->GetSelectedEntities())
 	{
-		return;
+		ASunriseUnit* const Unit = Cast<ASunriseUnit>(CurrentEntity);
+		if (IsValid(Unit) && Unit->IsAlive() && EntitiesManager && EntitiesManager->CanControlEntity(Unit))
+		{
+			Units.Add(Unit);
+		}
 	}
-	if (USunriseSelectionAbility* Selection = Cast<USunriseSelectionAbility>(AbilitySpec->Ability); IsValid(Selection))
-	{
-		DrawText(FString::Printf(TEXT("Selected: %d"), Selection->GetSelectedUnits().Num()), FLinearColor::White, 34.0f, 58.0f,
-			GEngine->GetSmallFont(), 1.15f);
-	}
+
+	DrawText(FString::Printf(TEXT("Selected: %d"), Units.Num()), FLinearColor::White, 34.0f, 58.0f, GEngine->GetSmallFont(), 1.15f);
+
 
 	DrawText(TEXT("LMB select/box | Drag unit to target | RMB move/camera | Edge scroll | Esc"), FLinearColor(0.75f, 0.8f, 0.85f), 34.0f,
 		83.0f, GEngine->GetSmallFont(), 0.95f);

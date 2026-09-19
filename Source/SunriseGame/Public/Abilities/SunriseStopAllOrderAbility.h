@@ -12,6 +12,7 @@ class SUNRISEGAME_API USunriseStopAllOrderAbility : public UModularGameplayAbili
 
 public:
 	USunriseStopAllOrderAbility(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
 	virtual void ActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 };

@@ -45,17 +45,16 @@ void USunriseOrderCommandAbility::ActivateAbility(FGameplayAbilitySpecHandle Han
 	ASunrisePlayerController* PC = Pawn ? Cast<ASunrisePlayerController>(Pawn->GetController()) : nullptr;
 	UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(PC);
 	TArray<ASunriseUnit*> Units;
-	if (Pawn && Pawn->GetAbilitySystemComponent())
+
+	for (AActor* CurrentEntity : Manager->GetSelectedEntities())
 	{
-		if (FGameplayAbilitySpec* SelectionSpec =
-				Pawn->GetAbilitySystemComponent()->FindAbilitySpecFromClass(USunriseSelectionAbility::StaticClass()))
+		ASunriseUnit* const Unit = Cast<ASunriseUnit>(CurrentEntity);
+		if (IsValid(Unit) && Unit->IsAlive() && Manager && Manager->CanControlEntity(Unit))
 		{
-			if (USunriseSelectionAbility* Selection = Cast<USunriseSelectionAbility>(SelectionSpec->Ability))
-			{
-				Units = Selection->GetSelectedUnits();
-			}
+			Units.Add(Unit);
 		}
 	}
+
 	FHitResult Hit;
 	AActor* Target = nullptr;
 	FGameplayTag OrderTag = SunriseOrders::Move;
@@ -71,6 +70,7 @@ void USunriseOrderCommandAbility::ActivateAbility(FGameplayAbilitySpecHandle Han
 			OrderTag = SunriseOrders::Hack;
 		}
 	}
+
 	if (Pawn && !Units.IsEmpty())
 	{
 		if (USunriseUnitOrderAbility::SendOrderEvent(Pawn, OrderTag, Units, nullptr, Hit.ImpactPoint, Target))

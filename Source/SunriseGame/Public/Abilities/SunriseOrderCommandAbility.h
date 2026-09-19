@@ -13,7 +13,9 @@ class SUNRISEGAME_API USunriseOrderCommandAbility : public UModularGameplayAbili
 
 public:
 	USunriseOrderCommandAbility(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
 	virtual void ActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+
 	void PlayOrderFeedback(const FVector& Location, FGameplayTag OrderTag);
 };

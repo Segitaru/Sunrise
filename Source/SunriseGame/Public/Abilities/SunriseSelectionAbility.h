@@ -19,12 +19,15 @@ class SUNRISEGAME_API USunriseSelectionAbility : public UModularGameplayAbility
 	GENERATED_BODY()
 public:
 	USunriseSelectionAbility(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
 	virtual void ActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+
 	virtual void EndAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
+
 	void BindInput(UEnhancedInputComponent* Input);
-	const TArray<ASunriseUnit*>& GetSelectedUnits();
+
 	UFUNCTION(BlueprintCallable, Category = "Sunrise|Selection")
 	bool DoSelectCommand(const FVector& Location, bool bAdditiveSelection);
 	UFUNCTION(BlueprintCallable, Category = "Sunrise|Selection")
@@ -57,13 +60,19 @@ public:
 
 
 private:
+	TArray<ASunriseUnit*> GetSelectedUnits() const;
 	ASunrisePlayerController* GetSunriseController() const;
+
 	bool CanInteract() const;
+
 	bool GetHitUnderCursor(FHitResult& Hit) const;
 	FVector2D GetMouseLocationForPlayer() const;
 	bool GetWorldLocationForPlayer(FVector& OutWorldLocation) const;
+
 	void PruneSelection();
+
 	void UnbindInput();
+
 	void SelectBox(const FVector2D& Start, const FVector2D& End);
 	void SelectBoxWorld(const FVector& StartWorldLocation, const FVector& EndWorldLocation);
 	void OrderFromHit(const FHitResult& Hit, ASunriseUnit* SingleUnit = nullptr);
@@ -74,13 +83,15 @@ private:
 	void SelectClick(const FInputActionValue& Value);
 	void SelectAllDoubleClick(const FInputActionValue& Value);
 	void SelectHero(const FInputActionValue& Value);
-	UPROPERTY(Transient)
-	TArray<ASunriseUnit*> ControlledUnits;
+
 	UPROPERTY(Transient)
 	TWeakObjectPtr<ASunriseUnit> DraggedCommandUnit;
+
 	UPROPERTY(Transient)
 	TWeakObjectPtr<ASunrisePawn> AvatarPawn;
+
 	TWeakObjectPtr<UEnhancedInputComponent> BoundInput;
+
 	TArray<uint32> BindingHandles;
 	FVector2D StartingBoxSelectionPosition = FVector2D::ZeroVector;
 	FVector StartingBoxSelectionWorldLocation = FVector::ZeroVector;

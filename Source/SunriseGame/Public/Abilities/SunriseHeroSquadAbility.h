@@ -22,6 +22,7 @@ UCLASS(Blueprintable)
 class SUNRISEGAME_API USunriseHeroSquadAbility : public UModularGameplayAbility
 {
 	GENERATED_BODY()
+
 public:
 	USunriseHeroSquadAbility(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 

@@ -6,7 +6,6 @@
 #include "GameFramework/Pawn.h"
 #include "ModularPawnData.h"
 #include "Net/UnrealNetwork.h"
-#include "Teams/System/ModularTeamSubsystem.h"
 #include "Units/Components/SunriseUnitManagerComponent.h"
 #include "Units/SunriseUnit.h"
 
@@ -20,6 +19,7 @@ void UControllableEntitiesManager::GetLifetimeReplicatedProps(TArray<FLifetimePr
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UControllableEntitiesManager, ControlledEntities);
+	DOREPLIFETIME(UControllableEntitiesManager, SelectedEntities);
 }
 
 bool UControllableEntitiesManager::CanControlEntity(const AActor* Entity) const
@@ -48,6 +48,10 @@ void UControllableEntitiesManager::UnregisterControlledEntity(AActor* Entity)
 	{
 		return;
 	}
+	if (SelectedEntities.Remove(Entity) > 0)
+	{
+		OnEntityUnselected.Broadcast(Entity);
+	}
 	if (ControlledEntities.Remove(Entity) > 0)
 	{
 		OnEntityUnregistered.Broadcast(Entity);
@@ -65,6 +69,10 @@ void UControllableEntitiesManager::ClearSummonedUnits()
 		ASunriseUnit* Unit = Cast<ASunriseUnit>(ControlledEntities[Index]);
 		if (Unit && Unit->HasPawnTag(SunrisePawnTags::Kind_Summoned))
 		{
+			if (SelectedEntities.Remove(Unit) > 0)
+			{
+				OnEntityUnselected.Broadcast(Unit);
+			}
 			OnEntityUnregistered.Broadcast(Unit);
 			ControlledEntities.RemoveAtSwap(Index);
 			Unit->Destroy();
@@ -74,7 +82,7 @@ void UControllableEntitiesManager::ClearSummonedUnits()
 
 void UControllableEntitiesManager::SelectControlledEntity(AActor* Entity)
 {
-	if (!GetOwner() || !GetOwner()->HasAuthority() || !CanControlEntity(Entity))
+	if (!GetOwner() || !CanControlEntity(Entity))
 	{
 		return;
 	}
@@ -88,7 +96,7 @@ void UControllableEntitiesManager::SelectControlledEntity(AActor* Entity)
 
 void UControllableEntitiesManager::UnselectControlledEntity(AActor* Entity)
 {
-	if (!GetOwner() || !GetOwner()->HasAuthority())
+	if (!GetOwner())
 	{
 		return;
 	}
@@ -97,7 +105,6 @@ void UControllableEntitiesManager::UnselectControlledEntity(AActor* Entity)
 		OnEntityUnselected.Broadcast(Entity);
 	}
 }
-
 TArray<AActor*> UControllableEntitiesManager::GetSelectedEntities() const
 {
 	return SelectedEntities;

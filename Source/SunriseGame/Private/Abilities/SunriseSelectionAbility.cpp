@@ -120,37 +120,50 @@ void USunriseSelectionAbility::BindInput(UEnhancedInputComponent* Input)
 
 void USunriseSelectionAbility::PruneSelection()
 {
-	for (int32 Index = ControlledUnits.Num() - 1; Index >= 0; --Index)
+	UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController());
+	if (!Manager)
 	{
-		ASunriseUnit* Unit = ControlledUnits[Index];
-		if (!IsValid(Unit) || !Unit->IsAlive() || !ISunriseSelectable::Execute_CanBeSelectedBy(Unit, GetSunriseController()))
+		return;
+	}
+	for (AActor* Entity : Manager->GetSelectedEntities())
+	{
+		ASunriseUnit* Unit = Cast<ASunriseUnit>(Entity);
+		if (!IsValid(Unit) || !Unit->IsAlive() || !Manager->CanControlEntity(Unit))
 		{
 			if (IsValid(Unit))
 			{
 				ISunriseSelectable::Execute_SetSunriseSelected(Unit, false);
 			}
-			ControlledUnits.RemoveAtSwap(Index);
+			Manager->UnselectControlledEntity(Entity);
 		}
 	}
 }
 
-const TArray<ASunriseUnit*>& USunriseSelectionAbility::GetSelectedUnits()
+TArray<ASunriseUnit*> USunriseSelectionAbility::GetSelectedUnits() const
 {
-	PruneSelection();
-	return ControlledUnits;
+	TArray<ASunriseUnit*> Result;
+	if (const UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController()))
+	{
+		for (AActor* Entity : Manager->GetSelectedEntities())
+		{
+			if (ASunriseUnit* Unit = Cast<ASunriseUnit>(Entity); IsValid(Unit) && Unit->IsAlive())
+			{
+				Result.Add(Unit);
+			}
+		}
+	}
+	return Result;
 }
-
 FVector USunriseSelectionAbility::GetMidPointFromSelectedUnits()
 {
-	PruneSelection();
+	const TArray<ASunriseUnit*> SelectedUnits = GetSelectedUnits();
 	FVector Result = FVector::ZeroVector;
-	for (const ASunriseUnit* Unit : ControlledUnits)
+	for (const ASunriseUnit* Unit : SelectedUnits)
 	{
 		Result += Unit->GetActorLocation();
 	}
-	return ControlledUnits.IsEmpty() ? Result : Result / ControlledUnits.Num();
+	return SelectedUnits.IsEmpty() ? Result : Result / SelectedUnits.Num();
 }
-
 bool USunriseSelectionAbility::DoSelectCommand(const FVector& SelectLocation, bool bAdditiveSelection)
 {
 	if (!CanInteract() || SelectLocation.ContainsNaN())
@@ -158,6 +171,11 @@ bool USunriseSelectionAbility::DoSelectCommand(const FVector& SelectLocation, bo
 		return false;
 	}
 	PruneSelection();
+	UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController());
+	if (!Manager)
+	{
+		return false;
+	}
 	if (!bAdditiveSelection)
 	{
 		DoDeselectAllUnitsCommand();
@@ -173,7 +191,7 @@ bool USunriseSelectionAbility::DoSelectCommand(const FVector& SelectLocation, bo
 	for (const FOverlapResult& Overlap : Overlaps)
 	{
 		ASunriseUnit* Unit = Cast<ASunriseUnit>(Overlap.GetActor());
-		if (!Unit || !ISunriseSelectable::Execute_CanBeSelectedBy(Unit, GetSunriseController()))
+		if (!Unit || !Manager->CanControlEntity(Unit))
 		{
 			continue;
 		}
@@ -188,38 +206,39 @@ bool USunriseSelectionAbility::DoSelectCommand(const FVector& SelectLocation, bo
 	{
 		return false;
 	}
-	if (ControlledUnits.Contains(Closest))
+
+	const bool bWasSelected = Manager->GetSelectedEntities().Contains(Closest);
+	if (bWasSelected)
 	{
-		ControlledUnits.Remove(Closest);
+		Manager->UnselectControlledEntity(Closest);
 		ISunriseSelectable::Execute_SetSunriseSelected(Closest, false);
 	}
 	else
 	{
-		ControlledUnits.Add(Closest);
+		Manager->SelectControlledEntity(Closest);
 		ISunriseSelectable::Execute_SetSunriseSelected(Closest, true);
 	}
 	return true;
 }
-
 void USunriseSelectionAbility::SelectHero(const FInputActionValue& Value)
 {
 	if (!CanInteract())
 	{
 		return;
 	}
-	ASunrisePlayerController* PC = GetSunriseController();
-	UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(PC);
-	ASunriseUnit* Hero = nullptr;
-	if (Manager)
+	UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController());
+	if (!Manager)
 	{
-		for (AActor* Entity : Manager->GetControlledEntities())
+		return;
+	}
+	ASunriseUnit* Hero = nullptr;
+	for (AActor* Entity : Manager->GetControlledEntities())
+	{
+		ASunriseUnit* Candidate = Cast<ASunriseUnit>(Entity);
+		if (IsValid(Candidate) && Candidate->IsHero() && Candidate->IsAlive() && Manager->CanControlEntity(Candidate))
 		{
-			ASunriseUnit* Candidate = Cast<ASunriseUnit>(Entity);
-			if (IsValid(Candidate) && Candidate->IsHero() && Candidate->IsAlive() && Manager->CanControlEntity(Candidate))
-			{
-				Hero = Candidate;
-				break;
-			}
+			Hero = Candidate;
+			break;
 		}
 	}
 	if (!Hero)
@@ -227,25 +246,26 @@ void USunriseSelectionAbility::SelectHero(const FInputActionValue& Value)
 		return;
 	}
 	DoDeselectAllUnitsCommand();
-	ControlledUnits.Add(Hero);
+	Manager->SelectControlledEntity(Hero);
 	ISunriseSelectable::Execute_SetSunriseSelected(Hero, true);
 }
-
 void USunriseSelectionAbility::DoDeselectAllUnitsCommand()
 {
-	for (ASunriseUnit* Unit : ControlledUnits)
+	if (UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController()))
 	{
-		if (IsValid(Unit))
+		for (AActor* Entity : Manager->GetSelectedEntities())
 		{
-			ISunriseSelectable::Execute_SetSunriseSelected(Unit, false);
+			if (ASunriseUnit* Unit = Cast<ASunriseUnit>(Entity); IsValid(Unit))
+			{
+				ISunriseSelectable::Execute_SetSunriseSelected(Unit, false);
+			}
+			Manager->UnselectControlledEntity(Entity);
 		}
 	}
-	ControlledUnits.Reset();
 }
-
 void USunriseSelectionAbility::DoToggleSelectAllUnitsCommand()
 {
-	if (ControlledUnits.IsEmpty())
+	if (GetSelectedUnits().IsEmpty())
 	{
 		DoSelectAllUnitsOnScreenCommand();
 	}
@@ -254,7 +274,6 @@ void USunriseSelectionAbility::DoToggleSelectAllUnitsCommand()
 		DoDeselectAllUnitsCommand();
 	}
 }
-
 void USunriseSelectionAbility::DoSelectAllUnitsOnScreenCommand()
 {
 	if (!CanInteract())
@@ -285,7 +304,11 @@ void USunriseSelectionAbility::SelectBox(const FVector2D& Start, const FVector2D
 			PC->ProjectWorldLocationToScreen(Unit->GetActorLocation(), Screen, true) && Screen.X >= Min.X && Screen.X <= Max.X &&
 			Screen.Y >= Min.Y && Screen.Y <= Max.Y)
 		{
-			ControlledUnits.Add(Unit);
+			if (UControllableEntitiesManager* Manager =
+					UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController()))
+			{
+				Manager->SelectControlledEntity(Unit);
+			}
 			ISunriseSelectable::Execute_SetSunriseSelected(Unit, true);
 		}
 	}
@@ -346,7 +369,7 @@ void USunriseSelectionAbility::OrderFromHit(const FHitResult& Hit, ASunriseUnit*
 	}
 
 	const bool bSent =
-		USunriseUnitOrderAbility::SendOrderEvent(AvatarPawn.Get(), OrderTag, ControlledUnits, SingleUnit, Hit.ImpactPoint, Target);
+		USunriseUnitOrderAbility::SendOrderEvent(AvatarPawn.Get(), OrderTag, GetSelectedUnits(), SingleUnit, Hit.ImpactPoint, Target);
 	if (bSent)
 	{
 		if (UAbilitySystemComponent* ASC = AvatarPawn->GetAbilitySystemComponent())
@@ -390,10 +413,14 @@ void USunriseSelectionAbility::SelectHoldStarted(const FInputActionValue& Value)
 		if (Unit && ISunriseSelectable::Execute_CanBeSelectedBy(Unit, GetSunriseController()))
 		{
 			DraggedCommandUnit = Unit;
-			if (!ControlledUnits.Contains(Unit))
+			if (!GetSelectedUnits().Contains(Unit))
 			{
 				DoDeselectAllUnitsCommand();
-				ControlledUnits.Add(Unit);
+				if (UControllableEntitiesManager* Manager =
+						UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController()))
+				{
+					Manager->SelectControlledEntity(Unit);
+				}
 				ISunriseSelectable::Execute_SetSunriseSelected(Unit, true);
 			}
 		}

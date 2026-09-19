@@ -38,10 +38,10 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Control")
 	void ClearSummonedUnits();
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Control")
+	UFUNCTION(BlueprintCallable, Category = "Sunrise|Control")
 	void SelectControlledEntity(AActor* Entity);
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Control")
+	UFUNCTION(BlueprintCallable, Category = "Sunrise|Control")
 	void UnselectControlledEntity(AActor* Entity);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Control")

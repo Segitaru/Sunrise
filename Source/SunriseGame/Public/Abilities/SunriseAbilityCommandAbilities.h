@@ -13,6 +13,7 @@ class SUNRISEGAME_API USunriseAbilityCommandAbility : public UModularGameplayAbi
 
 public:
 	USunriseAbilityCommandAbility(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
 	virtual void ActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 
@@ -24,6 +25,7 @@ UCLASS(Blueprintable)
 class SUNRISEGAME_API USunrisePrimaryAbilityCommand : public USunriseAbilityCommandAbility
 {
 	GENERATED_BODY()
+
 protected:
 	virtual FGameplayTag GetCommandInputTag() const override;
 };
@@ -32,6 +34,7 @@ UCLASS(Blueprintable)
 class SUNRISEGAME_API USunriseSecondaryAbilityCommand : public USunriseAbilityCommandAbility
 {
 	GENERATED_BODY()
+
 protected:
 	virtual FGameplayTag GetCommandInputTag() const override;
 };
@@ -40,6 +43,7 @@ UCLASS(Blueprintable)
 class SUNRISEGAME_API USunriseOptionalAbilityCommand : public USunriseAbilityCommandAbility
 {
 	GENERATED_BODY()
+
 protected:
 	virtual FGameplayTag GetCommandInputTag() const override;
 };
@@ -48,6 +52,7 @@ UCLASS(Blueprintable)
 class SUNRISEGAME_API USunriseUltimateAbilityCommand : public USunriseAbilityCommandAbility
 {
 	GENERATED_BODY()
+
 protected:
 	virtual FGameplayTag GetCommandInputTag() const override;
 };

@@ -13,9 +13,11 @@ class SUNRISEGAME_API USunriseDeathAbility : public UModularGameplayAbility
 	GENERATED_BODY()
 public:
 	USunriseDeathAbility(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
 	virtual bool CanActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr,
 		FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
+
 	virtual void ActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 
@@ -37,14 +39,17 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Respawn", meta = (ClampMin = "0.0", Units = "s"))
 	float RespawnDelay = 12.0f;
+
 	/** -1 means unlimited; 0 disables respawning. */
 	UPROPERTY(EditDefaultsOnly, Category = "Respawn", meta = (ClampMin = "-1"))
 	int32 MaxRespawns = -1;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Respawn")
 	bool bRespawnAtInitialSpawn = true;
 
 private:
 	void WaitForRespawn(float Delay);
+
 	UFUNCTION()
 	void TryRespawn();
 
