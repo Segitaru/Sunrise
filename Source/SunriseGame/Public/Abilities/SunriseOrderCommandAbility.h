@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AbilitySystem/Abilities/ModularGameplayAbility.h"
+#include "GameplayTagContainer.h"
 
 #include "SunriseOrderCommandAbility.generated.h"
 
@@ -14,4 +15,5 @@ public:
 	USunriseOrderCommandAbility(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	virtual void ActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	void PlayOrderFeedback(const FVector& Location, FGameplayTag OrderTag);
 };

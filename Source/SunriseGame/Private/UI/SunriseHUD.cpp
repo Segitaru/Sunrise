@@ -76,9 +76,15 @@ void ASunriseHUD::DrawHUD()
 
 	if (bDrawBox)
 	{
-		const FVector2D Min(FMath::Min(BoxStart.X, BoxCurrentPosition.X), FMath::Min(BoxStart.Y, BoxCurrentPosition.Y));
-		const FVector2D Max(FMath::Max(BoxStart.X, BoxCurrentPosition.X), FMath::Max(BoxStart.Y, BoxCurrentPosition.Y));
-		DrawRect(SelectionBoxColor, Min.X, Min.Y, Max.X - Min.X, Max.Y - Min.Y);
+		FVector2D StartScreen;
+		FVector2D CurrentScreen;
+		if (PC->ProjectWorldLocationToScreen(BoxStartWorldLocation, StartScreen, true) &&
+			PC->ProjectWorldLocationToScreen(BoxCurrentWorldLocation, CurrentScreen, true))
+		{
+			const FVector2D Min(FMath::Min(StartScreen.X, CurrentScreen.X), FMath::Min(StartScreen.Y, CurrentScreen.Y));
+			const FVector2D Max(FMath::Max(StartScreen.X, CurrentScreen.X), FMath::Max(StartScreen.Y, CurrentScreen.Y));
+			DrawRect(SelectionBoxColor, Min.X, Min.Y, Max.X - Min.X, Max.Y - Min.Y);
+		}
 	}
 	if (bDrawCommandDrag && CommandDragUnit.IsValid())
 	{
@@ -105,12 +111,11 @@ void ASunriseHUD::DrawHUD()
 	}
 }
 
-void ASunriseHUD::DragSelectUpdate(FVector2D Start, FVector2D WidthAndHeight, FVector2D CurrentPosition, bool bDraw)
+void ASunriseHUD::DragSelectUpdate(FVector StartWorldLocation, FVector CurrentWorldLocation, bool bDraw)
 {
 	bDrawBox = bDraw;
-	BoxStart = Start;
-	BoxSize = WidthAndHeight;
-	BoxCurrentPosition = CurrentPosition;
+	BoxStartWorldLocation = StartWorldLocation;
+	BoxCurrentWorldLocation = CurrentWorldLocation;
 }
 
 void ASunriseHUD::CommandDragUpdate(ASunriseUnit* SourceUnit, FVector2D CursorPosition, bool bDraw)

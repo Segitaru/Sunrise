@@ -72,6 +72,37 @@ void UControllableEntitiesManager::ClearSummonedUnits()
 	}
 }
 
+void UControllableEntitiesManager::SelectControlledEntity(AActor* Entity)
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority() || !CanControlEntity(Entity))
+	{
+		return;
+	}
+
+	if (!SelectedEntities.Contains(Entity))
+	{
+		SelectedEntities.Add(Entity);
+		OnEntitySelected.Broadcast(Entity);
+	}
+}
+
+void UControllableEntitiesManager::UnselectControlledEntity(AActor* Entity)
+{
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	if (SelectedEntities.Remove(Entity) > 0)
+	{
+		OnEntityUnselected.Broadcast(Entity);
+	}
+}
+
+TArray<AActor*> UControllableEntitiesManager::GetSelectedEntities() const
+{
+	return SelectedEntities;
+}
+
 TArray<APawn*> UControllableEntitiesManager::SpawnControlledUnitsAtLocations(
 	TSoftObjectPtr<UModularPawnData> RequiredEntity, const TArray<FVector>& TargetLocations)
 {

@@ -31,6 +31,7 @@ public:
 	void DoSelectAllUnitsOnScreenCommand();
 	UFUNCTION(BlueprintCallable, Category = "Sunrise|Selection")
 	void DoDeselectAllUnitsCommand();
+
 	UFUNCTION(BlueprintCallable, Category = "Sunrise|Selection")
 	void DoToggleSelectAllUnitsCommand();
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Selection")
@@ -47,21 +48,24 @@ public:
 	/** Pointer/mouse movement action used while SelectHoldAction is active. */
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> SelectMoveAction;
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
+	TObjectPtr<UInputAction> SelectHeroAction;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Selection", meta = (ClampMin = "0", Units = "cm"))
 	float SelectionRadius = 180.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Selection")
 	TEnumAsByte<ETraceTypeQuery> SelectionTraceChannel = TraceTypeQuery1;
-	UFUNCTION(BlueprintImplementableEvent, Category = "Cursor")
-	void BP_CursorFeedback(FVector Location, bool bPositive);
+
 
 private:
 	ASunrisePlayerController* GetSunriseController() const;
 	bool CanInteract() const;
 	bool GetHitUnderCursor(FHitResult& Hit) const;
 	FVector2D GetMouseLocationForPlayer() const;
+	bool GetWorldLocationForPlayer(FVector& OutWorldLocation) const;
 	void PruneSelection();
 	void UnbindInput();
 	void SelectBox(const FVector2D& Start, const FVector2D& End);
+	void SelectBoxWorld(const FVector& StartWorldLocation, const FVector& EndWorldLocation);
 	void OrderFromHit(const FHitResult& Hit, ASunriseUnit* SingleUnit = nullptr);
 	void SelectHoldStarted(const FInputActionValue& Value);
 	void SelectHoldTriggered(const FInputActionValue& Value);
@@ -69,6 +73,7 @@ private:
 	void CancelSelectHold(const FInputActionValue& Value);
 	void SelectClick(const FInputActionValue& Value);
 	void SelectAllDoubleClick(const FInputActionValue& Value);
+	void SelectHero(const FInputActionValue& Value);
 	UPROPERTY(Transient)
 	TArray<ASunriseUnit*> ControlledUnits;
 	UPROPERTY(Transient)
@@ -78,6 +83,7 @@ private:
 	TWeakObjectPtr<UEnhancedInputComponent> BoundInput;
 	TArray<uint32> BindingHandles;
 	FVector2D StartingBoxSelectionPosition = FVector2D::ZeroVector;
+	FVector StartingBoxSelectionWorldLocation = FVector::ZeroVector;
 
 	bool bSelectionGestureActive = false;
 	float LastBoxSelectionTime = -1000.0f;

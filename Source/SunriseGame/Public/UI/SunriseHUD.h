@@ -25,7 +25,7 @@ public:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	void DrawSelectedUnitsCount(ASunrisePlayerController* PC);
 	virtual void DrawHUD() override;
-	void DragSelectUpdate(FVector2D Start, FVector2D WidthAndHeight, FVector2D CurrentPosition, bool bDraw);
+	void DragSelectUpdate(FVector StartWorldLocation, FVector CurrentWorldLocation, bool bDraw);
 	void CommandDragUpdate(ASunriseUnit* SourceUnit, FVector2D CursorPosition, bool bDraw);
 	UCanvas* GetDrawingCanvas() const { return Canvas; }
 	FLinearColor GetTeamColor(int32 TeamId) const;
@@ -50,9 +50,8 @@ protected:
 	FLinearColor EnemyColor = FLinearColor(0.95f, 0.12f, 0.08f, 1.0f);
 
 	bool bDrawBox = false;
-	FVector2D BoxStart = FVector2D::ZeroVector;
-	FVector2D BoxSize = FVector2D::ZeroVector;
-	FVector2D BoxCurrentPosition = FVector2D::ZeroVector;
+	FVector BoxStartWorldLocation = FVector::ZeroVector;
+	FVector BoxCurrentWorldLocation = FVector::ZeroVector;
 	TWeakObjectPtr<ASunriseUnit> CommandDragUnit;
 	FVector2D CommandDragCursor = FVector2D::ZeroVector;
 	bool bDrawCommandDrag = false;

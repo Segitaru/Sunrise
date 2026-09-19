@@ -39,10 +39,19 @@ public:
 	void ClearSummonedUnits();
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Control")
+	void SelectControlledEntity(AActor* Entity);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Control")
+	void UnselectControlledEntity(AActor* Entity);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Control")
 	TArray<APawn*> SpawnControlledUnitsAtLocations(TSoftObjectPtr<UModularPawnData> RequiredEntity, const TArray<FVector>& TargetLocations);
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Control")
 	TArray<AActor*> GetControlledEntities() const;
+
+	UFUNCTION(BlueprintPure, Category = "Sunrise|Control")
+	TArray<AActor*> GetSelectedEntities() const;
 
 	UPROPERTY(BlueprintAssignable, Category = "Sunrise|Control")
 	FOnControlledEntityChanged OnEntityRegistered;
@@ -50,7 +59,16 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Sunrise|Control")
 	FOnControlledEntityChanged OnEntityUnregistered;
 
+	UPROPERTY(BlueprintAssignable, Category = "Sunrise|Control")
+	FOnControlledEntityChanged OnEntitySelected;
+
+	UPROPERTY(BlueprintAssignable, Category = "Sunrise|Control")
+	FOnControlledEntityChanged OnEntityUnselected;
+
 private:
+	UPROPERTY(Replicated)
+	TArray<TObjectPtr<AActor>> SelectedEntities;
+
 	UPROPERTY(Replicated)
 	TArray<TObjectPtr<AActor>> ControlledEntities;
 };

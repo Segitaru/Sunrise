@@ -1,6 +1,7 @@
 #include "Weapons/Actors/SunriseProjectile.h"
 
 #include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
 #include "UObject/ConstructorHelpers.h"
@@ -17,7 +18,7 @@ ASunriseProjectile::ASunriseProjectile()
 	CollisionRoot->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CollisionRoot->SetCollisionObjectType(ECC_WorldDynamic);
 	CollisionRoot->SetCollisionResponseToAllChannels(ECR_Block);
-	CollisionRoot->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	CollisionRoot->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 	VisualSphere = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VisualSphere"));
 	VisualSphere->SetupAttachment(CollisionRoot);
 	VisualSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -45,6 +46,7 @@ void ASunriseProjectile::Tick(float DeltaSeconds)
 	{
 		return;
 	}
+
 	ASunriseUnit* Target = TargetUnit.Get();
 	if (!Target->IsAlive())
 	{
@@ -52,20 +54,25 @@ void ASunriseProjectile::Tick(float DeltaSeconds)
 		return;
 	}
 
-	// Recompute the flight direction every frame so moving targets are still hit.
-	const FVector ToTarget = Target->GetActorLocation() - GetActorLocation();
-	const float HitDistance = FMath::Max(50.0f, Speed * DeltaSeconds);
-	if (ToTarget.SizeSquared2D() <= FMath::Square(HitDistance))
+	const FVector Start = GetActorLocation();
+	const FVector ToTarget = Target->GetActorLocation() - Start;
+	Velocity = ToTarget.GetSafeNormal() * Speed;
+	const FVector Delta = Velocity * FMath::Max(0.0f, DeltaSeconds);
+	const FVector End = Start + Delta;
+
+	const float ProjectileRadius = CollisionRoot ? CollisionRoot->GetScaledBoxExtent().GetMax() : 0.0f;
+	const float TargetRadius = Target->GetCapsuleComponent() ? Target->GetCapsuleComponent()->GetScaledCapsuleRadius() : 0.0f;
+	const FVector ClosestPoint = FMath::ClosestPointOnSegment(Target->GetActorLocation(), Start, End);
+	if (FVector::DistSquared(ClosestPoint, Target->GetActorLocation()) <= FMath::Square(ProjectileRadius + TargetRadius))
 	{
 		SourceUnit->DealWeaponDamage(Target, Damage);
 		Destroy();
 		return;
 	}
-	Velocity = ToTarget.GetSafeNormal() * Speed;
 
 	FHitResult Hit;
-	AddActorWorldOffset(Velocity * DeltaSeconds, true, &Hit);
-	if (Hit.bBlockingHit && Hit.GetActor() != Target)
+	SetActorLocation(End, true, &Hit);
+	if (Hit.bBlockingHit)
 	{
 		Destroy();
 	}

@@ -1,5 +1,8 @@
 #include "Abilities/SunriseAbilityCommandAbilities.h"
 
+#include <AbilitySystemComponent.h>
+
+#include "Abilities/SunriseSelectionAbility.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
 #include "Player/SunrisePlayerController.h"
@@ -27,15 +30,27 @@ void USunriseAbilityCommandAbility::ActivateAbility(FGameplayAbilitySpecHandle H
 	ASunrisePawn* Pawn = ActorInfo ? Cast<ASunrisePawn>(ActorInfo->AvatarActor.Get()) : nullptr;
 	ASunrisePlayerController* Controller = Pawn ? Cast<ASunrisePlayerController>(Pawn->GetController()) : nullptr;
 	UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(Controller);
+	TArray<ASunriseUnit*> Units;
+	if (Pawn && Pawn->GetAbilitySystemComponent())
+	{
+		if (FGameplayAbilitySpec* SelectionSpec =
+				Pawn->GetAbilitySystemComponent()->FindAbilitySpecFromClass(USunriseSelectionAbility::StaticClass()))
+		{
+			if (USunriseSelectionAbility* Selection = Cast<USunriseSelectionAbility>(SelectionSpec->Ability))
+			{
+				Units = Selection->GetSelectedUnits();
+			}
+		}
+	}
 	const FGameplayTag InputTag = GetCommandInputTag();
 
 	if (Pawn && Manager && InputTag.IsValid())
 	{
 		FGameplayEventData Event;
 		Event.EventTag = InputTag;
-		for (AActor* Entity : Manager->GetControlledEntities())
+		for (ASunriseUnit* Unit : Units)
 		{
-			if (ASunriseUnit* Unit = Cast<ASunriseUnit>(Entity); IsValid(Unit) && Unit->IsAlive() && Manager->CanControlEntity(Unit))
+			if (IsValid(Unit) && Unit->IsAlive() && Manager && Manager->CanControlEntity(Unit))
 			{
 				UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(Unit, InputTag, Event);
 			}
