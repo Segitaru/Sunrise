@@ -434,6 +434,14 @@ void USunriseSelectionAbility::SelectHoldTriggered(const FInputActionValue& Valu
 		return;
 	}
 	const FVector2D Current = GetMouseLocationForPlayer();
+	const float GestureDistance = FVector2D::Distance(Current, StartingBoxSelectionPosition);
+	if (GestureDistance > 5.0f)
+	{
+		// Enhanced Input can deliver the click Triggered event before the hold
+		// Completed event. Mark the gesture as a drag immediately so that the
+		// late click cannot clear the box selection.
+		LastBoxSelectionTime = GetWorld()->GetTimeSeconds();
+	}
 	FVector CurrentWorldLocation;
 	if (!GetWorldLocationForPlayer(CurrentWorldLocation))
 	{

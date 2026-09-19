@@ -132,7 +132,9 @@ void UOverloadWaveSpawnerComponent::SpawnWaveForTeam(int32 TeamId, bool bSpawnAt
 
 		for (int32 Index = 0; Index < ResultCount; ++Index)
 		{
-			const FVector ResultOffset = Right * Index * Formation.OffsetInLine + ForwardOffset;
+			const float LateralOffset =
+				(static_cast<float>(Index) - (static_cast<float>(ResultCount) - 1.0f) * 0.5f) * Formation.OffsetInLine;
+			const FVector ResultOffset = Right * LateralOffset + ForwardOffset;
 			FVector Location = Start + ResultOffset;
 			FNavLocation Projected;
 			if (!Navigation->ProjectPointToNavigation(Location, Projected, FVector(250.0f, 250.0f, 500.0f)))
@@ -184,7 +186,7 @@ void UOverloadWaveSpawnerComponent::SpawnWaveForTeam(int32 TeamId, bool bSpawnAt
 			Interactor->InitializeForUnit();
 			UOverloadLaneFollowerComponent* Follower = NewObject<UOverloadLaneFollowerComponent>(Unit, TEXT("OverloadLaneFollower"));
 			Follower->RegisterComponent();
-			Follower->Initialize(Lane.Get(), ResultOffset);
+			Follower->Initialize(Lane.Get(), LateralOffset);
 		}
 	}
 	UE_LOG(LogTemp, Log, TEXT("Overload lane %s spawned %d/%d units for team %d at %s"), *GetNameSafe(Lane.Get()), SpawnedCount,

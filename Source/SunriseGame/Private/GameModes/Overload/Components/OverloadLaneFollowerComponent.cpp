@@ -45,11 +45,13 @@ bool UOverloadLaneFollowerComponent::RequestNextMove()
 		return false;
 	}
 
-	const FVector NextLocation = Spline->GetLocationAtDistanceAlongSpline(NextDistance, ESplineCoordinateSpace::World);
+	const FVector SplineLocation = Spline->GetLocationAtDistanceAlongSpline(NextDistance, ESplineCoordinateSpace::World);
+	const FVector Right = Spline->GetRightVectorAtDistanceAlongSpline(NextDistance, ESplineCoordinateSpace::World);
+	const FVector NextLocation = SplineLocation + Right * LateralOffset;
 	return Unit->IssueAutonomousMoveOrder(NextLocation);
 }
 
-void UOverloadLaneFollowerComponent::Initialize(AOverloadLaneSpline* InLane, const FVector& InLateralOffset)
+void UOverloadLaneFollowerComponent::Initialize(AOverloadLaneSpline* InLane, float InLateralOffset)
 {
 	Unit = Cast<ASunriseUnit>(GetOwner());
 	Lane = InLane;

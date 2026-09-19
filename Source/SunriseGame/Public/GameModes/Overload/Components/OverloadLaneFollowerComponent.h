@@ -16,7 +16,7 @@ class SUNRISEGAME_API UOverloadLaneFollowerComponent : public UActorComponent
 	GENERATED_BODY()
 public:
 	UOverloadLaneFollowerComponent();
-	void Initialize(AOverloadLaneSpline* InLane, const FVector& InLateralOffset = FVector::ZeroVector);
+	void Initialize(AOverloadLaneSpline* InLane, float InLateralOffset = 0.0f);
 	bool RequestNextMove();
 
 protected:
@@ -30,6 +30,6 @@ protected:
 private:
 	TObjectPtr<ASunriseUnit> Unit;
 	TWeakObjectPtr<AOverloadLaneSpline> Lane;
-	FVector LateralOffset = FVector::ZeroVector;
+	float LateralOffset = 0.0f;
 	float TravelDirection = 1.0f;
 };
