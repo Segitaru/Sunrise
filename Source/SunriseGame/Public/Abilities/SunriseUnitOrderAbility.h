@@ -18,7 +18,7 @@ namespace SunriseOrders
 	SUNRISEGAME_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Squad);
 } // namespace SunriseOrders
 
-/** GAS event boundary for player orders. Only the server executes validated commands. */
+/** Pawn-side command router. It validates player intent and forwards execution to Unit ASC abilities. */
 UCLASS(Blueprintable)
 class SUNRISEGAME_API USunriseUnitOrderAbility : public UModularGameplayAbility
 {
@@ -39,5 +39,5 @@ protected:
 	TSubclassOf<USunriseHeroSquadAbility> HeroSquadAbilityClass;
 
 private:
-	bool ExecuteOrder(const FGameplayEventData& Event, const FGameplayAbilityActorInfo* ActorInfo);
+	bool DispatchOrder(const FGameplayEventData& Event, const FGameplayAbilityActorInfo* ActorInfo);
 };

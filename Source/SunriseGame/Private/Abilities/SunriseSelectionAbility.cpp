@@ -3,6 +3,7 @@
 
 #include "Abilities/GameplayAbilityTargetTypes.h"
 #include "Abilities/SunriseUnitOrderAbility.h"
+#include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "Engine/OverlapResult.h"
 #include "Engine/World.h"
@@ -13,6 +14,7 @@
 #include "InputActionValue.h"
 #include "Player/SunrisePlayerController.h"
 #include "UI/SunriseHUD.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Units/SunrisePawn.h"
 #include "Units/SunriseUnit.h"
 #include "Units/SunriseUnitInterfaces.h"
@@ -23,6 +25,12 @@ USunriseSelectionAbility::USunriseSelectionAbility(const FObjectInitializer& Obj
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalOnly;
 	ActivationPolicy = EModularAbilityActivationPolicy::OnSpawn;
+
+	static ConstructorHelpers::FObjectFinder<UInputAction> OrderAction(TEXT("/Game/Sunrise/Inputs/RTS/IA_Order_RTS.IA_Order_RTS"));
+	if (OrderAction.Succeeded())
+	{
+		InteractClickAction = OrderAction.Object;
+	}
 }
 
 void USunriseSelectionAbility::ActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -88,98 +96,34 @@ void USunriseSelectionAbility::BindInput(UEnhancedInputComponent* Input)
 	BoundInput = Input;
 	if (SelectClickAction)
 	{
-		BindingHandles.Add(Input->BindAction(SelectClickAction, ETriggerEvent::Completed, this, &ThisClass::SelectClick).GetHandle());
-	}
-	if (SelectClickAdditiveAction)
-	{
-		BindingHandles.Add(
-			Input->BindAction(SelectClickAdditiveAction, ETriggerEvent::Completed, this, &ThisClass::SelectClickAdditive).GetHandle());
+		BindingHandles.Add(Input->BindAction(SelectClickAction, ETriggerEvent::Triggered, this, &ThisClass::SelectClick).GetHandle());
 	}
 	if (SelectAllDoubleClickAction)
 	{
 		BindingHandles.Add(
-			Input->BindAction(SelectAllDoubleClickAction, ETriggerEvent::Completed, this, &ThisClass::SelectAllDoubleClick).GetHandle());
+			Input->BindAction(SelectAllDoubleClickAction, ETriggerEvent::Triggered, this, &ThisClass::SelectAllDoubleClick).GetHandle());
 	}
 	if (SelectHoldAction)
 	{
 		BindingHandles.Add(Input->BindAction(SelectHoldAction, ETriggerEvent::Started, this, &ThisClass::SelectHoldStarted).GetHandle());
-	}
-	if (SelectHoldAction)
-	{
-		BindingHandles.Add(
-			Input->BindAction(SelectHoldAction, ETriggerEvent::Triggered, this, &ThisClass::SelectHoldTriggered).GetHandle());
-	}
-	if (SelectHoldAction)
-	{
+		BindingHandles.Add(Input->BindAction(SelectHoldAction, ETriggerEvent::Triggered, this, &ThisClass::SelectHoldStarted).GetHandle());
 		BindingHandles.Add(
 			Input->BindAction(SelectHoldAction, ETriggerEvent::Completed, this, &ThisClass::SelectHoldCompleted).GetHandle());
-	}
-	if (SelectHoldAction)
-	{
 		BindingHandles.Add(Input->BindAction(SelectHoldAction, ETriggerEvent::Canceled, this, &ThisClass::CancelSelectHold).GetHandle());
 	}
-	if (InteractClickAction)
-	{
-		BindingHandles.Add(Input->BindAction(InteractClickAction, ETriggerEvent::Completed, this, &ThisClass::InteractClick).GetHandle());
-	}
-	if (SelectionModifierAction)
+	if (SelectMoveAction)
 	{
 		BindingHandles.Add(
-			Input->BindAction(SelectionModifierAction, ETriggerEvent::Started, this, &ThisClass::SelectionModifierStarted).GetHandle());
-	}
-	if (SelectionModifierAction)
-	{
-		BindingHandles.Add(
-			Input->BindAction(SelectionModifierAction, ETriggerEvent::Completed, this, &ThisClass::SelectionModifierCompleted).GetHandle());
-	}
-	if (SelectionModifierAction)
-	{
-		BindingHandles.Add(
-			Input->BindAction(SelectionModifierAction, ETriggerEvent::Canceled, this, &ThisClass::SelectionModifierCompleted).GetHandle());
-	}
-	if (TouchPrimaryHoldAction)
-	{
-		BindingHandles.Add(
-			Input->BindAction(TouchPrimaryHoldAction, ETriggerEvent::Started, this, &ThisClass::TouchPrimaryHoldStarted).GetHandle());
-	}
-	if (TouchPrimaryHoldAction)
-	{
-		BindingHandles.Add(
-			Input->BindAction(TouchPrimaryHoldAction, ETriggerEvent::Triggered, this, &ThisClass::TouchPrimaryHoldTriggered).GetHandle());
-	}
-	if (TouchPrimaryHoldAction)
-	{
-		BindingHandles.Add(
-			Input->BindAction(TouchPrimaryHoldAction, ETriggerEvent::Completed, this, &ThisClass::TouchPrimaryHoldCompleted).GetHandle());
-	}
-	if (TouchPrimaryHoldAction)
-	{
-		BindingHandles.Add(
-			Input->BindAction(TouchPrimaryHoldAction, ETriggerEvent::Canceled, this, &ThisClass::CancelSelectHold).GetHandle());
-	}
-	if (TouchSecondaryAction)
-	{
-		BindingHandles.Add(
-			Input->BindAction(TouchSecondaryAction, ETriggerEvent::Triggered, this, &ThisClass::TouchSecondaryTriggered).GetHandle());
-	}
-	if (TouchSecondaryAction)
-	{
-		BindingHandles.Add(
-			Input->BindAction(TouchSecondaryAction, ETriggerEvent::Completed, this, &ThisClass::TouchSecondaryCompleted).GetHandle());
-	}
-	if (TouchSecondaryAction)
-	{
-		BindingHandles.Add(
-			Input->BindAction(TouchSecondaryAction, ETriggerEvent::Canceled, this, &ThisClass::CancelSelectHold).GetHandle());
-	}
-	if (HeroSquadAction)
-	{
-		BindingHandles.Add(
-			Input->BindAction(HeroSquadAction, ETriggerEvent::Started, this, &ThisClass::ActivateHeroSquadAbility).GetHandle());
+			Input->BindAction(SelectMoveAction, ETriggerEvent::Triggered, this, &ThisClass::SelectHoldTriggered).GetHandle());
+		BindingHandles.Add(Input->BindAction(SelectMoveAction, ETriggerEvent::Ongoing, this, &ThisClass::SelectHoldTriggered).GetHandle());
 	}
 	if (StopActions)
 	{
 		BindingHandles.Add(Input->BindAction(StopActions, ETriggerEvent::Started, this, &ThisClass::StopSelectedUnits).GetHandle());
+	}
+	if (InteractClickAction)
+	{
+		BindingHandles.Add(Input->BindAction(InteractClickAction, ETriggerEvent::Completed, this, &ThisClass::InteractClick).GetHandle());
 	}
 }
 
@@ -351,7 +295,7 @@ void USunriseSelectionAbility::SubmitOrder(FGameplayTag Tag, const FVector& Loca
 	FGameplayEventData Event;
 	Event.EventTag = Tag;
 	Event.Target = Target;
-	auto* Actors = new FGameplayAbilityTargetData_ActorArray();
+	FGameplayAbilityTargetData_ActorArray* Actors = new FGameplayAbilityTargetData_ActorArray();
 	if (SingleUnit)
 	{
 		Actors->TargetActorArray.Add(SingleUnit);
@@ -368,7 +312,7 @@ void USunriseSelectionAbility::SubmitOrder(FGameplayTag Tag, const FVector& Loca
 	Hit.ImpactPoint = Location;
 	Hit.Location = Location;
 	Event.TargetData.Add(new FGameplayAbilityTargetData_SingleTargetHit(Hit));
-	GetAbilitySystemComponentFromActorInfo()->HandleGameplayEvent(Tag, &Event);
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(AvatarPawn.Get(), Tag, Event);
 }
 
 void USunriseSelectionAbility::OrderFromHit(const FHitResult& Hit, ASunriseUnit* SingleUnit)
@@ -388,18 +332,22 @@ void USunriseSelectionAbility::OrderFromHit(const FHitResult& Hit, ASunriseUnit*
 	}
 }
 
-void USunriseSelectionAbility::StopSelectedUnits(const FInputActionValue& Value)
-{
-	SubmitOrder(SunriseOrders::Stop, FVector::ZeroVector);
-}
-
 void USunriseSelectionAbility::SelectHoldStarted(const FInputActionValue& Value)
 {
 	if (!CanInteract())
 	{
 		return;
 	}
+	if (bSelectionGestureActive)
+	{
+		return;
+	}
+	bSelectionGestureActive = true;
 	StartingBoxSelectionPosition = GetMouseLocationForPlayer();
+	if (ASunriseHUD* HUD = Cast<ASunriseHUD>(GetSunriseController()->GetHUD()))
+	{
+		HUD->DragSelectUpdate(StartingBoxSelectionPosition, FVector2D::ZeroVector, StartingBoxSelectionPosition, true);
+	}
 	DraggedCommandUnit.Reset();
 	FHitResult Hit;
 	if (GetHitUnderCursor(Hit))
@@ -410,29 +358,24 @@ void USunriseSelectionAbility::SelectHoldStarted(const FInputActionValue& Value)
 			DraggedCommandUnit = Unit;
 			if (!ControlledUnits.Contains(Unit))
 			{
-				if (!bSelectionModifier)
-				{
-					DoDeselectAllUnitsCommand();
-				}
-				ControlledUnits.AddUnique(Unit);
+				DoDeselectAllUnitsCommand();
+				ControlledUnits.Add(Unit);
 				ISunriseSelectable::Execute_SetSunriseSelected(Unit, true);
 			}
-			bSuppressNextSelectClick = true;
 		}
 	}
 }
 
 void USunriseSelectionAbility::SelectHoldTriggered(const FInputActionValue& Value)
 {
-	if (!CanInteract())
+	if (!CanInteract() || !bSelectionGestureActive)
 	{
 		return;
 	}
 	const FVector2D Current = GetMouseLocationForPlayer();
-	ASunriseHUD* HUD = Cast<ASunriseHUD>(GetSunriseController()->GetHUD());
 	if (DraggedCommandUnit.IsValid())
 	{
-		if (HUD)
+		if (ASunriseHUD* HUD = Cast<ASunriseHUD>(GetSunriseController()->GetHUD()))
 		{
 			HUD->CommandDragUpdate(DraggedCommandUnit.Get(), Current, true);
 		}
@@ -440,7 +383,7 @@ void USunriseSelectionAbility::SelectHoldTriggered(const FInputActionValue& Valu
 	else if (FVector2D::Distance(Current, StartingBoxSelectionPosition) > 5.0f)
 	{
 		SelectBox(StartingBoxSelectionPosition, Current);
-		if (HUD)
+		if (ASunriseHUD* HUD = Cast<ASunriseHUD>(GetSunriseController()->GetHUD()))
 		{
 			HUD->DragSelectUpdate(StartingBoxSelectionPosition, Current - StartingBoxSelectionPosition, Current, true);
 		}
@@ -449,6 +392,10 @@ void USunriseSelectionAbility::SelectHoldTriggered(const FInputActionValue& Valu
 
 void USunriseSelectionAbility::SelectHoldCompleted(const FInputActionValue& Value)
 {
+	if (!bSelectionGestureActive)
+	{
+		return;
+	}
 	if (CanInteract() && DraggedCommandUnit.IsValid() &&
 		FVector2D::Distance(GetMouseLocationForPlayer(), StartingBoxSelectionPosition) > 8.0f)
 	{
@@ -468,12 +415,8 @@ void USunriseSelectionAbility::SelectHoldCompleted(const FInputActionValue& Valu
 
 void USunriseSelectionAbility::CancelSelectHold(const FInputActionValue& Value)
 {
+	bSelectionGestureActive = false;
 	DraggedCommandUnit.Reset();
-	bTouchDragging = false;
-	if (AvatarPawn.IsValid())
-	{
-		AvatarPawn->EndCameraDrag();
-	}
 	if (ASunrisePlayerController* PC = GetSunriseController())
 	{
 		if (ASunriseHUD* HUD = Cast<ASunriseHUD>(PC->GetHUD()))
@@ -487,8 +430,7 @@ void USunriseSelectionAbility::CancelSelectHold(const FInputActionValue& Value)
 void USunriseSelectionAbility::CancelInteraction()
 {
 	CancelSelectHold(FInputActionValue());
-	bSelectionModifier = false;
-	bSuppressNextSelectClick = false;
+
 	DoDeselectAllUnitsCommand();
 }
 
@@ -498,24 +440,10 @@ void USunriseSelectionAbility::SelectClick(const FInputActionValue& Value)
 	{
 		return;
 	}
-	if (bSuppressNextSelectClick)
-	{
-		bSuppressNextSelectClick = false;
-		return;
-	}
 	FHitResult Hit;
 	if (CanInteract() && GetHitUnderCursor(Hit))
 	{
-		BP_CursorFeedback(Hit.ImpactPoint, DoSelectCommand(Hit.ImpactPoint, bSelectionModifier));
-	}
-}
-
-void USunriseSelectionAbility::SelectClickAdditive(const FInputActionValue& Value)
-{
-	FHitResult Hit;
-	if (CanInteract() && GetHitUnderCursor(Hit))
-	{
-		DoSelectCommand(Hit.ImpactPoint, true);
+		BP_CursorFeedback(Hit.ImpactPoint, DoSelectCommand(Hit.ImpactPoint, false));
 	}
 }
 
@@ -524,18 +452,14 @@ void USunriseSelectionAbility::SelectAllDoubleClick(const FInputActionValue& Val
 	DoSelectAllUnitsOnScreenCommand();
 }
 
-void USunriseSelectionAbility::SelectionModifierStarted(const FInputActionValue& Value)
+void USunriseSelectionAbility::StopSelectedUnits(const FInputActionValue& Value)
 {
-	bSelectionModifier = true;
-}
-void USunriseSelectionAbility::SelectionModifierCompleted(const FInputActionValue& Value)
-{
-	bSelectionModifier = false;
+	SubmitOrder(SunriseOrders::Stop, FVector::ZeroVector);
 }
 
 void USunriseSelectionAbility::InteractClick(const FInputActionValue& Value)
 {
-	if (!CanInteract() || AvatarPawn->ConsumeCameraDragClick())
+	if (!CanInteract())
 	{
 		return;
 	}
@@ -544,71 +468,4 @@ void USunriseSelectionAbility::InteractClick(const FInputActionValue& Value)
 	{
 		OrderFromHit(Hit);
 	}
-}
-
-void USunriseSelectionAbility::TouchPrimaryHoldStarted(const FInputActionValue& Value)
-{
-	TouchStartPosition = Value.Get<FVector2D>();
-	StartingBoxSelectionPosition = TouchStartPosition;
-	bTouchDragging = false;
-}
-
-void USunriseSelectionAbility::TouchPrimaryHoldTriggered(const FInputActionInstance& Instance)
-{
-	if (!CanInteract() || Instance.GetElapsedTime() <= TouchDragScrollHoldTime)
-	{
-		return;
-	}
-	if (!bTouchDragging)
-	{
-		AvatarPawn->BeginCameraDrag(TouchStartPosition, true);
-		bTouchDragging = true;
-	}
-	AvatarPawn->DoCameraDragScrollCommand(Instance.GetValue().Get<FVector2D>());
-}
-
-void USunriseSelectionAbility::TouchPrimaryHoldCompleted(const FInputActionValue& Value)
-{
-	const bool bWasDragging = bTouchDragging;
-	bTouchDragging = false;
-	if (AvatarPawn.IsValid())
-	{
-		AvatarPawn->EndCameraDrag();
-	}
-	if (!CanInteract() || bWasDragging)
-	{
-		return;
-	}
-	FHitResult Hit;
-	if (GetSunriseController()->GetHitResultUnderFingerByChannel(ETouchIndex::Touch1, SelectionTraceChannel, true, Hit))
-	{
-		if (!DoSelectCommand(Hit.ImpactPoint, true))
-		{
-			OrderFromHit(Hit);
-		}
-	}
-}
-
-void USunriseSelectionAbility::TouchSecondaryTriggered(const FInputActionValue& Value)
-{
-	if (!CanInteract())
-	{
-		return;
-	}
-	const FVector2D Position = Value.Get<FVector2D>();
-	SelectBox(StartingBoxSelectionPosition, Position);
-	if (ASunriseHUD* HUD = Cast<ASunriseHUD>(GetSunriseController()->GetHUD()))
-	{
-		HUD->DragSelectUpdate(StartingBoxSelectionPosition, Position - StartingBoxSelectionPosition, Position, true);
-	}
-}
-
-void USunriseSelectionAbility::TouchSecondaryCompleted(const FInputActionValue& Value)
-{
-	CancelSelectHold(Value);
-}
-
-void USunriseSelectionAbility::ActivateHeroSquadAbility(const FInputActionValue& Value)
-{
-	SubmitOrder(SunriseOrders::Squad, FVector::ZeroVector);
 }

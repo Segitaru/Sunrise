@@ -8,6 +8,7 @@
 #include "GameModes/Overload/Actors/OverloadLaneSpline.h"
 #include "GameModes/Overload/Components/OverloadInteractorComponent.h"
 #include "GameModes/Overload/Components/OverloadLaneFollowerComponent.h"
+#include "GameModes/Spawning/PawnFormationTypes.h"
 #include "ModularPawnData.h"
 #include "NativeGameplayTags.h"
 #include "Units/Components/SunriseUnitManagerComponent.h"
@@ -53,10 +54,9 @@ bool USunriseHeroSquadAbility::CanActivateAbility(FGameplayAbilitySpecHandle Han
 		return false;
 	}
 	const ASunriseUnit* Hero = Cast<ASunriseUnit>(ActorInfo->AvatarActor.Get());
-	return Hero && Hero->IsHero() && Hero->IsAlive() && !SquadDefinitions.IsEmpty() && Hero->GetWorld() &&
+	return IsValid(Hero) && Hero->IsHero() && Hero->IsAlive() && !SquadFormations.IsEmpty() && Hero->GetWorld() &&
 		   !ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(TAG_Sunrise_HeroSquadCooldown);
 }
-
 void USunriseHeroSquadAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
@@ -77,7 +77,6 @@ void USunriseHeroSquadAbility::ActivateAbility(const FGameplayAbilitySpecHandle 
 	}
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }
-
 bool USunriseHeroSquadAbility::ActivateForHero(ASunriseUnit* Hero, TSubclassOf<USunriseHeroSquadAbility> AbilityClass)
 {
 	if (!IsValid(Hero) || !AbilityClass || !Hero->IsHero() || !Hero->IsAlive())
@@ -99,7 +98,7 @@ bool USunriseHeroSquadAbility::ActivateForHero(ASunriseUnit* Hero, TSubclassOf<U
 bool USunriseHeroSquadAbility::SpawnSquad(ASunriseUnit* Hero)
 {
 	UWorld* World = Hero ? Hero->GetWorld() : nullptr;
-	if (!World || SquadDefinitions.IsEmpty())
+	if (!World || SquadFormations.IsEmpty())
 	{
 		return false;
 	}
@@ -111,17 +110,22 @@ bool USunriseHeroSquadAbility::SpawnSquad(ASunriseUnit* Hero)
 		}
 	}
 	SpawnedUnits.Reset();
-	for (int32 Index = 0; Index < SquadDefinitions.Num(); ++Index)
+	for (int32 Index = 0; Index < SquadFormations.Num(); ++Index)
 	{
-		UModularPawnData* Definition = SquadDefinitions[Index].LoadSynchronous();
-		TSubclassOf<APawn> UnitClass = Definition ? Definition->PawnClass.LoadSynchronous() : nullptr;
-		if (!UnitClass || Definition->Specification.HasTag(SunrisePawnTags::Kind_Hero))
+		const FPawnFormation Definition = SquadFormations[Index];
+		UModularPawnData* const LoadedData = Definition.Definition.LoadSynchronous();
+		if (!LoadedData)
+		{
+			continue;
+		}
+		const TSubclassOf<APawn> UnitClass = LoadedData->PawnClass.LoadSynchronous();
+		if (!UnitClass || Definition.Definition.LoadSynchronous()->Specification.HasTag(SunrisePawnTags::Kind_Hero))
 		{
 			continue;
 		}
 		const float Angle = Index * UE_PI;
 		const FVector Location = Hero->GetActorLocation() + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.0f) * FormationSpacing;
-		ASunriseUnit* Unit = USunriseUnitManagerComponent::SpawnUnit(Definition, FTransform(Hero->GetActorRotation(), Location), Hero);
+		ASunriseUnit* Unit = USunriseUnitManagerComponent::SpawnUnit(LoadedData, FTransform(Hero->GetActorRotation(), Location), Hero);
 		if (!Unit)
 		{
 			continue;
@@ -132,7 +136,7 @@ bool USunriseHeroSquadAbility::SpawnSquad(ASunriseUnit* Hero)
 		Unit->SpawnDefaultController();
 		if (UControllableComponent* Controllable = UControllableComponent::FindControllableComponent(Unit))
 		{
-			Controllable->SetEntityDefinition(Definition);
+			Controllable->SetEntityDefinition(LoadedData);
 		}
 		if (AController* Controller = Cast<AController>(Hero->GetControllingAgent().GetObject()))
 		{

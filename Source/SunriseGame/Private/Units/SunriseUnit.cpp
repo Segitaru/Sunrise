@@ -4,6 +4,7 @@
 
 #include "AIController.h"
 #include "Abilities/SunriseDeathAbility.h"
+#include "Abilities/SunriseUnitOrderExecutionAbility.h"
 #include "AbilitySystem/ModularAbilitySystemComponent.h"
 #include "AbilitySystemComponent.h"
 #include "BrainComponent.h"
@@ -106,6 +107,11 @@ void ASunriseUnit::BeginPlay()
 								 : IsHero()		   ? USunriseRespawnAbility::StaticClass()
 												   : USunriseDeathAbility::StaticClass();
 		AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(LifecycleClass, 1, INDEX_NONE, this));
+		if (!AbilitySystemComponent->FindAbilitySpecFromClass(USunriseUnitOrderExecutionAbility::StaticClass()))
+		{
+			AbilitySystemComponent->GiveAbility(
+				FGameplayAbilitySpec(USunriseUnitOrderExecutionAbility::StaticClass(), 1, INDEX_NONE, this));
+		}
 	}
 	VitalityComponent->InitializeWithAbilitySystem(AbilitySystemComponent);
 	EquipDefaultWeaponForRole();

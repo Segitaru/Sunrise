@@ -8,6 +8,7 @@
 
 class UModularPawnData;
 class ASunriseUnit;
+struct FPawnFormation;
 
 UCLASS()
 class SUNRISEGAME_API USunriseHeroSquadCooldownEffect : public UGameplayEffect
@@ -37,8 +38,8 @@ public:
 	static float GetCooldownRemaining(const ASunriseUnit* Hero);
 
 protected:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise")
-	TArray<TSoftObjectPtr<UModularPawnData>> SquadDefinitions;
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise")
+	TArray<FPawnFormation> SquadFormations;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise", meta = (ClampMin = "1.0", Units = "s"))
 	float Cooldown = 30.0f;

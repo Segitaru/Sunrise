@@ -10,14 +10,12 @@
 #include "Engine/LocalPlayer.h"
 #include "EnhancedInputSubsystems.h"
 #include "Input/ModularInputComponent.h"
-#include "Input/ModularInputConfig.h"
 #include "InputMappingContext.h"
 #include "Logging/MessageLog.h"
 #include "ModularGameplayTags.h"
 #include "ModularInputTypes.h"
 #include "ModularLogChannels.h"
 #include "Pawn/Components//ModularPawnExtensionComponent.h"
-#include "Pawn/ModularCharacter.h"
 #include "Pawn/ModularPawnData.h"
 #include "Player/ModularPlayerController.h"
 #include "Player/ModularPlayerState.h"
@@ -250,56 +248,66 @@ void UModularHeroComponent::InitializePlayerInput(UInputComponent* PlayerInputCo
 
 	Subsystem->ClearAllMappings();
 
-	if (const UModularPawnExtensionComponent* PawnExtComp = UModularPawnExtensionComponent::FindPawnExtensionComponent(Pawn))
+	const UModularPawnExtensionComponent* PawnExtComp = UModularPawnExtensionComponent::FindPawnExtensionComponent(Pawn);
+	if (!PawnExtComp)
 	{
-		if (const UModularPawnData* PawnData = PawnExtComp->GetPawnData<UModularPawnData>())
+		return;
+	}
+	const UModularPawnData* PawnData = PawnExtComp->GetPawnData<UModularPawnData>();
+	if (!PawnData)
+	{
+		return;
+	}
+
+	for (const FInputMappingContextAndPriority& Mapping : DefaultInputMappings)
+	{
+		if (UInputMappingContext* IMC = Mapping.InputMapping.LoadSynchronous())
 		{
-			if (const UModularInputConfig* InputConfig = PawnData->InputConfig)
+			if (Mapping.bRegisterWithSettings)
 			{
-				for (const FInputMappingContextAndPriority& Mapping : DefaultInputMappings)
+				if (UEnhancedInputUserSettings* Settings = Subsystem->GetUserSettings())
 				{
-					if (UInputMappingContext* IMC = Mapping.InputMapping.LoadSynchronous())
-					{
-						if (Mapping.bRegisterWithSettings)
-						{
-							if (UEnhancedInputUserSettings* Settings = Subsystem->GetUserSettings())
-							{
-								Settings->RegisterInputMappingContext(IMC);
-							}
-
-							FModifyContextOptions Options = {};
-							Options.bIgnoreAllPressedKeysUntilRelease = false;
-							// Actually add the config to the local player
-							Subsystem->AddMappingContext(IMC, Mapping.Priority, Options);
-						}
-					}
+					Settings->RegisterInputMappingContext(IMC);
 				}
 
-				// The Modular Input Component has some additional functions to map Gameplay Tags to an Input Action.
-				// If you want this functionality but still want to change your input component class, make it a subclass
-				// of the UModularInputComponent or modify this component accordingly.
-				UModularInputComponent* ModularIC = Cast<UModularInputComponent>(PlayerInputComponent);
-				if (ensureMsgf(ModularIC,
-						TEXT(
-							"Unexpected Input Component class! The Gameplay Abilities will not be bound to their inputs. Change the input component to UModularInputComponent or a subclass of it.")))
-				{
-					// Add the key mappings that may have been set by the player
-					ModularIC->AddInputMappings(InputConfig, Subsystem);
-
-					// This is where we actually bind and input action to a gameplay tag, which means that Gameplay Ability Blueprints will
-					// be triggered directly by these input actions Triggered events.
-					TArray<uint32> BindHandles;
-					ModularIC->BindAbilityActions(InputConfig, this, &ThisClass::Input_AbilityInputTagPressed,
-						&ThisClass::Input_AbilityInputTagReleased, /*out*/ BindHandles);
-
-					ModularIC->BindNativeAction(InputConfig, ModularGameplayTags::InputTag_Move, ETriggerEvent::Triggered, this,
-						&ThisClass::Input_Move, /*bLogIfNotFound=*/false);
-					ModularIC->BindNativeAction(InputConfig, ModularGameplayTags::InputTag_Look_Mouse, ETriggerEvent::Triggered, this,
-						&ThisClass::Input_LookMouse, /*bLogIfNotFound=*/false);
-					ModularIC->BindNativeAction(InputConfig, ModularGameplayTags::InputTag_Look_Stick, ETriggerEvent::Triggered, this,
-						&ThisClass::Input_LookStick, /*bLogIfNotFound=*/false);
-				}
+				FModifyContextOptions Options = {};
+				Options.bIgnoreAllPressedKeysUntilRelease = false;
+				// Actually add the config to the local player
+				Subsystem->AddMappingContext(IMC, Mapping.Priority, Options);
 			}
+		}
+	}
+
+	for (const auto& InputConfig : PawnData->InputConfigs)
+	{
+		if (!InputConfig)
+		{
+			continue;
+		}
+
+		// The Modular Input Component has some additional functions to map Gameplay Tags to an Input Action.
+		// If you want this functionality but still want to change your input component class, make it a subclass
+		// of the UModularInputComponent or modify this component accordingly.
+		UModularInputComponent* ModularIC = Cast<UModularInputComponent>(PlayerInputComponent);
+		if (ensureMsgf(ModularIC,
+				TEXT(
+					"Unexpected Input Component class! The Gameplay Abilities will not be bound to their inputs. Change the input component to UModularInputComponent or a subclass of it.")))
+		{
+			// Add the key mappings that may have been set by the player
+			ModularIC->AddInputMappings(InputConfig, Subsystem);
+
+			// This is where we actually bind and input action to a gameplay tag, which means that Gameplay Ability Blueprints will
+			// be triggered directly by these input actions Triggered events.
+			TArray<uint32> BindHandles;
+			ModularIC->BindAbilityActions(InputConfig, this, &ThisClass::Input_AbilityInputTagPressed,
+				&ThisClass::Input_AbilityInputTagReleased, /*out*/ BindHandles);
+
+			ModularIC->BindNativeAction(InputConfig, ModularGameplayTags::InputTag_Move, ETriggerEvent::Triggered, this,
+				&ThisClass::Input_Move, /*bLogIfNotFound=*/false);
+			ModularIC->BindNativeAction(InputConfig, ModularGameplayTags::InputTag_Look_Mouse, ETriggerEvent::Triggered, this,
+				&ThisClass::Input_LookMouse, /*bLogIfNotFound=*/false);
+			ModularIC->BindNativeAction(InputConfig, ModularGameplayTags::InputTag_Look_Stick, ETriggerEvent::Triggered, this,
+				&ThisClass::Input_LookStick, /*bLogIfNotFound=*/false);
 		}
 	}
 

@@ -11,7 +11,6 @@ class ASunriseUnit;
 class UEnhancedInputComponent;
 class UInputAction;
 struct FInputActionValue;
-struct FInputActionInstance;
 
 /** Local selection and pointer gestures. Gameplay commands are submitted to the order ability. */
 UCLASS(Blueprintable)
@@ -41,29 +40,21 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> SelectClickAction;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
-	TObjectPtr<UInputAction> SelectClickAdditiveAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> SelectAllDoubleClickAction;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> SelectHoldAction;
+
+	/** Pointer/mouse movement action used while SelectHoldAction is active. */
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
+	TObjectPtr<UInputAction> SelectMoveAction;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> InteractClickAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
-	TObjectPtr<UInputAction> SelectionModifierAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
-	TObjectPtr<UInputAction> TouchPrimaryHoldAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
-	TObjectPtr<UInputAction> TouchSecondaryAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
-	TObjectPtr<UInputAction> HeroSquadAction;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> StopActions;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Selection", meta = (ClampMin = "0", Units = "cm"))
 	float SelectionRadius = 180.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Selection")
 	TEnumAsByte<ETraceTypeQuery> SelectionTraceChannel = TraceTypeQuery1;
-	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions", meta = (ClampMin = "0", Units = "s"))
-	float TouchDragScrollHoldTime = 0.15f;
 	UFUNCTION(BlueprintImplementableEvent, Category = "Cursor")
 	void BP_CursorFeedback(FVector Location, bool bPositive);
 
@@ -77,23 +68,14 @@ private:
 	void SelectBox(const FVector2D& Start, const FVector2D& End);
 	void SubmitOrder(FGameplayTag Tag, const FVector& Location, AActor* Target = nullptr, ASunriseUnit* SingleUnit = nullptr);
 	void OrderFromHit(const FHitResult& Hit, ASunriseUnit* SingleUnit = nullptr);
-	void StopSelectedUnits(const FInputActionValue& Value);
 	void SelectHoldStarted(const FInputActionValue& Value);
 	void SelectHoldTriggered(const FInputActionValue& Value);
 	void SelectHoldCompleted(const FInputActionValue& Value);
 	void CancelSelectHold(const FInputActionValue& Value);
 	void SelectClick(const FInputActionValue& Value);
-	void SelectClickAdditive(const FInputActionValue& Value);
 	void SelectAllDoubleClick(const FInputActionValue& Value);
-	void SelectionModifierStarted(const FInputActionValue& Value);
-	void SelectionModifierCompleted(const FInputActionValue& Value);
 	void InteractClick(const FInputActionValue& Value);
-	void TouchPrimaryHoldStarted(const FInputActionValue& Value);
-	void TouchPrimaryHoldTriggered(const FInputActionInstance& Instance);
-	void TouchPrimaryHoldCompleted(const FInputActionValue& Value);
-	void TouchSecondaryTriggered(const FInputActionValue& Value);
-	void TouchSecondaryCompleted(const FInputActionValue& Value);
-	void ActivateHeroSquadAbility(const FInputActionValue& Value);
+	void StopSelectedUnits(const FInputActionValue& Value);
 
 	UPROPERTY(Transient)
 	TArray<ASunriseUnit*> ControlledUnits;
@@ -104,9 +86,7 @@ private:
 	TWeakObjectPtr<UEnhancedInputComponent> BoundInput;
 	TArray<uint32> BindingHandles;
 	FVector2D StartingBoxSelectionPosition = FVector2D::ZeroVector;
-	FVector2D TouchStartPosition = FVector2D::ZeroVector;
+
+	bool bSelectionGestureActive = false;
 	float LastBoxSelectionTime = -1000.0f;
-	bool bSelectionModifier = false;
-	bool bSuppressNextSelectClick = false;
-	bool bTouchDragging = false;
 };

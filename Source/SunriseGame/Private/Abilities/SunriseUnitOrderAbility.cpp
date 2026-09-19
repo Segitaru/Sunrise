@@ -3,12 +3,11 @@
 
 #include "Abilities/GameplayAbilityTargetTypes.h"
 #include "Abilities/SunriseHeroSquadAbility.h"
+#include "AbilitySystemBlueprintLibrary.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
-#include "GameModes/Overload/Components/OverloadInteractorComponent.h"
 #include "GameModes/Overload/Interfaces/OverloadHackable.h"
 #include "Player/SunrisePlayerController.h"
 #include "Units/SunriseUnit.h"
-#include "Units/SunriseUnitInterfaces.h"
 
 namespace SunriseOrders
 {
@@ -39,12 +38,12 @@ void USunriseUnitOrderAbility::ActivateAbility(FGameplayAbilitySpecHandle Handle
 {
 	// GAS carries the event/target data in ServerTryActivateAbilityWithEventData.
 	// Local prediction submits intent only; no client writes to units.
-	const bool bAuthority = ActorInfo && ActorInfo->IsLocallyControlled();
-	const bool bSuccess = !bAuthority || (TriggerEventData && ExecuteOrder(*TriggerEventData, ActorInfo));
+	const bool bAuthority = ActorInfo && ActorInfo->IsNetAuthority();
+	const bool bSuccess = !bAuthority || (TriggerEventData && DispatchOrder(*TriggerEventData, ActorInfo));
 	EndAbility(Handle, ActorInfo, ActivationInfo, bAuthority, !bSuccess);
 }
 
-bool USunriseUnitOrderAbility::ExecuteOrder(const FGameplayEventData& Event, const FGameplayAbilityActorInfo* ActorInfo)
+bool USunriseUnitOrderAbility::DispatchOrder(const FGameplayEventData& Event, const FGameplayAbilityActorInfo* ActorInfo)
 {
 	ASunrisePlayerController* PC = Cast<ASunrisePlayerController>(ActorInfo->PlayerController.Get());
 	UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(PC);
@@ -115,49 +114,25 @@ bool USunriseUnitOrderAbility::ExecuteOrder(const FGameplayEventData& Event, con
 	}
 	const int32 Columns = FMath::CeilToInt(FMath::Sqrt(static_cast<float>(Units.Num())));
 	const int32 Rows = FMath::DivideAndRoundUp(Units.Num(), Columns);
-	bool bIssuedOrder = false;
+
 	for (int32 Index = 0; Index < Units.Num(); ++Index)
 	{
 		ASunriseUnit* Unit = Units[Index];
-		if (Tag == SunriseOrders::Move)
-		{
-			const FVector Offset((Index / Columns - (Rows - 1) * 0.5f) * FormationSpacing,
-				(Index % Columns - (Columns - 1) * 0.5f) * FormationSpacing, 0.0f);
-			ISunriseOrderReceiver::Execute_IssueMoveOrder(Unit, Location + Offset);
-		}
-		else if (Tag == SunriseOrders::Target)
-		{
-			if (TargetUnit == Unit)
-			{
-				continue;
-			}
-			if (!Unit->HasPawnTag(SunrisePawnTags::Class_Healer) || Unit->CanTargetWithWeapon(TargetUnit))
-			{
-				ISunriseOrderReceiver::Execute_IssueTargetOrder(Unit, TargetUnit);
-			}
-			else
-			{
-				ISunriseOrderReceiver::Execute_IssueMoveOrder(
-					Unit, TargetUnit->GetActorLocation() + FVector(0.0f, (Index - Units.Num() * 0.5f) * FormationSpacing, 0.0f));
-			}
-		}
-		else if (Tag == SunriseOrders::Hack)
-		{
-			UOverloadInteractorComponent* Interactor = Unit->FindComponentByClass<UOverloadInteractorComponent>();
-			bIssuedOrder |= Interactor && Interactor->RequestHack(TargetActor, true);
-			continue;
-		}
-		else
-		{
-			if (UOverloadInteractorComponent* Interactor = Unit->FindComponentByClass<UOverloadInteractorComponent>())
-			{
-				Interactor->CancelHack();
-			}
-			ISunriseOrderReceiver::Execute_StopOrder(Unit);
-		}
-		bIssuedOrder = true;
+		const FVector Offset = Tag == SunriseOrders::Move ? FVector((Index / Columns - (Rows - 1) * 0.5f) * FormationSpacing,
+																(Index % Columns - (Columns - 1) * 0.5f) * FormationSpacing, 0.0f)
+														  : FVector::ZeroVector;
+		FGameplayEventData UnitEvent = Event;
+		UnitEvent.TargetData = FGameplayAbilityTargetDataHandle();
+		FGameplayAbilityTargetData_ActorArray* ActorData = new FGameplayAbilityTargetData_ActorArray();
+		ActorData->TargetActorArray.Add(Unit);
+		UnitEvent.TargetData.Add(ActorData);
+		FHitResult UnitHit = *Event.TargetData.Get(1)->GetHitResult();
+		UnitHit.ImpactPoint += Offset;
+		UnitHit.Location = UnitHit.ImpactPoint;
+		UnitEvent.TargetData.Add(new FGameplayAbilityTargetData_SingleTargetHit(UnitHit));
+		UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(Unit, Tag, UnitEvent);
 	}
-	return bIssuedOrder;
+	return true;
 }
 
 float USunriseUnitOrderAbility::GetHeroSquadCooldownRemaining(const AController* Controller)

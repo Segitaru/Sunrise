@@ -3,8 +3,8 @@
 #include "AbilitySystem/ModularAbilitySet.h"
 
 #include "AbilitySystem/Abilities/ModularGameplayAbility.h"
-#include "ModularLogChannels.h"
 #include "ModularAbilitySystemComponent.h"
+#include "ModularLogChannels.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(ModularAbilitySet)
 
@@ -70,7 +70,8 @@ UModularAbilitySet::UModularAbilitySet(const FObjectInitializer& ObjectInitializ
 {
 }
 
-void UModularAbilitySet::GiveToAbilitySystem(UModularAbilitySystemComponent* ModularASC, FModularAbilitySet_GrantedHandles* OutGrantedHandles, UObject* SourceObject) const
+void UModularAbilitySet::GiveToAbilitySystem(
+	UModularAbilitySystemComponent* ModularASC, FModularAbilitySet_GrantedHandles* OutGrantedHandles, UObject* SourceObject) const
 {
 	check(ModularASC);
 
@@ -79,7 +80,7 @@ void UModularAbilitySet::GiveToAbilitySystem(UModularAbilitySystemComponent* Mod
 		// Must be authoritative to give or take ability sets.
 		return;
 	}
-	
+
 	// Grant the attribute sets.
 	for (int32 SetIndex = 0; SetIndex < GrantedAttributes.Num(); ++SetIndex)
 	{
@@ -87,7 +88,8 @@ void UModularAbilitySet::GiveToAbilitySystem(UModularAbilitySystemComponent* Mod
 
 		if (!IsValid(SetToGrant.AttributeSet))
 		{
-			UE_LOG(LogModularAbilitySystem, Error, TEXT("GrantedAttributes[%d] on ability set [%s] is not valid"), SetIndex, *GetNameSafe(this));
+			UE_LOG(LogModularAbilitySystem, Error, TEXT("GrantedAttributes[%d] on ability set [%s] is not valid"), SetIndex,
+				*GetNameSafe(this));
 			continue;
 		}
 
@@ -107,7 +109,8 @@ void UModularAbilitySet::GiveToAbilitySystem(UModularAbilitySystemComponent* Mod
 
 		if (!IsValid(AbilityToGrant.Ability))
 		{
-			UE_LOG(LogModularAbilitySystem, Error, TEXT("GrantedGameplayAbilities[%d] on ability set [%s] is not valid."), AbilityIndex, *GetNameSafe(this));
+			UE_LOG(LogModularAbilitySystem, Error, TEXT("GrantedGameplayAbilities[%d] on ability set [%s] is not valid."), AbilityIndex,
+				*GetNameSafe(this));
 			continue;
 		}
 
@@ -116,9 +119,12 @@ void UModularAbilitySet::GiveToAbilitySystem(UModularAbilitySystemComponent* Mod
 		FGameplayAbilitySpec AbilitySpec(AbilityCDO, AbilityToGrant.AbilityLevel);
 		AbilitySpec.SourceObject = SourceObject;
 #if UE_VERSION_5_8_x
-		AbilitySpec.GetDynamicSpecSourceTags().AddTag(AbilityToGrant.InputTag);
+		AbilitySpec.GetDynamicSpecSourceTags().AddTag(AbilityToGrant.InputTags);
 #else
-		AbilitySpec.DynamicAbilityTags.AddTag(AbilityToGrant.InputTag);
+		for (const auto& InputTag : AbilityToGrant.InputTags)
+		{
+			AbilitySpec.DynamicAbilityTags.AddTag(InputTag);
+		}
 #endif
 		const FGameplayAbilitySpecHandle AbilitySpecHandle = ModularASC->GiveAbility(AbilitySpec);
 
@@ -135,12 +141,14 @@ void UModularAbilitySet::GiveToAbilitySystem(UModularAbilitySystemComponent* Mod
 
 		if (!IsValid(EffectToGrant.GameplayEffect))
 		{
-			UE_LOG(LogModularAbilitySystem, Error, TEXT("GrantedGameplayEffects[%d] on ability set [%s] is not valid"), EffectIndex, *GetNameSafe(this));
+			UE_LOG(LogModularAbilitySystem, Error, TEXT("GrantedGameplayEffects[%d] on ability set [%s] is not valid"), EffectIndex,
+				*GetNameSafe(this));
 			continue;
 		}
 
 		const UGameplayEffect* GameplayEffect = EffectToGrant.GameplayEffect->GetDefaultObject<UGameplayEffect>();
-		const FActiveGameplayEffectHandle GameplayEffectHandle = ModularASC->ApplyGameplayEffectToSelf(GameplayEffect, EffectToGrant.EffectLevel, ModularASC->MakeEffectContext());
+		const FActiveGameplayEffectHandle GameplayEffectHandle =
+			ModularASC->ApplyGameplayEffectToSelf(GameplayEffect, EffectToGrant.EffectLevel, ModularASC->MakeEffectContext());
 
 		if (OutGrantedHandles)
 		{
@@ -148,4 +156,3 @@ void UModularAbilitySet::GiveToAbilitySystem(UModularAbilitySystemComponent* Mod
 		}
 	}
 }
-

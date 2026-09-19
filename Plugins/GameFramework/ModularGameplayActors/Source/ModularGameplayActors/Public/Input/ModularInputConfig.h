@@ -22,11 +22,10 @@ struct FModularInputAction
 	GENERATED_BODY()
 
 public:
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
 	TObjectPtr<const UInputAction> InputAction = nullptr;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Meta = (Categories = "InputTag"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Meta = (Categories = "InputTags"))
 	FGameplayTag InputTag;
 };
 
@@ -41,7 +40,6 @@ class UModularInputConfig : public UDataAsset
 	GENERATED_BODY()
 
 public:
-
 	UModularInputConfig(const FObjectInitializer& ObjectInitializer);
 
 	UFUNCTION(BlueprintCallable, Category = "Modular|Pawn")
