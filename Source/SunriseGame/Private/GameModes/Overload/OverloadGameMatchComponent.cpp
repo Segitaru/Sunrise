@@ -264,6 +264,13 @@ void UOverloadGameMatchComponent::HandleTowerCaptured(AOverloadGuardTower* Tower
 {
 	UE_LOG(LogTemp, Log, TEXT("Overload tower %s captured: team %d -> %d"), *GetNameSafe(Tower), PreviousTeamId, NewTeamId);
 	RecalculateSupplyAndBalance();
+
+	// The tower changes its team immediately before broadcasting, but defer one refresh as well so
+	// all objective/team observers see the completed capture before the core supply is evaluated.
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().SetTimerForNextTick(this, &ThisClass::RecalculateSupplyAndBalance);
+	}
 }
 
 void UOverloadGameMatchComponent::HandleCoreExploded(AOverloadEnergyCore* Core, int32 OverloadingTeamId)
@@ -297,7 +304,9 @@ void UOverloadGameMatchComponent::BuildObjectivesForLane(AOverloadLaneSpline* La
 	USplineComponent* Spline = Lane->GetLaneSpline();
 	const int32 CheckpointCount = Lane->GetCheckpointCount();
 	const int32 HalfCount = CheckpointCount / 2;
-	const bool bHasNeutralCenter = CheckpointCount % 2 != 0;
+	// A single-checkpoint lane must still have a supply-chain tower. Neutral center
+	// checkpoints are reserved for lanes with more than one tower.
+	const bool bHasNeutralCenter = CheckpointCount > 1 && CheckpointCount % 2 != 0;
 	const int32 CenterIndex = HalfCount;
 	for (int32 Index = 0; Index < CheckpointCount; ++Index)
 	{

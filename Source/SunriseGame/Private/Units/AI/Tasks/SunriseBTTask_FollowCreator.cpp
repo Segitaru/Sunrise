@@ -3,6 +3,7 @@
 #include "AIController.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "Units/AI/SunriseUnitAIController.h"
 #include "Units/SunriseUnit.h"
 
 USunriseBTTask_FollowCreator::USunriseBTTask_FollowCreator()
@@ -16,16 +17,19 @@ USunriseBTTask_FollowCreator::USunriseBTTask_FollowCreator()
 EBTNodeResult::Type USunriseBTTask_FollowCreator::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	AAIController* AIController = OwnerComp.GetAIOwner();
+	const ASunriseUnitAIController* SunriseAI = Cast<ASunriseUnitAIController>(AIController);
 	ASunriseUnit* Unit = AIController ? Cast<ASunriseUnit>(AIController->GetPawn()) : nullptr;
 	AActor* Creator = Unit ? Unit->GetOwner() : nullptr;
-	if (!AIController || !Unit || !IsValid(Creator) || Creator == Unit)
+	if (!AIController || !Unit || (SunriseAI && SunriseAI->HasActivePlayerOrder()) || !IsValid(Creator) || Creator == Unit)
 	{
 		return EBTNodeResult::Failed;
 	}
 
 	if (FVector::DistSquared2D(Unit->GetActorLocation(), Creator->GetActorLocation()) <= FMath::Square(FollowRadius))
 	{
-		return EBTNodeResult::Succeeded;
+		// Keep the task active. Succeeded would leave the selector and stop following
+		// as soon as the creator moves away again.
+		return EBTNodeResult::InProgress;
 	}
 
 	const EPathFollowingRequestResult::Type MoveResult = AIController->MoveToActor(Creator, FollowRadius, true, true, false, nullptr, true);
@@ -34,10 +38,12 @@ EBTNodeResult::Type USunriseBTTask_FollowCreator::ExecuteTask(UBehaviorTreeCompo
 
 void USunriseBTTask_FollowCreator::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
+	(void)DeltaSeconds;
 	AAIController* AIController = OwnerComp.GetAIOwner();
+	const ASunriseUnitAIController* SunriseAI = Cast<ASunriseUnitAIController>(AIController);
 	ASunriseUnit* Unit = AIController ? Cast<ASunriseUnit>(AIController->GetPawn()) : nullptr;
 	AActor* Creator = Unit ? Unit->GetOwner() : nullptr;
-	if (!AIController || !Unit || !IsValid(Creator) || Creator == Unit)
+	if (!AIController || !Unit || (SunriseAI && SunriseAI->HasActivePlayerOrder()) || !IsValid(Creator) || Creator == Unit)
 	{
 		FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
 		return;
@@ -45,7 +51,10 @@ void USunriseBTTask_FollowCreator::TickTask(UBehaviorTreeComponent& OwnerComp, u
 
 	if (FVector::DistSquared2D(Unit->GetActorLocation(), Creator->GetActorLocation()) <= FMath::Square(FollowRadius))
 	{
-		FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
+		if (AIController->GetMoveStatus() != EPathFollowingStatus::Idle)
+		{
+			AIController->StopMovement();
+		}
 		return;
 	}
 
@@ -64,7 +73,11 @@ void USunriseBTTask_FollowCreator::OnTaskFinished(UBehaviorTreeComponent& OwnerC
 {
 	if (AAIController* AIController = OwnerComp.GetAIOwner())
 	{
-		AIController->StopMovement();
+		const ASunriseUnitAIController* SunriseAI = Cast<ASunriseUnitAIController>(AIController);
+		if (!SunriseAI || !SunriseAI->HasActivePlayerOrder())
+		{
+			AIController->StopMovement();
+		}
 	}
 	Super::OnTaskFinished(OwnerComp, NodeMemory, TaskResult);
 }

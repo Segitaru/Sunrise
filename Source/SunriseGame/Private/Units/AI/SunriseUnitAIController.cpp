@@ -10,6 +10,9 @@
 #include "Navigation/CrowdFollowingComponent.h"
 #include "Pawn/ModularPawnData.h"
 #include "Perception/AIPerceptionComponent.h"
+#include "Perception/AISense.h"
+#include "Perception/AISenseConfig_Damage.h"
+#include "Perception/AISense_Damage.h"
 #include "Units/AI/SunriseBlackboardData.h"
 #include "Units/SunriseUnit.h"
 #include "Vitality/Attributes/SunriseCombatSet.h"
@@ -21,6 +24,9 @@ ASunriseUnitAIController::ASunriseUnitAIController(const FObjectInitializer& Obj
 {
 	PerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("PerceptionComponent"));
 	PerceptionComponent->OnTargetPerceptionInfoUpdated.AddDynamic(this, &ThisClass::OnPerceptionInfoChanged);
+	UAISenseConfig_Damage* DamageSense = CreateDefaultSubobject<UAISenseConfig_Damage>(TEXT("DamageSense"));
+	DamageSense->SetMaxAge(5.0f);
+	PerceptionComponent->ConfigureSense(*DamageSense);
 	bAllowStrafe = false;
 }
 
@@ -121,6 +127,7 @@ bool ASunriseUnitAIController::IssueMoveOrder(const FVector& Destination, bool b
 	{
 		return true;
 	}
+	const bool bWasExternalInteractionActive = bExternalInteractionActive;
 	++OrderRevision;
 	StopMovement();
 	Blackboard->PauseObserverNotifications();
@@ -137,6 +144,11 @@ bool ASunriseUnitAIController::IssueMoveOrder(const FVector& Destination, bool b
 	if (bFromPlayer)
 	{
 		SetExternalInteractionActive(false);
+		// Restart even when the BT was already running: a summoned unit may still have FollowCreator active.
+		if (!bWasExternalInteractionActive && BrainComponent)
+		{
+			BrainComponent->RestartLogic();
+		}
 	}
 	UpdatePresentation();
 	return true;
@@ -154,6 +166,7 @@ bool ASunriseUnitAIController::IssueTargetOrder(ASunriseUnit* Target, bool bFrom
 	{
 		return bFromPlayer && IssueMoveOrder(Target->GetActorLocation(), true);
 	}
+	const bool bWasExternalInteractionActive = bExternalInteractionActive;
 	++OrderRevision;
 	StopMovement();
 	Blackboard->PauseObserverNotifications();
@@ -170,6 +183,11 @@ bool ASunriseUnitAIController::IssueTargetOrder(ASunriseUnit* Target, bool bFrom
 	if (bFromPlayer)
 	{
 		SetExternalInteractionActive(false);
+		// Restart even when the BT was already running: a summoned unit may still have FollowCreator active.
+		if (!bWasExternalInteractionActive && BrainComponent)
+		{
+			BrainComponent->RestartLogic();
+		}
 	}
 	UpdatePresentation();
 	return true;
@@ -239,8 +257,15 @@ void ASunriseUnitAIController::SetExternalInteractionActive(bool bActive)
 	UpdatePresentation();
 }
 
-void ASunriseUnitAIController::OnPerceptionInfoChanged(const FActorPerceptionUpdateInfo&)
+void ASunriseUnitAIController::OnPerceptionInfoChanged(const FActorPerceptionUpdateInfo& UpdateInfo)
 {
+	if (ASunriseUnit* Damager = Cast<ASunriseUnit>(UpdateInfo.Target))
+	{
+		if (UpdateInfo.Stimulus.Type == UAISense::GetSenseID<UAISense_Damage>())
+		{
+			ApplyFocusTarget(Damager, 5.0f);
+		}
+	}
 	// Query all senses: losing one stimulus must not discard an actor still perceived by another sense.
 	RefreshTargets();
 }
@@ -315,7 +340,7 @@ bool ASunriseUnitAIController::CanAttackTarget(const ASunriseUnit* Target) const
 void ASunriseUnitAIController::CompleteMoveOrder(FName LocationKey, uint32 Revision, bool bSucceeded)
 {
 	if (!HasAuthority() || !Blackboard || Revision != OrderRevision ||
-		(LocationKey != PlayerOrderTargetLocation && LocationKey != TargetLocation))
+		(LocationKey != PlayerOrderTargetLocation && LocationKey != TargetLocation) || !Blackboard->IsVectorValueSet(LocationKey))
 	{
 		return;
 	}

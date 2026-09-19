@@ -3,6 +3,7 @@
 #include "GameModes/Overload/Actors/OverloadGuardTower.h"
 
 #include "AbilitySystemComponent.h"
+#include "Components/DecalComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameModes/Overload/Abilities/OverloadTowerAttackAbility.h"
@@ -10,6 +11,7 @@
 #include "GameModes/Overload/Components/OverloadCaptureComponent.h"
 #include "GameModes/Overload/Components/OverloadTowerDefenseComponent.h"
 #include "GameModes/Overload/Types/OverloadTeamIds.h"
+#include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Units/SunriseUnit.h"
 #include "Weapons/Effects/SunriseWeaponEffects.h"
@@ -28,6 +30,18 @@ AOverloadGuardTower::AOverloadGuardTower()
 	TerminalPoint->SetupAttachment(SceneRoot);
 	// Tower local X follows the spline tangent; local Y keeps the terminal equally distant along the lane for both teams.
 	TerminalPoint->SetRelativeLocation(FVector(0.0f, 180.0f, 0.0f));
+
+	CaptureZoneDecal = CreateDefaultSubobject<UDecalComponent>(TEXT("CaptureZone"));
+	CaptureZoneDecal->SetupAttachment(TerminalPoint);
+	CaptureZoneDecal->SetRelativeLocation(FVector(0.0f, 0.0f, 2.0f));
+	CaptureZoneDecal->SetRelativeRotation(FRotator(90.0f, 0.0f, 0.0f));
+	CaptureZoneDecal->DecalSize = FVector(16.0f, 520.0f, 520.0f);
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> CaptureZoneMaterial(
+		TEXT("/Game/Sunrise/Effects/Decals/M_Selection_Decal.M_Selection_Decal"));
+	if (CaptureZoneMaterial.Succeeded())
+	{
+		CaptureZoneDecal->SetDecalMaterial(CaptureZoneMaterial.Object);
+	}
 
 	CaptureComponent = CreateDefaultSubobject<UOverloadCaptureComponent>(TEXT("CaptureTerminal"));
 	DefenseComponent = CreateDefaultSubobject<UOverloadTowerDefenseComponent>(TEXT("TowerDefense"));
@@ -48,6 +62,11 @@ void AOverloadGuardTower::InitializeTower(int32 TeamId, int32 InTierIndex, AOver
 	InitializeTeam(TeamId);
 	TierIndex = FMath::Clamp(InTierIndex, 1, 5);
 	Lane = InLane;
+	if (CaptureZoneDecal && CaptureComponent)
+	{
+		const float Diameter = CaptureComponent->GetHackRadius() * 2.0f;
+		CaptureZoneDecal->DecalSize = FVector(16.0f, Diameter, Diameter);
+	}
 	const float TierMultiplier = 1.0f + (TierIndex - 1) * PerTierStatGrowth;
 	InitializeObjectiveAttributes(TierOneStats.MaxIntegrity * TierMultiplier, TierOneStats.AttackPower * TierMultiplier,
 		TierOneStats.Armor * TierMultiplier, TierOneStats.HackResistance * TierMultiplier);

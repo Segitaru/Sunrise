@@ -5,6 +5,7 @@
 #include "AbilitySystemComponent.h"
 #include "GameplayEffectExtension.h"
 #include "Net/UnrealNetwork.h"
+#include "Perception/AISense_Damage.h"
 
 USunriseHealthSet::USunriseHealthSet()
 	: Health(100.0f)
@@ -63,6 +64,17 @@ void USunriseHealthSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 	{
 		const float OldValue = HealthBeforeEffect;
 		SetHealth(FMath::Clamp(GetHealth(), 0.0f, GetMaxHealth()));
+		if (Data.EvaluatedData.Magnitude < 0.0f && Instigator)
+		{
+			if (UAbilitySystemComponent* OwningASC = GetOwningAbilitySystemComponent())
+			{
+				if (AActor* DamagedActor = OwningASC->GetAvatarActor(); DamagedActor && DamagedActor != Instigator)
+				{
+					UAISense_Damage::ReportDamageEvent(DamagedActor->GetWorld(), DamagedActor, Instigator, -Data.EvaluatedData.Magnitude,
+						Instigator->GetActorLocation(), DamagedActor->GetActorLocation());
+				}
+			}
+		}
 		OnHealthChanged.Broadcast(Instigator, Causer, &Data.EffectSpec, Data.EvaluatedData.Magnitude, OldValue, GetHealth());
 		if (!bOutOfHealth && GetHealth() <= 0.0f)
 		{
