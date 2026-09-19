@@ -1,6 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 #include "Units/SunrisePawn.h"
 
+#include <Components/SphereComponent.h>
+
 #include "AbilitySystem/ModularAbilitySystemComponent.h"
 #include "Camera/ModularCameraComponent.h"
 #include "Components/ModularHeroComponent.h"
@@ -23,7 +25,7 @@ ASunrisePawn::ASunrisePawn(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bCanEverTick = true;
 	TeamComponent = CreateDefaultSubobject<UModularTeamActorComponent>(TEXT("Team"));
 	TeamComponent->OnTeamChanged.AddDynamic(this, &ThisClass::HandleTeamChanged);
-	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
+	RootComponent = CreateDefaultSubobject<USphereComponent>(TEXT("Root"));
 	ModularAbilitySystemComponent = CreateDefaultSubobject<UModularAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 	HeroComponent = CreateDefaultSubobject<UModularHeroComponent>(TEXT("HeroComponent"));
 	PawnExtensionComponent = CreateDefaultSubobject<UModularPawnExtensionComponent>(TEXT("ExtensionComponent"));

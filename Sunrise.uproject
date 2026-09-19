@@ -73,6 +73,10 @@
 		{
 			"Name": "AsyncMixin",
 			"Enabled": true
+		},
+		{
+			"Name": "NPC_Optimizator",
+			"Enabled": true
 		}
 	]
 }

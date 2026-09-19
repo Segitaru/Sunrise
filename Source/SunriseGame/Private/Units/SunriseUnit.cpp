@@ -16,6 +16,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
+#include "NPC_Optimizator/Public/OptimizationComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Pawn/ModularPawnData.h"
 #include "Pawn/UserFacingModularPawnDefinition.h"
@@ -38,7 +39,7 @@ ASunriseUnit::ASunriseUnit(const FObjectInitializer& ObjectInitializer)
 	bReplicates = true;
 
 	PawnExtensionComponent = CreateDefaultSubobject<UModularPawnExtensionComponent>("ExtensionComponent");
-
+	//OptimizationProxy = CreateDefaultSubobject<UOptimizationProxyComponent>("OptimizationProxy");
 	AbilitySystemComponent = CreateDefaultSubobject<UModularAbilitySystemComponent>(TEXT("AbilitySystem"));
 	AbilitySystemComponent->SetIsReplicated(true);
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);

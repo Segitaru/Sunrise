@@ -4,6 +4,7 @@
 #include "Abilities/SunriseUnitOrderAbility.h"
 #include "AbilitySystemComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
+#include "Engine/EngineTypes.h"
 #include "GameModes/Overload/Interfaces/OverloadHackable.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
@@ -46,12 +47,15 @@ void USunriseOrderCommandAbility::ActivateAbility(FGameplayAbilitySpecHandle Han
 	UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(PC);
 	TArray<ASunriseUnit*> Units;
 
-	for (AActor* CurrentEntity : Manager->GetSelectedEntities())
+	if (Manager)
 	{
-		ASunriseUnit* const Unit = Cast<ASunriseUnit>(CurrentEntity);
-		if (IsValid(Unit) && Unit->IsAlive() && Manager && Manager->CanControlEntity(Unit))
+		for (AActor* CurrentEntity : Manager->GetSelectedEntities())
 		{
-			Units.Add(Unit);
+			ASunriseUnit* const Unit = Cast<ASunriseUnit>(CurrentEntity);
+			if (IsValid(Unit) && Unit->IsAlive() && Manager->CanControlEntity(Unit))
+			{
+				Units.Add(Unit);
+			}
 		}
 	}
 
@@ -61,7 +65,34 @@ void USunriseOrderCommandAbility::ActivateAbility(FGameplayAbilitySpecHandle Han
 	if (PC && PC->GetHitResultUnderCursorByChannel(TraceTypeQuery1, true, Hit))
 	{
 		Target = Hit.GetActor();
-		if (Cast<ASunriseUnit>(Target))
+		ASunriseUnit* TargetUnit = Cast<ASunriseUnit>(Target);
+		if (!TargetUnit && IsValid(Hit.GetComponent()))
+		{
+			TargetUnit = Cast<ASunriseUnit>(Hit.GetComponent()->GetOwner());
+			if (TargetUnit)
+			{
+				Target = TargetUnit;
+			}
+		}
+		if (!TargetUnit)
+		{
+			TArray<TEnumAsByte<EObjectTypeQuery>> PawnObjectTypes;
+			PawnObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
+			FHitResult PawnHit;
+			if (PC->GetHitResultUnderCursorForObjects(PawnObjectTypes, true, PawnHit))
+			{
+				TargetUnit = Cast<ASunriseUnit>(PawnHit.GetActor());
+				if (!TargetUnit && IsValid(PawnHit.GetComponent()))
+				{
+					TargetUnit = Cast<ASunriseUnit>(PawnHit.GetComponent()->GetOwner());
+				}
+				if (TargetUnit)
+				{
+					Target = TargetUnit;
+				}
+			}
+		}
+		if (IsValid(TargetUnit) && TargetUnit->IsAlive())
 		{
 			OrderTag = SunriseOrders::Target;
 		}

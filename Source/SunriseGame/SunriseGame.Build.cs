@@ -40,7 +40,8 @@ public class SunriseGame : ModuleRules
 			"GameplayMessageRuntime",
 			"GameFeatures",
 			"DeveloperSettings",
-			"NetCore"
+			"NetCore",
+			"NPC_Optimizator"
 		});
 
 		if (Target.bBuildEditor)

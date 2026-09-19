@@ -18,6 +18,7 @@ class UDecalComponent;
 class USphereComponent;
 class UAbilitySystemComponent;
 class UModularAbilitySystemComponent;
+class UOptimizationProxyComponent;
 class USunriseDeathAbility;
 class USunriseRespawnAbility;
 class USunriseHealthSet;
@@ -240,6 +241,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UDecalComponent> SelectionDecal;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|Optimize")
+	TObjectPtr<UOptimizationProxyComponent> OptimizationProxy;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|GAS")
 	TObjectPtr<UModularAbilitySystemComponent> AbilitySystemComponent;
