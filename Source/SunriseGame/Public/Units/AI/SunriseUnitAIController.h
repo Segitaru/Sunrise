@@ -1,25 +1,13 @@
 #pragma once
 
-#if UE_VERSION_5_8_x
-#include "DetourCrowdAIController.h"
-#else
 #include "AIController.h"
-#endif
+#include "Perception/AIPerceptionComponent.h"
 
 #include "SunriseUnitAIController.generated.h"
 
-class UStateTreeAIComponent;
-class UStateTree;
-class UAIPerceptionComponent;
+class ASunriseUnit;
 
-struct FActorPerceptionUpdateInfo;
-#if UE_VERSION_5_8_x
-using ASunriseTargetAIController = ADetourCrowdAIController;
-#else
-using ASunriseTargetAIController = AAIController;
-#endif
-
-/** Uses Unreal's Detour crowd navigation and Gameplay StateTree brain for RTS units. */
+/** Owns server-side Blackboard intent; Behavior Tree nodes execute movement and combat. */
 UCLASS(Blueprintable)
 class SUNRISEGAME_API ASunriseUnitAIController : public AAIController
 {
@@ -30,34 +18,30 @@ public:
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
 
-	UFUNCTION(BlueprintPure, Category = "Sunrise|AI")
-	UStateTreeComponent* GetStateTreeComponent() const { return StateTreeComponent; }
+	bool IssueMoveOrder(const FVector& Destination, bool bFromPlayer);
+	bool IssueTargetOrder(ASunriseUnit* Target, bool bFromPlayer);
+	void StopOrders();
+	bool HasActivePlayerOrder() const;
+	FVector GetMovementGoal() const;
 
-	/** Enable after assigning a StateTree that fully owns unit decisions. */
-	UFUNCTION(BlueprintPure, Category = "Sunrise|AI")
-	bool IsStateTreeDrivingDecisions() const;
+	bool ApplyFocusTarget(ASunriseUnit* Target, float Duration);
+	void SetExternalInteractionActive(bool bActive);
+	bool IsExternalInteractionActive() const { return bExternalInteractionActive; }
 
-	/** Temporarily pauses authored autonomous decisions while a player order is active. */
-	void SuspendDecisionLogicForPlayerOrder();
+	/** Called by perception and the root BT service, including when a target dies or becomes incompatible. */
+	void RefreshTargets();
+	bool CanAttackTarget(const ASunriseUnit* Target) const;
 
-	void ResumeDecisionLogicAfterPlayerOrder();
-
-	void OnPerceptionInfoChanged(const FActorPerceptionUpdateInfo& UpdateInfo);
+	/** A completed/failed BT move may only consume the order it started with. Aborts never consume orders. */
+	uint32 GetOrderRevision() const { return OrderRevision; }
+	void CompleteMoveOrder(FName LocationKey, uint32 Revision, bool bSucceeded);
 
 protected:
+	UFUNCTION()
+	void OnPerceptionInfoChanged(const FActorPerceptionUpdateInfo& UpdateInfo);
+
 	void ConfigureCrowdFollowing();
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Sunrise|AI")
-	TObjectPtr<UStateTreeComponent> StateTreeComponent;
-
-	/** Assign a StateTree using StateTreeComponentSchema on the Blueprint controller class. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sunrise|AI|StateTree",
-		meta = (Schema = "/Script/GameplayStateTreeModule.StateTreeComponentSchema"))
-	TObjectPtr<UStateTree> DecisionStateTree;
-
-	/** Keeps the native unit decision fallback active until the authored tree is ready. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sunrise|AI|StateTree")
-	bool bStateTreeOwnsDecisionLogic = false;
+	void UpdatePresentation();
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "0.0"))
 	float SeparationWeight = 2.0f;
@@ -71,5 +55,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "0.1"))
 	float AvoidanceRangeMultiplier = 1.25f;
 
-	bool bPlayerOrderSuspended = false;
+	FDelegateHandle PawnInitStateHandle;
+	TWeakObjectPtr<ASunriseUnit> FocusTarget;
+	float FocusTargetExpiryTime = 0.0f;
+	uint32 OrderRevision = 0;
+	bool bExternalInteractionActive = false;
 };

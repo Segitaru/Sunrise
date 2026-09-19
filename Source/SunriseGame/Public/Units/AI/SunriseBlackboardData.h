@@ -7,6 +7,15 @@
 
 #include "SunriseBlackboardData.generated.h"
 
+namespace SunriseBlackboardKeys
+{
+	inline const FName HavePlayerOrder(TEXT("bHavePlayerOrder"));
+	inline const FName PlayerOrderTargetActor(TEXT("PlayerOrderTargetActor"));
+	inline const FName PlayerOrderTargetLocation(TEXT("PlayerOrderTargetLocation"));
+	inline const FName TargetActor(TEXT("TargetActor"));
+	inline const FName TargetLocation(TEXT("TargetLocation"));
+} // namespace SunriseBlackboardKeys
+
 /**
  *
  */

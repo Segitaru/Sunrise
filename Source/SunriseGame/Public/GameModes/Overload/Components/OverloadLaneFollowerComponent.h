@@ -16,8 +16,8 @@ class SUNRISEGAME_API UOverloadLaneFollowerComponent : public UActorComponent
 	GENERATED_BODY()
 public:
 	UOverloadLaneFollowerComponent();
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	void Initialize(AOverloadLaneSpline* InLane, const FVector& InLateralOffset = FVector::ZeroVector);
+	bool RequestNextMove();
 
 protected:
 	/** Legacy tuning retained for serialized assets; terminal-first movement no longer uses spline waypoint stepping. */
@@ -30,8 +30,6 @@ protected:
 private:
 	TObjectPtr<ASunriseUnit> Unit;
 	TWeakObjectPtr<AOverloadLaneSpline> Lane;
-	float CurrentDistance = 0.0f;
-	float IssuedDistance = -1.0f;
 	FVector LateralOffset = FVector::ZeroVector;
 	float TravelDirection = 1.0f;
 };

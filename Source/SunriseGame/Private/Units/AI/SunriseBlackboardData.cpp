@@ -3,9 +3,18 @@
 
 #include "Units/AI/SunriseBlackboardData.h"
 
+#include <AITypes.h>
 #include <BehaviorTree/Blackboard/BlackboardKeyType_Bool.h>
 #include <BehaviorTree/Blackboard/BlackboardKeyType_Object.h>
 #include <BehaviorTree/Blackboard/BlackboardKeyType_Vector.h>
+
+#include "AISystem.h"
+#include "Async/Async.h"
+#include "GameFramework/Actor.h"
+
+#if WITH_EDITOR
+#include "Editor.h"
+#endif
 
 void USunriseBlackboardData::PostLoad()
 {
@@ -15,31 +24,32 @@ void USunriseBlackboardData::PostLoad()
 
 void USunriseBlackboardData::UpdateStartupKeys()
 {
-	if (UBlackboardKeyType_Bool* PlayerOrderKeyType = UpdatePersistentKey<UBlackboardKeyType_Bool>(TEXT("bHavePlayerOrder")))
+	if (UBlackboardKeyType_Bool* PlayerOrderKeyType = UpdatePersistentKey<UBlackboardKeyType_Bool>(SunriseBlackboardKeys::HavePlayerOrder))
 	{
 		PlayerOrderKeyType->bDefaultValue = false;
 	}
 
 	if (UBlackboardKeyType_Object* PlayerOrderTargetActorKeyType =
-			UpdatePersistentKey<UBlackboardKeyType_Object>(TEXT("PlayerOrderTargetActor")))
+			UpdatePersistentKey<UBlackboardKeyType_Object>(SunriseBlackboardKeys::PlayerOrderTargetActor))
 	{
 		PlayerOrderTargetActorKeyType->BaseClass = AActor::StaticClass();
 	}
 
 	if (UBlackboardKeyType_Vector* PlayerOrderTargetLocationKeyType =
-			UpdatePersistentKey<UBlackboardKeyType_Vector>(TEXT("PlayerOrderTargetLocation")))
+			UpdatePersistentKey<UBlackboardKeyType_Vector>(SunriseBlackboardKeys::PlayerOrderTargetLocation))
 	{
-		PlayerOrderTargetLocationKeyType->DefaultValue = FVector::ZeroVector;
+		PlayerOrderTargetLocationKeyType->DefaultValue = FAISystem::InvalidLocation;
 	}
 
-	if (UBlackboardKeyType_Object* TargetActorKeyType = UpdatePersistentKey<UBlackboardKeyType_Object>(TEXT("TargetActor")))
+	if (UBlackboardKeyType_Object* TargetActorKeyType = UpdatePersistentKey<UBlackboardKeyType_Object>(SunriseBlackboardKeys::TargetActor))
 	{
 		TargetActorKeyType->BaseClass = AActor::StaticClass();
 	}
 
-	if (UBlackboardKeyType_Vector* TargetLocationKeyType = UpdatePersistentKey<UBlackboardKeyType_Vector>(TEXT("TargetLocation")))
+	if (UBlackboardKeyType_Vector* TargetLocationKeyType =
+			UpdatePersistentKey<UBlackboardKeyType_Vector>(SunriseBlackboardKeys::TargetLocation))
 	{
-		TargetLocationKeyType->DefaultValue = FVector::ZeroVector;
+		TargetLocationKeyType->DefaultValue = FAISystem::InvalidLocation;
 	}
 
 #if WITH_EDITOR

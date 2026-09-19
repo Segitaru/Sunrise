@@ -141,7 +141,7 @@ bool UOverloadInteractorComponent::RequestHack(AActor* Target, bool bFromPlayer)
 		return true;
 	}
 
-	if (FVector::DistSquared2D(Target->GetActorLocation(), GetOwner()->GetActorLocation()) >= FMath::Square(InteractionRange))
+	if (FVector::Distance(Target->GetActorLocation(), GetOwner()->GetActorLocation()) < InteractionRange)
 	{
 		return false;
 	}

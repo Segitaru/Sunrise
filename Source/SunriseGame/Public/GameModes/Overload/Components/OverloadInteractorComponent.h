@@ -45,7 +45,7 @@ protected:
 	TObjectPtr<UEnvQuery> HackApproachQuery;
 
 	UPROPERTY(EditAnywhere, Category = "Overload|Hack", meta = (ClampMin = "50.0", Units = "cm"))
-	float InteractionRange = 220.0f;
+	float InteractionRange = 200.0f;
 
 	/** Units use deterministic points on this ring instead of converging on the terminal origin. */
 	UPROPERTY(EditAnywhere, Category = "Overload|Hack", meta = (ClampMin = "50.0", ClampMax = "200.0", Units = "cm"))
