@@ -19,12 +19,12 @@ ASunriseUnitAIController::ASunriseUnitAIController(const FObjectInitializer& Obj
 	StateTreeComponent->SetStartLogicAutomatically(false);
 	BrainComponent = StateTreeComponent;
 	bAllowStrafe = false;
+	PerceptionComponent->OnTargetPerceptionInfoUpdated.AddDynamic(this, OnPerceptionInfoChanged);
 }
 
 void ASunriseUnitAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
-
 
 	if (UGameFrameworkComponentManager* Manager = UGameFrameworkComponentManager::GetForActor(InPawn))
 	{
@@ -99,6 +99,10 @@ void ASunriseUnitAIController::ResumeDecisionLogicAfterPlayerOrder()
 	{
 		StateTreeComponent->StartLogic();
 	}
+}
+
+void ASunriseUnitAIController::OnPerceptionInfoChanged(const FActorPerceptionUpdateInfo& UpdateInfo)
+{
 }
 
 void ASunriseUnitAIController::ConfigureCrowdFollowing()

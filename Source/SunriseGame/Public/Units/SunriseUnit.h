@@ -323,7 +323,7 @@ protected:
 	TObjectPtr<ASunriseUnit> ActionTarget;
 
 	TObjectPtr<AAIController> AIController;
-	TObjectPtr<UEnvQueryInstanceBlueprintWrapper> EnvQueryInstance;
+
 	FVector CurrentMovementGoal = FVector::ZeroVector;
 
 	float DecisionTimeRemaining = 0.0f;
@@ -338,7 +338,7 @@ protected:
 	TWeakObjectPtr<ASunriseUnit> LastDamageSource;
 	TWeakObjectPtr<ASunriseUnit> FocusTarget;
 	float FocusTargetExpiryTime = 0.0f;
-	FAIRequestID ActiveMoveRequestId;
+
 	UPROPERTY(ReplicatedUsing = OnRep_ControllingAgent)
 	TObjectPtr<AActor> ControllingAgentActor;
 	UPROPERTY()

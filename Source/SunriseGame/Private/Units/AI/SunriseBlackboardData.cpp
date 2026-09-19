@@ -1,8 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "AI/SunriseBlackboardData.h"
+#include "Units/AI/SunriseBlackboardData.h"
 
+#include <BehaviorTree/Blackboard/BlackboardKeyType_Bool.h>
 #include <BehaviorTree/Blackboard/BlackboardKeyType_Object.h>
 #include <BehaviorTree/Blackboard/BlackboardKeyType_Vector.h>
 
@@ -14,6 +15,23 @@ void USunriseBlackboardData::PostLoad()
 
 void USunriseBlackboardData::UpdateStartupKeys()
 {
+	if (UBlackboardKeyType_Bool* PlayerOrderKeyType = UpdatePersistentKey<UBlackboardKeyType_Bool>(TEXT("bHavePlayerOrder")))
+	{
+		PlayerOrderKeyType->bDefaultValue = false;
+	}
+
+	if (UBlackboardKeyType_Object* PlayerOrderTargetActorKeyType =
+			UpdatePersistentKey<UBlackboardKeyType_Object>(TEXT("PlayerOrderTargetActor")))
+	{
+		PlayerOrderTargetActorKeyType->BaseClass = AActor::StaticClass();
+	}
+
+	if (UBlackboardKeyType_Vector* PlayerOrderTargetLocationKeyType =
+			UpdatePersistentKey<UBlackboardKeyType_Vector>(TEXT("PlayerOrderTargetLocation")))
+	{
+		PlayerOrderTargetLocationKeyType->DefaultValue = FVector::ZeroVector;
+	}
+
 	if (UBlackboardKeyType_Object* TargetActorKeyType = UpdatePersistentKey<UBlackboardKeyType_Object>(TEXT("TargetActor")))
 	{
 		TargetActorKeyType->BaseClass = AActor::StaticClass();

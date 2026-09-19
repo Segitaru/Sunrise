@@ -2,12 +2,13 @@
 
 #include "Units/SunriseUnit.h"
 
+#include <BehaviorTree/BlackboardComponent.h>
+
 #include "AIController.h"
 #include "Abilities/SunriseDeathAbility.h"
 #include "AbilitySystem/ModularAbilitySystemComponent.h"
 #include "AbilitySystemComponent.h"
 #include "BrainComponent.h"
-#include "Components/CapsuleComponent.h"
 #include "Components/DecalComponent.h"
 #include "Components/ModularPawnExtensionComponent.h"
 #include "Components/SphereComponent.h"
@@ -18,8 +19,6 @@
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
 #include "Navigation/PathFollowingComponent.h"
-#include "NavigationPath.h"
-#include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
 #include "Pawn/ModularPawnData.h"
 #include "Pawn/UserFacingModularPawnDefinition.h"
@@ -33,40 +32,6 @@
 #include "Vitality/VitalityComponent.h"
 #include "Weapons/Effects/SunriseWeaponEffects.h"
 #include "Weapons/SunriseWeapon.h"
-
-namespace
-{
-	static bool ResolveValidatedMoveDestination(ASunriseUnit* Unit, const FVector& RequestedDestination, FVector& OutDestination)
-	{
-		if (!Unit || !Unit->GetWorld())
-		{
-			return false;
-		}
-
-		UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(Unit->GetWorld());
-		if (!Navigation)
-		{
-			return false;
-		}
-
-		FNavLocation ProjectedDestination;
-		if (!Navigation->ProjectPointToNavigation(RequestedDestination, ProjectedDestination, FVector(250.0f, 250.0f, 500.0f)))
-		{
-			return false;
-		}
-
-		if (UNavigationPath* Path = Navigation->FindPathToLocationSynchronously(
-				Unit->GetWorld(), Unit->GetActorLocation(), ProjectedDestination.Location, Unit))
-		{
-			if (Path->IsValid() && !Path->IsPartial())
-			{
-				OutDestination = ProjectedDestination.Location;
-				return true;
-			}
-		}
-		return false;
-	}
-} // namespace
 
 ASunriseUnit::ASunriseUnit(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -296,7 +261,6 @@ bool ASunriseUnit::IssueAutonomousMoveOrder(const FVector& Destination)
 
 void ASunriseUnit::StopMoving()
 {
-	ActiveMoveRequestId = FAIRequestID::InvalidRequest;
 	if (AIController)
 	{
 		AIController->StopMovement();
@@ -744,7 +708,6 @@ void ASunriseUnit::UpdateOrder(float DeltaSeconds)
 	if (bPlayerOrderActive && OrderState == ESunriseOrderState::Moving &&
 		FVector::Dist2D(GetActorLocation(), CurrentMovementGoal) <= MovementAcceptanceRadius * 2.0f)
 	{
-		ActiveMoveRequestId = FAIRequestID::InvalidRequest;
 		SetPlayerOrderActive(false);
 		OrderState = ESunriseOrderState::Idle;
 		HandleMoveFinished();
@@ -917,16 +880,8 @@ void ASunriseUnit::HandleMoveFinished()
 
 void ASunriseUnit::OnMoveFinished(FAIRequestID RequestID, const FPathFollowingResult& Result)
 {
-	if (RequestID != FAIRequestID::InvalidRequest && ActiveMoveRequestId != FAIRequestID::InvalidRequest &&
-		RequestID != ActiveMoveRequestId &&
-		(!bPlayerOrderActive || OrderState != ESunriseOrderState::Moving ||
-			FVector::Dist2D(GetActorLocation(), CurrentMovementGoal) > MovementAcceptanceRadius * 2.0f))
-	{
-		return;
-	}
 	if (OrderState == ESunriseOrderState::Moving)
 	{
-		ActiveMoveRequestId = FAIRequestID::InvalidRequest;
 		SetPlayerOrderActive(false);
 		OrderState = ESunriseOrderState::Idle;
 		HandleMoveFinished();
@@ -936,26 +891,13 @@ void ASunriseUnit::OnMoveFinished(FAIRequestID RequestID, const FPathFollowingRe
 
 bool ASunriseUnit::IssueMoveOrderInternal(const FVector& Destination, bool bFromPlayer)
 {
-	if (!IsAlive() || (!bFromPlayer && bPlayerOrderActive))
+	if (!AIController)
 	{
 		return false;
 	}
-	FVector ValidatedDestination = FVector::ZeroVector;
-	if (!ResolveValidatedMoveDestination(this, Destination, ValidatedDestination))
-	{
-		return false;
-	}
-	ActionTarget = nullptr;
-	bForcedTarget = false;
-	bInteractOnArrival = false;
-	SetPlayerOrderActive(bFromPlayer);
-	CurrentMovementGoal = ValidatedDestination;
-	OrderState = ESunriseOrderState::Moving;
-	if (AIController)
-	{
-		ActiveMoveRequestId =
-			AIController->MoveToLocation(ValidatedDestination, MovementAcceptanceRadius, true, true, true, true, nullptr, true);
-	}
+
+	AIController->GetBlackboardComponent()->SetValueAsVector(
+		bFromPlayer ? TEXT("PlayerOrderTargetLocation") : TEXT("TargetLocation"), Destination);
 	return true;
 }
 
@@ -968,7 +910,6 @@ void ASunriseUnit::IssueTargetOrderInternal(ASunriseUnit* Unit, bool bFromPlayer
 		return;
 	}
 	ActionTarget = Unit;
-	ActiveMoveRequestId = FAIRequestID::InvalidRequest;
 	bForcedTarget = true;
 	SetPlayerOrderActive(bFromPlayer);
 	OrderState = HasPawnTag(SunrisePawnTags::Class_Healer) ? ESunriseOrderState::Healing : ESunriseOrderState::Attacking;

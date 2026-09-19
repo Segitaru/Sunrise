@@ -12,6 +12,7 @@ class UStateTreeAIComponent;
 class UStateTree;
 class UAIPerceptionComponent;
 
+struct FActorPerceptionUpdateInfo;
 #if UE_VERSION_5_8_x
 using ASunriseTargetAIController = ADetourCrowdAIController;
 #else
@@ -40,6 +41,8 @@ public:
 	void SuspendDecisionLogicForPlayerOrder();
 
 	void ResumeDecisionLogicAfterPlayerOrder();
+
+	void OnPerceptionInfoChanged(const FActorPerceptionUpdateInfo& UpdateInfo);
 
 protected:
 	void ConfigureCrowdFollowing();
