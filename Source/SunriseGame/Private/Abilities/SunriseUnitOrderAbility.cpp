@@ -7,6 +7,7 @@
 #include "ControllableEntities/ControllableEntitiesManager.h"
 #include "GameModes/Overload/Interfaces/OverloadHackable.h"
 #include "Player/SunrisePlayerController.h"
+#include "Units/SunrisePawn.h"
 #include "Units/SunriseUnit.h"
 
 namespace SunriseOrders
@@ -41,6 +42,44 @@ void USunriseUnitOrderAbility::ActivateAbility(FGameplayAbilitySpecHandle Handle
 	const bool bAuthority = ActorInfo && ActorInfo->IsNetAuthority();
 	const bool bSuccess = !bAuthority || (TriggerEventData && DispatchOrder(*TriggerEventData, ActorInfo));
 	EndAbility(Handle, ActorInfo, ActivationInfo, bAuthority, !bSuccess);
+}
+
+bool USunriseUnitOrderAbility::SendOrderEvent(
+	AActor* Pawn, FGameplayTag Tag, const TArray<ASunriseUnit*>& Units, ASunriseUnit* SingleUnit, const FVector& Location, AActor* Target)
+{
+	if (!IsValid(Pawn) || !Tag.IsValid() || Units.IsEmpty())
+	{
+		return false;
+	}
+	FGameplayEventData Event;
+	Event.EventTag = Tag;
+	Event.Target = Target;
+	FGameplayAbilityTargetData_ActorArray* Actors = new FGameplayAbilityTargetData_ActorArray();
+	if (SingleUnit)
+	{
+		Actors->TargetActorArray.Add(SingleUnit);
+	}
+	else
+	{
+		for (ASunriseUnit* Unit : Units)
+		{
+			if (IsValid(Unit))
+			{
+				Actors->TargetActorArray.Add(Unit);
+			}
+		}
+	}
+	if (Actors->TargetActorArray.IsEmpty())
+	{
+		return false;
+	}
+	Event.TargetData.Add(Actors);
+	FHitResult Hit;
+	Hit.ImpactPoint = Location;
+	Hit.Location = Location;
+	Event.TargetData.Add(new FGameplayAbilityTargetData_SingleTargetHit(Hit));
+	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(Pawn, Tag, Event);
+	return true;
 }
 
 bool USunriseUnitOrderAbility::DispatchOrder(const FGameplayEventData& Event, const FGameplayAbilityActorInfo* ActorInfo)

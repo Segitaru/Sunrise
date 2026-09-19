@@ -14,7 +14,6 @@
 #include "InputActionValue.h"
 #include "Player/SunrisePlayerController.h"
 #include "UI/SunriseHUD.h"
-#include "UObject/ConstructorHelpers.h"
 #include "Units/SunrisePawn.h"
 #include "Units/SunriseUnit.h"
 #include "Units/SunriseUnitInterfaces.h"
@@ -25,12 +24,6 @@ USunriseSelectionAbility::USunriseSelectionAbility(const FObjectInitializer& Obj
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalOnly;
 	ActivationPolicy = EModularAbilityActivationPolicy::OnSpawn;
-
-	static ConstructorHelpers::FObjectFinder<UInputAction> OrderAction(TEXT("/Game/Sunrise/Inputs/RTS/IA_Order_RTS.IA_Order_RTS"));
-	if (OrderAction.Succeeded())
-	{
-		InteractClickAction = OrderAction.Object;
-	}
 }
 
 void USunriseSelectionAbility::ActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -116,14 +109,6 @@ void USunriseSelectionAbility::BindInput(UEnhancedInputComponent* Input)
 		BindingHandles.Add(
 			Input->BindAction(SelectMoveAction, ETriggerEvent::Triggered, this, &ThisClass::SelectHoldTriggered).GetHandle());
 		BindingHandles.Add(Input->BindAction(SelectMoveAction, ETriggerEvent::Ongoing, this, &ThisClass::SelectHoldTriggered).GetHandle());
-	}
-	if (StopActions)
-	{
-		BindingHandles.Add(Input->BindAction(StopActions, ETriggerEvent::Started, this, &ThisClass::StopSelectedUnits).GetHandle());
-	}
-	if (InteractClickAction)
-	{
-		BindingHandles.Add(Input->BindAction(InteractClickAction, ETriggerEvent::Completed, this, &ThisClass::InteractClick).GetHandle());
 	}
 }
 
@@ -285,50 +270,22 @@ FVector2D USunriseSelectionAbility::GetMouseLocationForPlayer() const
 	return FVector2D(X, Y);
 }
 
-void USunriseSelectionAbility::SubmitOrder(FGameplayTag Tag, const FVector& Location, AActor* Target, ASunriseUnit* SingleUnit)
-{
-	if (!CanInteract())
-	{
-		return;
-	}
-	PruneSelection();
-	FGameplayEventData Event;
-	Event.EventTag = Tag;
-	Event.Target = Target;
-	FGameplayAbilityTargetData_ActorArray* Actors = new FGameplayAbilityTargetData_ActorArray();
-	if (SingleUnit)
-	{
-		Actors->TargetActorArray.Add(SingleUnit);
-	}
-	else
-	{
-		for (ASunriseUnit* Unit : ControlledUnits)
-		{
-			Actors->TargetActorArray.Add(Unit);
-		}
-	}
-	Event.TargetData.Add(Actors);
-	FHitResult Hit;
-	Hit.ImpactPoint = Location;
-	Hit.Location = Location;
-	Event.TargetData.Add(new FGameplayAbilityTargetData_SingleTargetHit(Hit));
-	UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(AvatarPawn.Get(), Tag, Event);
-}
-
 void USunriseSelectionAbility::OrderFromHit(const FHitResult& Hit, ASunriseUnit* SingleUnit)
 {
 	AActor* Target = Hit.GetActor();
 	if (Cast<ASunriseUnit>(Target) && Target != SingleUnit)
 	{
-		SubmitOrder(SunriseOrders::Target, Hit.ImpactPoint, Target, SingleUnit);
+		USunriseUnitOrderAbility::SendOrderEvent(
+			AvatarPawn.Get(), SunriseOrders::Target, ControlledUnits, SingleUnit, Hit.ImpactPoint, Target);
 	}
 	else if (IsValid(Target) && Target->Implements<UOverloadHackable>())
 	{
-		SubmitOrder(SunriseOrders::Hack, Hit.ImpactPoint, Target, SingleUnit);
+		USunriseUnitOrderAbility::SendOrderEvent(
+			AvatarPawn.Get(), SunriseOrders::Hack, ControlledUnits, SingleUnit, Hit.ImpactPoint, Target);
 	}
 	else
 	{
-		SubmitOrder(SunriseOrders::Move, Hit.ImpactPoint, nullptr, SingleUnit);
+		USunriseUnitOrderAbility::SendOrderEvent(AvatarPawn.Get(), SunriseOrders::Move, ControlledUnits, SingleUnit, Hit.ImpactPoint);
 	}
 }
 
@@ -450,22 +407,4 @@ void USunriseSelectionAbility::SelectClick(const FInputActionValue& Value)
 void USunriseSelectionAbility::SelectAllDoubleClick(const FInputActionValue& Value)
 {
 	DoSelectAllUnitsOnScreenCommand();
-}
-
-void USunriseSelectionAbility::StopSelectedUnits(const FInputActionValue& Value)
-{
-	SubmitOrder(SunriseOrders::Stop, FVector::ZeroVector);
-}
-
-void USunriseSelectionAbility::InteractClick(const FInputActionValue& Value)
-{
-	if (!CanInteract())
-	{
-		return;
-	}
-	FHitResult Hit;
-	if (GetHitUnderCursor(Hit))
-	{
-		OrderFromHit(Hit);
-	}
 }

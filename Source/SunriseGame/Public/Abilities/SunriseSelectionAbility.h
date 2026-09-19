@@ -47,10 +47,6 @@ public:
 	/** Pointer/mouse movement action used while SelectHoldAction is active. */
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
 	TObjectPtr<UInputAction> SelectMoveAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
-	TObjectPtr<UInputAction> InteractClickAction;
-	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Actions")
-	TObjectPtr<UInputAction> StopActions;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Selection", meta = (ClampMin = "0", Units = "cm"))
 	float SelectionRadius = 180.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Selection")
@@ -66,7 +62,6 @@ private:
 	void PruneSelection();
 	void UnbindInput();
 	void SelectBox(const FVector2D& Start, const FVector2D& End);
-	void SubmitOrder(FGameplayTag Tag, const FVector& Location, AActor* Target = nullptr, ASunriseUnit* SingleUnit = nullptr);
 	void OrderFromHit(const FHitResult& Hit, ASunriseUnit* SingleUnit = nullptr);
 	void SelectHoldStarted(const FInputActionValue& Value);
 	void SelectHoldTriggered(const FInputActionValue& Value);
@@ -74,9 +69,6 @@ private:
 	void CancelSelectHold(const FInputActionValue& Value);
 	void SelectClick(const FInputActionValue& Value);
 	void SelectAllDoubleClick(const FInputActionValue& Value);
-	void InteractClick(const FInputActionValue& Value);
-	void StopSelectedUnits(const FInputActionValue& Value);
-
 	UPROPERTY(Transient)
 	TArray<ASunriseUnit*> ControlledUnits;
 	UPROPERTY(Transient)

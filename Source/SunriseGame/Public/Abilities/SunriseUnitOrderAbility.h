@@ -30,6 +30,8 @@ public:
 
 	TSubclassOf<USunriseHeroSquadAbility> GetHeroSquadAbilityClass() const { return HeroSquadAbilityClass; }
 	static float GetHeroSquadCooldownRemaining(const AController* Controller);
+	static bool SendOrderEvent(AActor* Pawn, FGameplayTag Tag, const TArray<ASunriseUnit*>& Units, ASunriseUnit* SingleUnit = nullptr,
+		const FVector& Location = FVector::ZeroVector, AActor* Target = nullptr);
 
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Orders", meta = (ClampMin = "50", Units = "cm"))
