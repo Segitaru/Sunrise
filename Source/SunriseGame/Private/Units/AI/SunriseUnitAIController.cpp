@@ -222,6 +222,48 @@ void ASunriseUnitAIController::StopOrders()
 	}
 }
 
+void ASunriseUnitAIController::HandleUnitDeath(const ASunriseUnit* DeadUnit)
+{
+	if (!HasAuthority() || !Blackboard || !IsValid(DeadUnit))
+	{
+		return;
+	}
+
+	bool bClearedTarget = false;
+	Blackboard->PauseObserverNotifications();
+	if (Blackboard->GetValueAsObject(PlayerOrderTargetActor) == DeadUnit)
+	{
+		Blackboard->ClearValue(PlayerOrderTargetActor);
+		Blackboard->SetValueAsBool(HavePlayerOrder, false);
+		bClearedTarget = true;
+	}
+	if (Blackboard->GetValueAsObject(TargetActor) == DeadUnit)
+	{
+		Blackboard->ClearValue(TargetActor);
+		bClearedTarget = true;
+	}
+	if (FocusTarget.Get() == DeadUnit)
+	{
+		FocusTarget.Reset();
+	}
+	if (bClearedTarget)
+	{
+		++OrderRevision;
+	}
+	Blackboard->ResumeObserverNotifications(true);
+
+	if (!bClearedTarget)
+	{
+		return;
+	}
+	if (bExternalInteractionActive)
+	{
+		UpdatePresentation();
+		return;
+	}
+	RefreshTargets();
+}
+
 bool ASunriseUnitAIController::ApplyFocusTarget(ASunriseUnit* Target, float Duration)
 {
 	if (!FMath::IsFinite(Duration) || Duration <= 0.0f || !GetWorld() || !IssueTargetOrder(Target, false))

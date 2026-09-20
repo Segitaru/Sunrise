@@ -9,6 +9,7 @@
 #include "Pawn/Components/ModularPawnExtensionComponent.h"
 #include "Pawn/ModularPawnData.h"
 #include "Rosters/Player/Components/PlayerPawnManager.h"
+#include "Units/AI/SunriseUnitAIController.h"
 #include "Units/SunriseUnit.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSunriseHeroSpawn, Log, All);
@@ -200,6 +201,16 @@ void USunriseUnitManagerComponent::NotifyUnitDied(ASunriseUnit* Unit)
 		if (UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(Controller))
 		{
 			Manager->UnregisterControlledEntity(Unit);
+		}
+	}
+	for (ASunriseUnit* RegisteredUnit : Units)
+	{
+		if (IsValid(RegisteredUnit) && RegisteredUnit != Unit && RegisteredUnit->IsAlive())
+		{
+			if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(RegisteredUnit->GetController()))
+			{
+				AI->HandleUnitDeath(Unit);
+			}
 		}
 	}
 	OnArmyCountChanged.Broadcast(GetFriendlyAlive(), GetEnemyAlive());

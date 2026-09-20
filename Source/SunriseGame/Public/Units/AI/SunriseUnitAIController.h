@@ -21,6 +21,7 @@ public:
 	bool IssueMoveOrder(const FVector& Destination, bool bFromPlayer);
 	bool IssueTargetOrder(ASunriseUnit* Target, bool bFromPlayer);
 	void StopOrders();
+	void HandleUnitDeath(const ASunriseUnit* DeadUnit);
 	bool HasActivePlayerOrder() const;
 	FVector GetMovementGoal() const;
 

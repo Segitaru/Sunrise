@@ -123,6 +123,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Ability", meta = (ClampMin = "0.0", ForseUnits = "cm/s"))
 	float PullSpeed = 500.0f;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Ability", meta = (ClampMin = "50.0", Units = "cm"))
+	float UnitSpacing = 120.0f;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Ability", meta = (ClampMin = "0.0"))
 	float DamagePerPulse = 80.0f;
 
@@ -130,4 +133,6 @@ protected:
 	FTimerHandle BlackHoleFinishTimer;
 	TWeakObjectPtr<ASunriseUnit> BlackHoleHero;
 	FVector BlackHoleLocation = FVector::ZeroVector;
+	TMap<TWeakObjectPtr<ASunriseUnit>, int32> BlackHoleSlots;
+	int32 NextBlackHoleSlot = 0;
 };

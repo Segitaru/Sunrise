@@ -27,6 +27,29 @@ namespace
 			Target->TakeDamage(Amount, FDamageEvent(), Source ? Source->GetController() : nullptr, Source);
 	}
 
+	FVector GetBlackHoleSlotLocation(
+		const FVector& Center, const ASunriseUnit* Unit, int32 SlotIndex, float MinimumSpacing, float MaximumRadius)
+	{
+		int32 RingIndex = 1;
+		int32 IndexInRing = FMath::Max(0, SlotIndex);
+		int32 SlotsInRing = 6;
+		while (IndexInRing >= SlotsInRing)
+		{
+			IndexInRing -= SlotsInRing;
+			++RingIndex;
+			SlotsInRing = RingIndex * 6;
+		}
+
+		const float UnitDiameter = IsValid(Unit) ? Unit->GetSimpleCollisionRadius() * 2.0f : 0.0f;
+		const float Spacing = FMath::Max(MinimumSpacing, UnitDiameter + 10.0f);
+		const float SlotRadius = FMath::Min(RingIndex * Spacing, FMath::Max(Spacing, MaximumRadius));
+		const float RingOffset = RingIndex % 2 == 0 ? UE_PI / SlotsInRing : 0.0f;
+		const float Angle = 2.0f * UE_PI * IndexInRing / SlotsInRing + RingOffset;
+		FVector Result = Center + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.0f) * SlotRadius;
+		Result.Z = IsValid(Unit) ? Unit->GetActorLocation().Z : Center.Z;
+		return Result;
+	}
+
 	void DetonateBomb(UWorld* World, ASunriseUnit* DamageSource, const FVector& Location, float Radius, float DamageAmount)
 	{
 		if (!IsValid(World))
@@ -253,6 +276,8 @@ void USunriseHeroBlackHoleAbility::ActivateAbility(FGameplayAbilitySpecHandle Ha
 	}
 	BlackHoleHero = Hero;
 	BlackHoleLocation = Hero->GetActorLocation();
+	BlackHoleSlots.Reset();
+	NextBlackHoleSlot = 0;
 	ApplyHeroCooldown(ActorInfo, Cooldown, GetCooldownTag());
 
 	FActorSpawnParameters SpawnInfo;
@@ -280,9 +305,17 @@ void USunriseHeroBlackHoleAbility::PullAndDamage()
 		if (!IsValid(Unit) || Unit == Hero || !Unit->IsAlive())
 			continue;
 		const float Distance = FVector::Dist2D(Unit->GetActorLocation(), BlackHoleLocation);
-		if (Distance <= Radius && Distance > 1.0f)
+		if (Distance <= Radius)
 		{
-			const FVector NewLocation = FMath::VInterpConstantTo(Unit->GetActorLocation(), BlackHoleLocation, 0.25f, PullSpeed);
+			const TWeakObjectPtr<ASunriseUnit> UnitKey = Unit;
+			int32* Slot = BlackHoleSlots.Find(UnitKey);
+			if (!Slot)
+			{
+				Slot = &BlackHoleSlots.Add(UnitKey, NextBlackHoleSlot++);
+			}
+			const FVector SlotLocation =
+				GetBlackHoleSlotLocation(BlackHoleLocation, Unit, *Slot, UnitSpacing, Radius - Unit->GetSimpleCollisionRadius());
+			const FVector NewLocation = FMath::VInterpConstantTo(Unit->GetActorLocation(), SlotLocation, 0.25f, PullSpeed);
 			Unit->SetActorLocation(NewLocation, true);
 			Damage(Hero, Unit, DamagePerPulse * 0.25f);
 		}
@@ -296,5 +329,6 @@ void USunriseHeroBlackHoleAbility::FinishBlackHole()
 		BlackHoleHero->GetWorldTimerManager().ClearTimer(BlackHolePulseTimer);
 	}
 
+	BlackHoleSlots.Reset();
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
