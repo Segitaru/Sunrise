@@ -8,6 +8,7 @@
 USunriseBTDecorator_CanAttack::USunriseBTDecorator_CanAttack()
 {
 	NodeName = TEXT("Sunrise Can Attack");
+	FlowAbortMode = EBTFlowAbortMode::Both;
 	bNotifyTick = true;
 	BlackboardKey.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(USunriseBTDecorator_CanAttack, BlackboardKey), AActor::StaticClass());
 }

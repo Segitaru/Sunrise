@@ -328,13 +328,14 @@ bool ASunriseUnitAIController::CanAttackTarget(const ASunriseUnit* Target) const
 {
 	const ASunriseUnit* Unit = Cast<ASunriseUnit>(GetPawn());
 	if (!HasAuthority() || !Unit || !Unit->IsAlive() || bExternalInteractionActive || !Unit->CanTargetWithWeapon(Target) ||
-		!Unit->GetCombatSet() || !Blackboard)
+		!Unit->GetCombatSet())
 	{
 		return false;
 	}
-	const FName Key = HasActivePlayerOrder() ? PlayerOrderTargetActor : TargetActor;
-	return Blackboard->GetValueAsObject(Key) == Target &&
-		   FVector::Distance(Unit->GetActorLocation(), Target->GetActorLocation()) <= Unit->GetCombatSet()->GetActionRange();
+	// The BT node resolves Target from its own configured Blackboard key. Do not
+	// reject a valid target because another branch currently owns the active key.
+	return FVector::DistSquared2D(Unit->GetActorLocation(), Target->GetActorLocation()) <=
+		   FMath::Square(Unit->GetCombatSet()->GetActionRange());
 }
 
 void ASunriseUnitAIController::CompleteMoveOrder(FName LocationKey, uint32 Revision, bool bSucceeded)

@@ -22,14 +22,14 @@ EBTNodeResult::Type USunriseBTTask_FollowCreator::ExecuteTask(UBehaviorTreeCompo
 	AActor* Creator = Unit ? Unit->GetOwner() : nullptr;
 	if (!AIController || !Unit || (SunriseAI && SunriseAI->HasActivePlayerOrder()) || !IsValid(Creator) || Creator == Unit)
 	{
-		return EBTNodeResult::Failed;
+		return EBTNodeResult::Aborted;
 	}
 
-	if (FVector::DistSquared2D(Unit->GetActorLocation(), Creator->GetActorLocation()) <= FMath::Square(FollowRadius))
+	if (FVector::Distance(Unit->GetActorLocation(), Creator->GetActorLocation()) <= FollowRadius)
 	{
 		// Keep the task active. Succeeded would leave the selector and stop following
 		// as soon as the creator moves away again.
-		return EBTNodeResult::InProgress;
+		return EBTNodeResult::Succeeded;
 	}
 
 	const EPathFollowingRequestResult::Type MoveResult = AIController->MoveToActor(Creator, FollowRadius, true, true, false, nullptr, true);
@@ -45,7 +45,7 @@ void USunriseBTTask_FollowCreator::TickTask(UBehaviorTreeComponent& OwnerComp, u
 	AActor* Creator = Unit ? Unit->GetOwner() : nullptr;
 	if (!AIController || !Unit || (SunriseAI && SunriseAI->HasActivePlayerOrder()) || !IsValid(Creator) || Creator == Unit)
 	{
-		FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
+		FinishLatentTask(OwnerComp, EBTNodeResult::Aborted);
 		return;
 	}
 
@@ -64,20 +64,7 @@ void USunriseBTTask_FollowCreator::TickTask(UBehaviorTreeComponent& OwnerComp, u
 			AIController->MoveToActor(Creator, FollowRadius, true, true, false, nullptr, true);
 		if (MoveResult == EPathFollowingRequestResult::Failed)
 		{
-			FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
+			FinishLatentTask(OwnerComp, EBTNodeResult::Aborted);
 		}
 	}
-}
-
-void USunriseBTTask_FollowCreator::OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult)
-{
-	if (AAIController* AIController = OwnerComp.GetAIOwner())
-	{
-		const ASunriseUnitAIController* SunriseAI = Cast<ASunriseUnitAIController>(AIController);
-		if (!SunriseAI || !SunriseAI->HasActivePlayerOrder())
-		{
-			AIController->StopMovement();
-		}
-	}
-	Super::OnTaskFinished(OwnerComp, NodeMemory, TaskResult);
 }

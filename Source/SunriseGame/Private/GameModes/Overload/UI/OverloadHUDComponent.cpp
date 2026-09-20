@@ -2,6 +2,7 @@
 
 #include "GameModes/Overload/UI/OverloadHUDComponent.h"
 
+#include "Abilities/SunriseHeroAbilities.h"
 #include "Abilities/SunriseHeroSquadAbility.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
@@ -81,20 +82,42 @@ void UOverloadHUDComponent::DrawHUD(ASunriseHUD* HUD)
 
 	if (ASunrisePlayerController* Controller = Cast<ASunrisePlayerController>(HUD->GetOwningPlayerController()))
 	{
-		const float Scale = OverloadHUD::GetCanvasScale(HUD);
-		const float Width = 250.0f * Scale;
-		const float Height = 62.0f * Scale;
-		const float X = (HUD->GetDrawingCanvas()->ClipX - Width) * 0.5f;
-		const float Y = HUD->GetDrawingCanvas()->ClipY - Height - 18.0f * Scale;
 		const USunriseUnitManagerComponent* UnitManager = USunriseUnitManagerComponent::Find(Controller);
 		const ASunriseUnit* Hero = UnitManager ? UnitManager->GetHeroForPlayer(Controller) : nullptr;
-		const float Cooldown = Hero && Hero->IsAlive() ? USunriseHeroSquadAbility::GetCooldownRemaining(Hero) : 0.0f;
-		const FLinearColor StateColor = Cooldown > 0.0f ? FLinearColor(0.95f, 0.65f, 0.15f) : FLinearColor(0.25f, 0.95f, 0.4f);
-		HUD->DrawRect(FLinearColor(0.008f, 0.014f, 0.025f, 0.92f), X, Y, Width, Height);
-		HUD->DrawText(TEXT("SQUAD ABILITY"), FLinearColor(0.82f, 0.86f, 0.92f), X + 58.0f * Scale, Y + 7.0f * Scale,
-			GEngine->GetSmallFont(), 0.9f * Scale);
-		HUD->DrawText(Cooldown > 0.0f ? FString::Printf(TEXT("READY IN %.0fs"), Cooldown) : TEXT("READY"), StateColor,
-			X + (Cooldown > 0.0f ? 56.0f : 91.0f) * Scale, Y + 30.0f * Scale, GEngine->GetMediumFont(), 1.0f * Scale);
+		const bool bHeroAvailable = IsValid(Hero) && Hero->IsAlive() && Hero->GetAbilitySystemComponent();
+		struct FAbilityPanelEntry
+		{
+			const TCHAR* Label;
+			float Cooldown;
+		};
+		const FAbilityPanelEntry Abilities[] = {{TEXT("SQUAD"), USunriseHeroSquadAbility::GetCooldownRemaining(Hero)},
+			{TEXT("HEALING AURA"), GetDefault<USunriseHeroHealingAuraAbility>()->GetCooldownRemaining(Hero)},
+			{TEXT("BOMB"), GetDefault<USunriseHeroBombAbility>()->GetCooldownRemaining(Hero)},
+			{TEXT("BLACK HOLE"), GetDefault<USunriseHeroBlackHoleAbility>()->GetCooldownRemaining(Hero)}};
+		const int32 AbilityCount = UE_ARRAY_COUNT(Abilities);
+		const float CanvasWidth = HUD->GetDrawingCanvas()->ClipX;
+		const float Scale = FMath::Min(OverloadHUD::GetCanvasScale(HUD), CanvasWidth / (AbilityCount * 208.0f + 28.0f));
+		const float Width = 200.0f * Scale;
+		const float Gap = 8.0f * Scale;
+		const float Height = 62.0f * Scale;
+		const float StartX = (CanvasWidth - AbilityCount * Width - (AbilityCount - 1) * Gap) * 0.5f;
+		const float Y = HUD->GetDrawingCanvas()->ClipY - Height - 18.0f * Scale;
+		for (int32 Index = 0; Index < AbilityCount; ++Index)
+		{
+			const FAbilityPanelEntry& Ability = Abilities[Index];
+			const float X = StartX + Index * (Width + Gap);
+			FString State = TEXT("UNAVAILABLE");
+			FLinearColor StateColor(0.5f, 0.5f, 0.5f);
+			if (bHeroAvailable)
+			{
+				State = Ability.Cooldown > 0.0f ? FString::Printf(TEXT("READY IN %ds"), FMath::CeilToInt(Ability.Cooldown)) : TEXT("READY");
+				StateColor = Ability.Cooldown > 0.0f ? FLinearColor(0.95f, 0.65f, 0.15f) : FLinearColor(0.25f, 0.95f, 0.4f);
+			}
+			HUD->DrawRect(FLinearColor(0.008f, 0.014f, 0.025f, 0.92f), X, Y, Width, Height);
+			HUD->DrawText(Ability.Label, FLinearColor(0.82f, 0.86f, 0.92f), X + 12.0f * Scale, Y + 7.0f * Scale, GEngine->GetSmallFont(),
+				0.9f * Scale);
+			HUD->DrawText(State, StateColor, X + 12.0f * Scale, Y + 30.0f * Scale, GEngine->GetMediumFont(), 0.85f * Scale);
+		}
 	}
 }
 void UOverloadHUDComponent::DrawCoreOverview(ASunriseHUD* HUD, const UOverloadGameMatchComponent* GameMode)

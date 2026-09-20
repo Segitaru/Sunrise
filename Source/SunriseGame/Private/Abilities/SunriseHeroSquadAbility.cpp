@@ -21,7 +21,7 @@ UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_Sunrise_HeroSquadCooldown, "Cooldown.Sunrise.H
 USunriseHeroSquadCooldownEffect::USunriseHeroSquadCooldownEffect()
 {
 	DurationPolicy = EGameplayEffectDurationType::HasDuration;
-	DurationMagnitude = FScalableFloat(30.0f);
+	DurationMagnitude = FScalableFloat(10.0f);
 }
 
 float USunriseHeroSquadAbility::GetCooldownRemaining(const ASunriseUnit* Hero)
@@ -45,6 +45,10 @@ USunriseHeroSquadAbility::USunriseHeroSquadAbility(const FObjectInitializer& Obj
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
+	FAbilityTriggerData Trigger;
+	Trigger.TriggerTag = FGameplayTag::RequestGameplayTag(FName(TEXT("InputTag.Ability.Primary")));
+	Trigger.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
+	AbilityTriggers.Add(Trigger);
 }
 
 bool USunriseHeroSquadAbility::CanActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
@@ -182,6 +186,7 @@ bool USunriseHeroSquadAbility::SpawnSquad(ASunriseUnit* Hero)
 			Unit->SetGenericTeamId(Hero->GetGenericTeamId());
 			const bool bPlayerSummon = Hero->GetControllingAgent().GetObject() != nullptr;
 			Unit->ConfigureControl(Hero->GetControllingAgent());
+			Unit->SetLifeSpan(FMath::Max(0.1f, UnitLifetime));
 			Unit->SpawnDefaultController();
 			if (UControllableComponent* Controllable = UControllableComponent::FindControllableComponent(Unit))
 			{

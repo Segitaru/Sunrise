@@ -44,13 +44,13 @@ protected:
 	void UpdatePresentation();
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "0.0"))
-	float SeparationWeight = 2.0f;
+	float SeparationWeight = 1.5f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "100.0", Units = "cm"))
-	float CollisionQueryRange = 900.0f;
+	float CollisionQueryRange = 600.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "100.0", Units = "cm"))
-	float PathOptimizationRange = 1200.0f;
+	float PathOptimizationRange = 900.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "0.1"))
 	float AvoidanceRangeMultiplier = 1.25f;
