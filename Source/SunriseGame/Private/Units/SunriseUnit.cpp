@@ -13,15 +13,19 @@
 #include "Components/SphereComponent.h"
 #include "ControllableEntities/ControllableComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
+#include "Engine/TargetPoint.h"
+#include "EngineUtils.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
 #include "NPC_Optimizator/Public/OptimizationComponent.h"
+#include "Navigation/CrowdFollowingComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Pawn/ModularPawnData.h"
 #include "Pawn/UserFacingModularPawnDefinition.h"
 #include "Player/SunrisePlayerController.h"
 #include "Teams/Components/ModularTeamActorComponent.h"
+#include "TimerManager.h"
 #include "Units/AI/SunriseUnitAIController.h"
 #include "Units/Components/SunriseUnitManagerComponent.h"
 #include "Vitality/Attributes/SunriseCombatSet.h"
@@ -30,6 +34,23 @@
 #include "Vitality/VitalityComponent.h"
 #include "Weapons/Effects/SunriseWeaponEffects.h"
 #include "Weapons/SunriseWeapon.h"
+
+namespace
+{
+	const FName DeathUnitsStorageTag(TEXT("DEATH_UNITS_STORAGE"));
+
+	ATargetPoint* FindDeathUnitsStorage(UWorld* World)
+	{
+		for (TActorIterator<ATargetPoint> It(World); It; ++It)
+		{
+			if (It->ActorHasTag(DeathUnitsStorageTag))
+			{
+				return *It;
+			}
+		}
+		return nullptr;
+	}
+} // namespace
 
 ASunriseUnit::ASunriseUnit(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -644,9 +665,16 @@ void ASunriseUnit::HandleVitalityStateChanged(AActor*, EVitalityState OldState, 
 		SetActorHiddenInGame(false);
 		SetActorEnableCollision(true);
 		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-		if (AAIController* AI = Cast<AAIController>(GetController()); HasAuthority() && AI && AI->GetBrainComponent())
+		if (AAIController* AI = Cast<AAIController>(GetController()); HasAuthority() && AI)
 		{
-			AI->GetBrainComponent()->RestartLogic();
+			if (UCrowdFollowingComponent* Crowd = Cast<UCrowdFollowingComponent>(AI->GetPathFollowingComponent()))
+			{
+				Crowd->SetCrowdSimulationState(ECrowdSimulationState::Enabled);
+			}
+			if (AI->GetBrainComponent())
+			{
+				AI->GetBrainComponent()->RestartLogic();
+			}
 		}
 		BP_UnitRespawned();
 	}
@@ -697,9 +725,16 @@ void ASunriseUnit::Die(AController* KillerController, AActor* DamageCauser)
 	if (HasAuthority())
 	{
 		ControllableComponent->SetPlayerControllable(false);
-		if (AAIController* AI = Cast<AAIController>(GetController()); AI && AI->GetBrainComponent())
+		if (AAIController* AI = Cast<AAIController>(GetController()); AI)
 		{
-			AI->GetBrainComponent()->StopLogic(TEXT("Pawn death"));
+			if (UCrowdFollowingComponent* Crowd = Cast<UCrowdFollowingComponent>(AI->GetPathFollowingComponent()))
+			{
+				Crowd->SetCrowdSimulationState(ECrowdSimulationState::Disabled);
+			}
+			if (AI->GetBrainComponent())
+			{
+				AI->GetBrainComponent()->StopLogic(TEXT("Pawn death"));
+			}
 		}
 	}
 	OnDied.Broadcast(this);
@@ -707,5 +742,25 @@ void ASunriseUnit::Die(AController* KillerController, AActor* DamageCauser)
 	if (USunriseUnitManagerComponent* UnitManager = USunriseUnitManagerComponent::Find(this))
 	{
 		UnitManager->NotifyUnitDied(this);
+	}
+	if (HasAuthority() && GetWorld())
+	{
+		ATargetPoint* Storage = FindDeathUnitsStorage(GetWorld());
+		if (!Storage)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Dead unit %s cannot be moved: no ATargetPoint tagged DEATH_UNITS_STORAGE"), *GetName());
+			return;
+		}
+		const TWeakObjectPtr<ATargetPoint> WeakStorage = Storage;
+		// Respawn ability captures the death transform synchronously after this notification.
+		GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this,
+			[this, WeakStorage]()
+			{
+				if (!IsAlive() && WeakStorage.IsValid())
+				{
+					SetActorLocation(WeakStorage->GetActorLocation(), false, nullptr, ETeleportType::TeleportPhysics);
+					ForceNetUpdate();
+				}
+			}));
 	}
 }
