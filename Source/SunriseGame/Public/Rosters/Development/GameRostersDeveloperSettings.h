@@ -7,6 +7,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DeveloperSettingsBackedByCVars.h"
 #include "Rosters/Components/GamePawnSelectorComponent.h"
+
 #include "GameRostersDeveloperSettings.generated.h"
 
 USTRUCT(BlueprintType)
@@ -18,8 +19,6 @@ struct FPawnsDefinitions
 	TArray<FPrimaryAssetId> PawnDefinitionsForTeam;
 };
 
-#if WITH_EDITORONLY_DATA
-
 UCLASS(config = EditorPerProjectUserSettings, MinimalAPI)
 class UGameRostersDeveloperSettings : public UDeveloperSettingsBackedByCVars
 {
@@ -27,7 +26,7 @@ class UGameRostersDeveloperSettings : public UDeveloperSettingsBackedByCVars
 
 public:
 	UGameRostersDeveloperSettings();
-	
+
 	virtual FName GetCategoryName() const override;
 
 	/// Only PIE! If you don't want to get a random pawn to control, check this
@@ -47,14 +46,13 @@ public:
 	/// Only PIE! If you don’t need to share pawn between teams, then you can use this to set a pawn for all active windows, regardless of the team
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, config, Category = "Pawn",
 		meta = (AllowedTypes = "GamePawnDefinition",
-			EditCondition = "bSeparatePawnsBetweenTeam == false && bOverridePawnDefinition == true",
-			EditConditionHides))
+			EditCondition = "bSeparatePawnsBetweenTeam == false && bOverridePawnDefinition == true", EditConditionHides))
 	FPrimaryAssetId DefaultOverridePawn;
 
 	/// Only PIE! A set of pawns that will be issued to each active window that you launched in the editor for an individual team member
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, config, Category = "Pawn",
-		meta = (AllowedTypes = "GamePawnDefinition",
-			EditCondition = "bSeparatePawnsBetweenTeam == true && bOverridePawnDefinition == true", EditConditionHides))
+		meta = (AllowedTypes = "GamePawnDefinition", EditCondition = "bSeparatePawnsBetweenTeam == true && bOverridePawnDefinition == true",
+			EditConditionHides))
 	TMap<int32, FPawnsDefinitions> PawnsForTeam;
 
 	/// Only PIE! If necessary, you can specify that all bots on the map be of the class you selected
@@ -63,8 +61,7 @@ public:
 
 	/// Only PIE! Class of bots that will be used on the map
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, config, Category = "Pawn",
-		meta = (AllowedTypes = "GamePawnDefinition",
-			EditCondition = "bOverridePawnDefinitionForBots == true", EditConditionHides))
+		meta = (AllowedTypes = "GamePawnDefinition", EditCondition = "bOverridePawnDefinitionForBots == true", EditConditionHides))
 	FPrimaryAssetId BotDefaultOverridePawn;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, config, Category = "Pick")
@@ -74,5 +71,3 @@ public:
 		meta = (EditCondition = "bOverrideCharacterPickMode == true", EditConditionHides))
 	TEnumAsByte<ECharacterPickMode> PickMode = FreeForAll;
 };
-
-#endif

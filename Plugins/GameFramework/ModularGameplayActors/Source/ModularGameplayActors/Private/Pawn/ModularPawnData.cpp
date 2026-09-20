@@ -61,7 +61,9 @@ FPrimaryAssetId UModularPawnData::GetPrimaryAssetId() const
 	return Super::GetPrimaryAssetId();
 }
 
+#if WITH_EDITOR
 EDataValidationResult UModularPawnData::IsDataValid(FDataValidationContext& Context) const
 {
 	return Super::IsDataValid(Context);
 }
+#endif
