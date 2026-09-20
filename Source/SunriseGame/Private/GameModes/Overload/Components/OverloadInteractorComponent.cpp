@@ -70,7 +70,9 @@ void UOverloadInteractorComponent::TickComponent(float DeltaTime, ELevelTick Tic
 		return;
 	}
 	LastObservedHealth = CurrentHealth;
-	if (ShouldAbortHackForThreat())
+	// Once committed, the capture component owns the contested state and temporarily
+	// releases hackers for combat without discarding their registration.
+	if (!bRegisteredAtTarget && ShouldAbortHackForThreat())
 	{
 		CancelHack();
 		return;

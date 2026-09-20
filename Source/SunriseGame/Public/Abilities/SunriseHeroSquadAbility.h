@@ -43,10 +43,10 @@ protected:
 	TArray<FPawnFormation> SquadFormations;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise", meta = (ClampMin = "1.0", Units = "s"))
-	float Cooldown = 10.0f;
+	float Cooldown = 30.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise", meta = (ClampMin = "0.1", Units = "s"))
-	float UnitLifetime = 3.0f;
+	float UnitLifetime = 15.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise", meta = (ClampMin = "50.0", Units = "cm"))
 	float FormationSpacing = 170.0f;

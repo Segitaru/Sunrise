@@ -75,17 +75,12 @@ public:
 
 protected:
 	FGameplayTag GetCooldownTag() const override;
-	UFUNCTION()
-	void ExplodeBomb();
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Ability", meta = (ClampMin = "50.0", Units = "cm"))
 	float ExplosionRadius = 450.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Ability", meta = (ClampMin = "0.0"))
 	float ExplosionDamage = 120.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Ability", meta = (ClampMin = "0.1", Units = "s"))
 	float FuseDuration = 5.0f;
-	FTimerHandle FuseTimer;
-	TWeakObjectPtr<ASunriseUnit> BombHero;
-	FVector BombLocation = FVector::ZeroVector;
 };
 
 UCLASS(Blueprintable)

@@ -26,6 +26,28 @@ namespace
 		if (IsValid(Target) && Target->IsAlive() && Amount > 0.0f)
 			Target->TakeDamage(Amount, FDamageEvent(), Source ? Source->GetController() : nullptr, Source);
 	}
+
+	void DetonateBomb(UWorld* World, ASunriseUnit* DamageSource, const FVector& Location, float Radius, float DamageAmount)
+	{
+		if (!IsValid(World))
+			return;
+
+		for (TActorIterator<ASunriseUnit> It(World); It; ++It)
+		{
+			ASunriseUnit* Unit = *It;
+			if (IsValid(Unit) && FVector::DistSquared2D(Unit->GetActorLocation(), Location) <= FMath::Square(Radius))
+				Damage(DamageSource, Unit, DamageAmount);
+		}
+
+		FActorSpawnParameters SpawnInfo;
+		SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		const FTransform SpawnTransform(Location);
+		if (ASunriseAreaIndicator* Indicator =
+				World->SpawnActor<ASunriseAreaIndicator>(ASunriseAreaIndicator::StaticClass(), SpawnTransform, SpawnInfo))
+		{
+			Indicator->InitializeIndicator(Radius, 0.45f);
+		}
+	}
 } // namespace
 
 USunriseHeroAbilityCooldownEffect::USunriseHeroAbilityCooldownEffect()
@@ -185,8 +207,8 @@ void USunriseHeroBombAbility::ActivateAbility(FGameplayAbilitySpecHandle Handle,
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
-	BombHero = Hero;
-	BombLocation = Hero->GetActorLocation();
+	UWorld* World = Hero->GetWorld();
+	const FVector BombLocation = Hero->GetActorLocation();
 	ApplyHeroCooldown(ActorInfo, Cooldown, GetCooldownTag());
 	FActorSpawnParameters SpawnInfo;
 	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -198,30 +220,16 @@ void USunriseHeroBombAbility::ActivateAbility(FGameplayAbilitySpecHandle Handle,
 		Indicator->InitializeIndicator(ExplosionRadius, FuseDuration, FLinearColor::Red);
 	}
 
-	Hero->GetWorldTimerManager().SetTimer(FuseTimer, this, &ThisClass::ExplodeBomb, FuseDuration, false);
-}
-
-void USunriseHeroBombAbility::ExplodeBomb()
-{
-	ASunriseUnit* Hero = BombHero.Get();
-	if (IsValid(Hero) && Hero->HasAuthority())
-	{
-		for (TActorIterator<ASunriseUnit> It(Hero->GetWorld()); It; ++It)
-		{
-			ASunriseUnit* Unit = *It;
-			if (IsValid(Unit) && FVector::DistSquared2D(Unit->GetActorLocation(), BombLocation) <= FMath::Square(ExplosionRadius))
-				Damage(Hero, Unit, ExplosionDamage);
-		}
-		FActorSpawnParameters SpawnInfo;
-		SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		FTransform SpawnTransform = FTransform(BombLocation);
-
-		if (ASunriseAreaIndicator* Indicator =
-				Hero->GetWorld()->SpawnActor<ASunriseAreaIndicator>(ASunriseAreaIndicator::StaticClass(), SpawnTransform, SpawnInfo))
-		{
-			Indicator->InitializeIndicator(ExplosionRadius, 0.45f);
-		}
-	}
+	const TWeakObjectPtr<UWorld> BombWorld = World;
+	const TWeakObjectPtr<ASunriseUnit> DamageSource = Hero;
+	FTimerHandle FuseTimer;
+	World->GetTimerManager().SetTimer(FuseTimer,
+		FTimerDelegate::CreateLambda(
+			[BombWorld, DamageSource, BombLocation, Radius = ExplosionRadius, DamageAmount = ExplosionDamage]()
+			{
+				DetonateBomb(BombWorld.Get(), DamageSource.Get(), BombLocation, Radius, DamageAmount);
+			}),
+		FuseDuration, false);
 	EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
 }
 
