@@ -3,12 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/GameInstance.h"
 #include "GameFramework/SaveGame.h"
+#include "ModularGameInstance.h"
 #include "Units/SunriseUnitTypes.h"
 
 #include "SunriseGameInstance.generated.h"
 
+
+class UModularPawnData;
 UCLASS()
 class SUNRISEGAME_API USunriseProgressSaveGame : public USaveGame
 {
@@ -20,11 +22,14 @@ public:
 
 	UPROPERTY(SaveGame)
 	TArray<FSunriseMatchRecord> MatchHistory;
+
+	UPROPERTY(SaveGame)
+	FPrimaryAssetId SelectedPawnDefinitionId;
 };
 
 /** Persistent settings and match history shared by menu and gameplay maps. */
 UCLASS()
-class SUNRISEGAME_API USunriseGameInstance : public UGameInstance
+class SUNRISEGAME_API USunriseGameInstance : public UModularGameInstance
 {
 	GENERATED_BODY()
 
@@ -47,6 +52,9 @@ public:
 	FText BuildHistoryText(int32 MaxEntries = 5) const;
 	static FText GetDifficultyDisplayName(ESunriseDifficulty Difficulty);
 
+	UModularPawnData* GetSelectedPawnDefinitionId() const { return SelectedPawnDefinition; }
+	void SetSelectedPawnDefinitionId(UModularPawnData* NewPawnDefinition);
+
 private:
 	void SaveProgress();
 
@@ -55,6 +63,9 @@ private:
 
 	UPROPERTY(VisibleInstanceOnly, Category = "Sunrise|History")
 	TArray<FSunriseMatchRecord> MatchHistory;
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Sunrise|Rosters")
+	TObjectPtr<UModularPawnData> SelectedPawnDefinition;
 
 	static const FString SaveSlotName;
 	static constexpr int32 SaveUserIndex = 0;

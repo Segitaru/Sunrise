@@ -2,17 +2,21 @@
 
 #pragma once
 
-#include "Components/EFGameMatchComponent.h"
+#include "GameFeatures/Components/ModularGameMatchComponent.h"
 #include "GameModes/Overload/Types/OverloadTypes.h"
 #include "Units/SunriseUnitTypes.h"
 
 #include "OverloadGameMatchComponent.generated.h"
 
+
+
+struct FPawnFormation;
 class AOverloadEnergyCore;
 class AOverloadGuardTower;
 class AOverloadLaneSpline;
 class ASunriseUnit;
-class UEFExperienceDefinition;
+class UModularPawnData;
+class UExperienceDefinition;
 class USunriseEndScreenWidget;
 class USunriseUnitManagerComponent;
 class FLifetimeProperty;
@@ -22,7 +26,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnOverloadWinnerDetermined, int32, 
 
 /** Independent Overload objective condition, composed onto GameState by an Experience/Game Feature. */
 UCLASS(Blueprintable, BlueprintType)
-class SUNRISEGAME_API UOverloadGameMatchComponent : public UEFGameMatchComponent
+class SUNRISEGAME_API UOverloadGameMatchComponent : public UModularGameMatchComponent
 {
 	GENERATED_BODY()
 
@@ -48,7 +52,7 @@ public:
 	FOnOverloadWinnerDetermined OnWinnerDetermined;
 
 protected:
-	void HandleExperienceLoaded(const UEFExperienceDefinition* CurrentExperience);
+	void HandleExperienceLoaded(const UExperienceDefinition* CurrentExperience);
 	UFUNCTION()
 	void InitializeOverloadMode();
 	UFUNCTION()
@@ -61,7 +65,8 @@ protected:
 	void EnsureCore(int32 TeamId, const FVector& DesiredLocation, const FRotator& DesiredRotation);
 	void RecalculateSupplyAndBalance();
 	UFUNCTION()
-	void EnsureEnemyHeroFollowers();
+	void EnsurePlayerHeroes();
+	bool TryResolveHeroSpawnTransform(const AOverloadEnergyCore* Core, int32 TeamId, FTransform& OutTransform) const;
 	FVector ResolveGroundLocation(const FVector& DesiredLocation) const;
 	USunriseUnitManagerComponent* GetUnitManager() const;
 	UFUNCTION()
@@ -69,14 +74,19 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Classes")
 	TSubclassOf<AOverloadGuardTower> TowerClass;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Classes")
 	TSubclassOf<AOverloadEnergyCore> CoreClass;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Classes")
-	TSubclassOf<ASunriseUnit> WaveUnitClass;
+	TArray<FPawnFormation> WaveFormations;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Balance")
 	FOverloadBalanceTuning BalanceTuning;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Setup", meta = (ClampMin = "0.1", Units = "s"))
 	float InitializationRetryDelay = 0.25f;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Setup", meta = (ClampMin = "100.0", Units = "cm"))
 	float HeroSpawnOffset = 700.0f;
 
@@ -93,7 +103,7 @@ private:
 	TArray<AOverloadGuardTower*> TowerView;
 	TArray<AOverloadEnergyCore*> CoreView;
 	FTimerHandle InitializationTimer;
-	FTimerHandle HeroFollowerTimer;
+	FTimerHandle PlayerHeroInitializationTimer;
 	int32 InitializationAttempts = 0;
 	UPROPERTY(ReplicatedUsing = OnRep_RuntimeState)
 	bool bOverloadInitialized = false;

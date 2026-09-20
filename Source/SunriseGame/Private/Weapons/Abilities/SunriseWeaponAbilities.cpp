@@ -7,14 +7,15 @@
 #include "Units/SunriseUnit.h"
 #include "Weapons/SunriseWeapon.h"
 
+const FString BaseAnimation = TEXT("/Game/Sunrise/Character/UE4Defult/Animations/DustOff/A_Dust02_Montage.A_Dust02_Montage");
+
 USunriseWeaponAbility::USunriseWeaponAbility()
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
 
 	// Example direct asset path: replace this with the montage you want for a specific weapon ability.
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(
-		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Unarmed/Attack/MM_Attack_01_Montage.MM_Attack_01_Montage"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(*BaseAnimation);
 	if (DefaultWeaponAnimation.Succeeded())
 	{
 		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
@@ -56,8 +57,7 @@ void USunriseWeaponAbility::PlayWeaponAnimation(const FGameplayAbilityActorInfo*
 USunriseSwordAttackAbility::USunriseSwordAttackAbility()
 {
 	// Example direct asset path: replace this with the montage you want for a specific weapon ability.
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(
-		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Unarmed/Attack/MM_Attack_01_Montage.MM_Attack_01_Montage"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(*BaseAnimation);
 	if (DefaultWeaponAnimation.Succeeded())
 	{
 		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
@@ -66,8 +66,7 @@ USunriseSwordAttackAbility::USunriseSwordAttackAbility()
 USunriseBowAttackAbility::USunriseBowAttackAbility()
 {
 	// Example direct asset path: replace this with the montage you want for a specific weapon ability.
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(
-		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Rifle/MM_Rifle_DryFire_Montage.MM_Rifle_DryFire_Montage"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(*BaseAnimation);
 	if (DefaultWeaponAnimation.Succeeded())
 	{
 		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
@@ -76,8 +75,7 @@ USunriseBowAttackAbility::USunriseBowAttackAbility()
 USunriseDrumsHealAbility::USunriseDrumsHealAbility()
 {
 	// Example direct asset path: replace this with the montage you want for a specific weapon ability.
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(
-		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Pistol/MM_Pistol_Reload_Montage.MM_Pistol_Reload_Montage"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(*BaseAnimation);
 	if (DefaultWeaponAnimation.Succeeded())
 	{
 		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
@@ -86,8 +84,7 @@ USunriseDrumsHealAbility::USunriseDrumsHealAbility()
 USunriseStaffAttackAbility::USunriseStaffAttackAbility()
 {
 	// Example direct asset path: replace this with the montage you want for a specific weapon ability.
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(
-		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Unarmed/Jump/MM_Jump_Montage.MM_Jump_Montage"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(*BaseAnimation);
 	if (DefaultWeaponAnimation.Succeeded())
 	{
 		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
@@ -96,8 +93,7 @@ USunriseStaffAttackAbility::USunriseStaffAttackAbility()
 USunriseSpearShieldAttackAbility::USunriseSpearShieldAttackAbility()
 {
 	// Example direct asset path: replace this with the montage you want for a specific weapon ability.
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(
-		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Unarmed/Attack/MM_ChargedAttack_Montage.MM_ChargedAttack_Montage"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(*BaseAnimation);
 	if (DefaultWeaponAnimation.Succeeded())
 	{
 		WeaponAnimationMontage = DefaultWeaponAnimation.Object;
@@ -108,8 +104,7 @@ USunriseStaffAreaAttackAbility::USunriseStaffAreaAttackAbility()
 {
 	WeaponAction = ESunriseWeaponAbilityAction::Area;
 	// Example direct asset path: replace this with the montage you want for a specific weapon ability.
-	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(
-		TEXT("/Game/Sunrise/Character/Mannequins/Anims/Death/MM_Death_Right_01_Montage.MM_Death_Right_01_Montage"));
+	static ConstructorHelpers::FObjectFinder<UAnimMontage> DefaultWeaponAnimation(*BaseAnimation);
 	if (DefaultWeaponAnimation.Succeeded())
 	{
 		WeaponAnimationMontage = DefaultWeaponAnimation.Object;

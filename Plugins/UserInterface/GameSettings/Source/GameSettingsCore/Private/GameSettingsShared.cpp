@@ -182,8 +182,9 @@ void UGameSettingsShared::SetGamepadInputAPIOption(const EGameGamepadInputAPIOpt
 			checkNoEntry();
 			break;
 	}
-
+#if UE_VERSION_5_8_x
 	FGenericPlatformMisc::SetPreferredInputDevices(*GamepadAPIOptions);
+#endif
 }
 
 int32 UGameSettingsShared::GetColorBlindStrength() const

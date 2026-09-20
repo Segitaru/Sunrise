@@ -1,15 +1,15 @@
 #pragma once
 
-#include "DetourCrowdAIController.h"
+#include "AIController.h"
+#include "Perception/AIPerceptionComponent.h"
 
 #include "SunriseUnitAIController.generated.h"
 
-class UStateTreeAIComponent;
-class UStateTree;
+class ASunriseUnit;
 
-/** Uses Unreal's Detour crowd navigation and Gameplay StateTree brain for RTS units. */
+/** Owns server-side Blackboard intent; Behavior Tree nodes execute movement and combat. */
 UCLASS(Blueprintable)
-class SUNRISEGAME_API ASunriseUnitAIController : public ADetourCrowdAIController
+class SUNRISEGAME_API ASunriseUnitAIController : public AAIController
 {
 	GENERATED_BODY()
 
@@ -18,41 +18,47 @@ public:
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
 
-	UFUNCTION(BlueprintPure, Category = "Sunrise|AI")
-	UStateTreeAIComponent* GetStateTreeComponent() const { return StateTreeComponent; }
+	bool IssueMoveOrder(const FVector& Destination, bool bFromPlayer);
+	bool IssueTargetOrder(ASunriseUnit* Target, bool bFromPlayer);
+	void StopOrders();
+	void HandleUnitDeath(const ASunriseUnit* DeadUnit);
+	bool HasActivePlayerOrder() const;
+	FVector GetMovementGoal() const;
 
-	/** Enable after assigning a StateTree that fully owns unit decisions. */
-	UFUNCTION(BlueprintPure, Category = "Sunrise|AI")
-	bool IsStateTreeDrivingDecisions() const;
-	/** Temporarily pauses authored autonomous decisions while a player order is active. */
-	void SuspendDecisionLogicForPlayerOrder();
-	void ResumeDecisionLogicAfterPlayerOrder();
+	bool ApplyFocusTarget(ASunriseUnit* Target, float Duration);
+	void SetExternalInteractionActive(bool bActive);
+	bool IsExternalInteractionActive() const { return bExternalInteractionActive; }
+
+	/** Called by perception and the root BT service, including when a target dies or becomes incompatible. */
+	void RefreshTargets();
+	bool CanAttackTarget(const ASunriseUnit* Target) const;
+
+	/** A completed/failed BT move may only consume the order it started with. Aborts never consume orders. */
+	uint32 GetOrderRevision() const { return OrderRevision; }
+	void CompleteMoveOrder(FName LocationKey, uint32 Revision, bool bSucceeded);
 
 protected:
+	UFUNCTION()
+	void OnPerceptionInfoChanged(const FActorPerceptionUpdateInfo& UpdateInfo);
+
 	void ConfigureCrowdFollowing();
+	void UpdatePresentation();
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|AI")
-	TObjectPtr<UStateTreeAIComponent> StateTreeComponent;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "0.0"))
+	float SeparationWeight = 1.5f;
 
-	/** Assign a StateTree using StateTreeAIComponentSchema on the Blueprint controller class. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise|AI|StateTree",
-		meta = (Schema = "/Script/GameplayStateTreeModule.StateTreeAIComponentSchema"))
-	TObjectPtr<UStateTree> DecisionStateTree;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "100.0", Units = "cm"))
+	float CollisionQueryRange = 600.0f;
 
-	/** Keeps the native unit decision fallback active until the authored tree is ready. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise|AI|StateTree")
-	bool bStateTreeOwnsDecisionLogic = false;
-	bool bPlayerOrderSuspended = false;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "100.0", Units = "cm"))
+	float PathOptimizationRange = 900.0f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "0.0"))
-	float SeparationWeight = 2.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "100.0", Units = "cm"))
-	float CollisionQueryRange = 900.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "100.0", Units = "cm"))
-	float PathOptimizationRange = 1200.0f;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "0.1"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Sunrise|AI|Crowd", meta = (ClampMin = "0.1"))
 	float AvoidanceRangeMultiplier = 1.25f;
+
+	FDelegateHandle PawnInitStateHandle;
+	TWeakObjectPtr<ASunriseUnit> FocusTarget;
+	float FocusTargetExpiryTime = 0.0f;
+	uint32 OrderRevision = 0;
+	bool bExternalInteractionActive = false;
 };

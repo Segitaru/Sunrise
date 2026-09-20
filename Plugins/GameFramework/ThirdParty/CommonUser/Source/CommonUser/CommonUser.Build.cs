@@ -23,7 +23,11 @@ public class CommonUser : ModuleRules
 			}
 			);
 			
-		
+		PublicDefinitions.AddRange(new string[]
+		{
+			"UE_VERSION_5_8_x=0"
+		});
+
 		PublicDependencyModuleNames.AddRange(
 			new string[]
 			{

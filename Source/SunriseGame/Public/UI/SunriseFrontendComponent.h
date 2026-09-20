@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Components/GameStateComponent.h"
+#include <Components/ControllerComponent.h>
 
 #include "SunriseFrontendComponent.generated.h"
 
@@ -10,7 +10,7 @@ class USunriseMainMenuWidget;
 
 /** Frontend Experience component. Add it to GameState through a Game Feature action. */
 UCLASS(BlueprintType)
-class SUNRISEGAME_API USunriseFrontendComponent : public UGameStateComponent
+class SUNRISEGAME_API USunriseFrontendComponent : public UControllerComponent
 {
 	GENERATED_BODY()
 

@@ -17,6 +17,7 @@ class UOverloadCaptureComponent;
 class UOverloadTowerDefenseComponent;
 class USceneComponent;
 class UStaticMeshComponent;
+class UDecalComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(
 	FOnOverloadTowerCaptured, AOverloadGuardTower*, Tower, int32, PreviousTeamId, int32, NewTeamId);
@@ -54,15 +55,20 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Overload|Components")
 	TObjectPtr<USceneComponent> TerminalPoint;
-	/** Temporary terminal visualization that can be replaced in a Blueprint child. */
+
+	/** Native capture-zone marker centered on the hack terminal. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Overload|Components")
-	TObjectPtr<UStaticMeshComponent> TerminalVisualMesh;
+	TObjectPtr<UDecalComponent> CaptureZoneDecal;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Overload|Components")
 	TObjectPtr<UOverloadCaptureComponent> CaptureComponent;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Overload|Components")
 	TObjectPtr<UOverloadTowerDefenseComponent> DefenseComponent;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Balance")
 	FOverloadTowerTierStats TierOneStats;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Balance", meta = (ClampMin = "0.0"))
 	float PerTierStatGrowth = 0.22f;
 

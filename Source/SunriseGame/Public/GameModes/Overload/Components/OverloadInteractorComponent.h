@@ -25,10 +25,13 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	void InitializeForUnit();
+
 	UFUNCTION(BlueprintCallable, Category = "Overload|Hack")
 	bool RequestHack(AActor* Target, bool bFromPlayer = false);
+
 	UFUNCTION(BlueprintCallable, Category = "Overload|Hack")
 	void CancelHack();
+
 	void CommitHack();
 
 	UFUNCTION(BlueprintPure, Category = "Overload|Hack")
@@ -37,15 +40,20 @@ public:
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Hack")
 	TSubclassOf<UGameplayAbility> HackAbilityClass;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Overload|Hack")
 	TObjectPtr<UEnvQuery> HackApproachQuery;
+
 	UPROPERTY(EditAnywhere, Category = "Overload|Hack", meta = (ClampMin = "50.0", Units = "cm"))
-	float InteractionRange = 220.0f;
+	float InteractionRange = 200.0f;
+
 	/** Units use deterministic points on this ring instead of converging on the terminal origin. */
 	UPROPERTY(EditAnywhere, Category = "Overload|Hack", meta = (ClampMin = "50.0", ClampMax = "200.0", Units = "cm"))
 	float ApproachRingRadius = 150.0f;
+
 	UPROPERTY(EditAnywhere, Category = "Overload|Hack", meta = (ClampMin = "4", ClampMax = "24"))
 	int32 ApproachSlotCount = 12;
+
 	UPROPERTY(EditAnywhere, Category = "Overload|Hack", meta = (ClampMin = "5.0", Units = "cm"))
 	float ApproachAcceptanceRadius = 35.0f;
 

@@ -182,6 +182,7 @@ UGameSettingCollection* UGameSettingRegistry::InitializeMouseAndKeyboardSettings
 		static TSet<FName> CreatedMappingNames;
 		CreatedMappingNames.Reset();
 
+#if UE_VERSION_5_8_x
 		for (const TPair<FString, TObjectPtr<UEnhancedPlayerMappableKeyProfile>>& ProfilePair : UserSettings->GetAllAvailableKeyProfiles())
 		{
 			const FString& ProfileName = ProfilePair.Key;
@@ -218,6 +219,7 @@ UGameSettingCollection* UGameSettingRegistry::InitializeMouseAndKeyboardSettings
 				}
 			}
 		}
+#endif
 	}
 
 	return Screen;

@@ -5,10 +5,10 @@
 #include "AbilitySystemComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "Components/TFTeamActorComponent.h"
 #include "GameModes/Overload/AbilitySystem/OverloadAttributeSet.h"
 #include "GameModes/Overload/Effects/OverloadEffects.h"
 #include "Net/UnrealNetwork.h"
+#include "Teams/Components/ModularTeamActorComponent.h"
 
 AOverloadObjectiveBase::AOverloadObjectiveBase()
 {
@@ -25,7 +25,7 @@ AOverloadObjectiveBase::AOverloadObjectiveBase()
 	DefenseAttributes = CreateDefaultSubobject<UOverloadDefenseSet>(TEXT("DefenseAttributes"));
 	HackAttributes = CreateDefaultSubobject<UOverloadHackSet>(TEXT("HackAttributes"));
 	EnergyAttributes = CreateDefaultSubobject<UOverloadEnergySet>(TEXT("EnergyAttributes"));
-	TeamComponent = CreateDefaultSubobject<UTFTeamActorComponent>(TEXT("Team"));
+	TeamComponent = CreateDefaultSubobject<UModularTeamActorComponent>(TEXT("Team"));
 }
 
 void AOverloadObjectiveBase::BeginPlay()
@@ -39,14 +39,17 @@ void AOverloadObjectiveBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AOverloadObjectiveBase, OriginalTeamId);
 }
+
 UAbilitySystemComponent* AOverloadObjectiveBase::GetAbilitySystemComponent() const
 {
 	return AbilitySystem;
 }
+
 int32 AOverloadObjectiveBase::GetTeamId() const
 {
 	return TeamComponent->GetTeamId();
 }
+
 int32 AOverloadObjectiveBase::GetOriginalTeamId() const
 {
 	return OriginalTeamId;

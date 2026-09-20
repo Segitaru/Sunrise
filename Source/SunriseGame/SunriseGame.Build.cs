@@ -16,25 +16,40 @@ public class SunriseGame : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
+			"ModularGameplayActors",
+			"ModularGameplay",
+			"GameplayAbilities",
+			"GameplayTags",
+			"CommonGame",
+			"AsyncMixin",
+		});
+		PrivateDependencyModuleNames.AddRange(new string[] {
 			"InputCore",
 			"AIModule",
 			"NavigationSystem",
+			"GameplayTasks",
 			"StateTreeModule",
 			"GameplayStateTreeModule",
 			"Niagara",
 			"UMG",
 			"Slate",
 			"SlateCore",
-			"ExperienceFrameworkCore",
-			"TeamFrameworkCore",
 			"GameSettingsCore",
-			"GameplayAbilities",
-			"GameplayTags",
-			"ModularGameplay",
 			"EnhancedInput",
-			"ModularGameplayActors"
+			"CommonUser",
+			"GameplayMessageRuntime",
+			"GameFeatures",
+			"DeveloperSettings",
+			"NetCore",
+			"NPC_Optimizator"
 		});
 
+		if (Target.bBuildEditor)
+		{
+			PrivateDependencyModuleNames.AddRange(new string[] { "UnrealEd", });
+		}
+		SetupGameplayDebuggerSupport(Target);
+		SetupIrisSupport(Target);
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 	}
 }

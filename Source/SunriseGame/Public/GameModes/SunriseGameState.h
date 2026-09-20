@@ -2,15 +2,16 @@
 
 #pragma once
 
-#include "GameMode/EFGameState.h"
-
+#include "ModularGameState.h"
 #include "SunriseGameState.generated.h"
 
 class USunriseUnitManagerComponent;
 
-/** Product GameState that owns services shared by independently composed match rules. */
+/** 
+ * Product GameState that owns services shared by independently composed match rules.
+ */
 UCLASS()
-class SUNRISEGAME_API ASunriseGameState : public AEFGameState
+class SUNRISEGAME_API ASunriseGameState : public AModularGameStateBase
 {
 	GENERATED_BODY()
 

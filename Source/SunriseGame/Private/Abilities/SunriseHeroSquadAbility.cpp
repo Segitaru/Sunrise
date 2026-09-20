@@ -1,48 +1,88 @@
 #include "Abilities/SunriseHeroSquadAbility.h"
 
 #include "AbilitySystemComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "ControllableEntities/ControllableComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
-#include "ControllableEntities/Data/ControllableEntityDefinition.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameModes/Overload/Actors/OverloadLaneSpline.h"
 #include "GameModes/Overload/Components/OverloadInteractorComponent.h"
 #include "GameModes/Overload/Components/OverloadLaneFollowerComponent.h"
+#include "GameModes/Spawning/PawnFormationTypes.h"
+#include "ModularPawnData.h"
+#include "NativeGameplayTags.h"
+#include "Units/Components/SunriseUnitManagerComponent.h"
 #include "Units/SunriseUnit.h"
 
-USunriseHeroSquadAbility::USunriseHeroSquadAbility()
+UE_DEFINE_GAMEPLAY_TAG_STATIC(TAG_Sunrise_HeroSquadCooldown, "Cooldown.Sunrise.HeroSquad");
+
+USunriseHeroSquadCooldownEffect::USunriseHeroSquadCooldownEffect()
+{
+	DurationPolicy = EGameplayEffectDurationType::HasDuration;
+	DurationMagnitude = FScalableFloat(10.0f);
+}
+
+float USunriseHeroSquadAbility::GetCooldownRemaining(const ASunriseUnit* Hero)
+{
+	const UAbilitySystemComponent* ASC = Hero ? Hero->GetAbilitySystemComponent() : nullptr;
+	float Remaining = 0.0f;
+	if (ASC)
+	{
+		const FGameplayEffectQuery Query =
+			FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(FGameplayTagContainer(TAG_Sunrise_HeroSquadCooldown));
+		for (float Time : ASC->GetActiveEffectsTimeRemaining(Query))
+		{
+			Remaining = FMath::Max(Remaining, Time);
+		}
+	}
+	return Remaining;
+}
+
+USunriseHeroSquadAbility::USunriseHeroSquadAbility(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerOnly;
+	FAbilityTriggerData Trigger;
+	Trigger.TriggerTag = FGameplayTag::RequestGameplayTag(FName(TEXT("InputTag.Ability.Primary")));
+	Trigger.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
+	AbilityTriggers.Add(Trigger);
 }
 
 bool USunriseHeroSquadAbility::CanActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, FGameplayTagContainer* OptionalRelevantTags) const
 {
 	if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags) || !ActorInfo ||
-		!ActorInfo->AvatarActor.IsValid())
+		!ActorInfo->AvatarActor.IsValid() || !ActorInfo->AbilitySystemComponent.IsValid())
 	{
 		return false;
 	}
 	const ASunriseUnit* Hero = Cast<ASunriseUnit>(ActorInfo->AvatarActor.Get());
-	return Hero && Hero->IsHero() && Hero->IsAlive() && !SquadDefinitions.IsEmpty() && Hero->GetWorld() &&
-		   Hero->GetWorld()->GetTimeSeconds() >= NextActivationTime;
+	return IsValid(Hero) && Hero->IsHero() && Hero->IsAlive() && !SquadFormations.IsEmpty() && Hero->GetWorld() &&
+		   !ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(TAG_Sunrise_HeroSquadCooldown);
 }
-
 void USunriseHeroSquadAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 	const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
 	ASunriseUnit* Hero = ActorInfo ? Cast<ASunriseUnit>(ActorInfo->AvatarActor.Get()) : nullptr;
-	if (!Hero || !Hero->HasAuthority() || !SpawnSquad(Hero))
+	if (!Hero || !Hero->HasAuthority() || !CommitAbility(Handle, ActorInfo, ActivationInfo) || !SpawnSquad(Hero))
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 		return;
 	}
-	NextActivationTime = Hero->GetWorld()->GetTimeSeconds() + FMath::Max(1.0f, Cooldown);
+	UAbilitySystemComponent* ASC = Hero->GetAbilitySystemComponent();
+	FGameplayEffectSpecHandle CooldownSpec =
+		ASC->MakeOutgoingSpec(USunriseHeroSquadCooldownEffect::StaticClass(), GetAbilityLevel(), ASC->MakeEffectContext());
+	if (CooldownSpec.IsValid())
+	{
+		CooldownSpec.Data->SetDuration(FMath::Max(1.0f, Cooldown), true);
+		CooldownSpec.Data->DynamicGrantedTags.AddTag(TAG_Sunrise_HeroSquadCooldown);
+		ASC->ApplyGameplayEffectSpecToSelf(*CooldownSpec.Data.Get());
+	}
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }
-
 bool USunriseHeroSquadAbility::ActivateForHero(ASunriseUnit* Hero, TSubclassOf<USunriseHeroSquadAbility> AbilityClass)
 {
 	if (!IsValid(Hero) || !AbilityClass || !Hero->IsHero() || !Hero->IsAlive())
@@ -64,7 +104,7 @@ bool USunriseHeroSquadAbility::ActivateForHero(ASunriseUnit* Hero, TSubclassOf<U
 bool USunriseHeroSquadAbility::SpawnSquad(ASunriseUnit* Hero)
 {
 	UWorld* World = Hero ? Hero->GetWorld() : nullptr;
-	if (!World || SquadDefinitions.IsEmpty())
+	if (!World || SquadFormations.IsEmpty())
 	{
 		return false;
 	}
@@ -76,61 +116,112 @@ bool USunriseHeroSquadAbility::SpawnSquad(ASunriseUnit* Hero)
 		}
 	}
 	SpawnedUnits.Reset();
-	for (int32 Index = 0; Index < SquadDefinitions.Num(); ++Index)
+	int32 TotalUnitCount = 0;
+	for (const FPawnFormation& Definition : SquadFormations)
 	{
-		UControllableEntityDefinition* Definition = SquadDefinitions[Index].LoadSynchronous();
-		TSubclassOf<ASunriseUnit> UnitClass = Definition ? Definition->UnitClass.LoadSynchronous() : nullptr;
-		if (!UnitClass)
+		TotalUnitCount += FMath::Max(0, Definition.Count);
+	}
+	if (TotalUnitCount == 0)
+	{
+		return false;
+	}
+	int32 SpawnIndex = 0;
+	for (int32 FormationIndex = 0; FormationIndex < SquadFormations.Num(); ++FormationIndex)
+	{
+		const FPawnFormation& Definition = SquadFormations[FormationIndex];
+		UModularPawnData* const LoadedData = Definition.Definition.LoadSynchronous();
+		if (!LoadedData)
 		{
 			continue;
 		}
-		const float Angle = Index * UE_PI;
-		const FVector Location = Hero->GetActorLocation() + FVector(FMath::Cos(Angle), FMath::Sin(Angle), 0.0f) * FormationSpacing;
-		FActorSpawnParameters Params;
-		Params.Owner = Hero->GetOwner();
-		Params.Instigator = Hero;
-		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-		ASunriseUnit* Unit = World->SpawnActor<ASunriseUnit>(UnitClass, Location, Hero->GetActorRotation(), Params);
-		if (!Unit)
+
+		const TSubclassOf<APawn> UnitClass = LoadedData->PawnClass.LoadSynchronous();
+		if (!UnitClass || !UnitClass->IsChildOf(ASunriseUnit::StaticClass()) ||
+			LoadedData->Specification.HasTag(SunrisePawnTags::Kind_Hero))
 		{
 			continue;
 		}
-		Unit->SetTeamId(Hero->GetTeamId());
-		const bool bPlayerSummon = Hero->GetControllingAgent().GetObject() != nullptr;
-		Unit->ConfigureControl(bPlayerSummon ? ESunriseUnitKind::Summoned : ESunriseUnitKind::Creep, Hero->GetControllingAgent());
-		Unit->SpawnDefaultController();
-		if (UControllableComponent* Controllable = UControllableComponent::FindControllableComponent(Unit))
+		const ASunriseUnit* Defaults = UnitClass->GetDefaultObject<ASunriseUnit>();
+		if (!Defaults || !Defaults->GetCapsuleComponent())
 		{
-			Controllable->SetEntityDefinition(Definition);
+			continue;
 		}
-		if (AController* Controller = Cast<AController>(Hero->GetControllingAgent().GetObject()))
+
+		const int32 UnitCount = FMath::Max(0, Definition.Count);
+		if (UnitCount == 0)
 		{
-			if (UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(Controller))
-			{
-				Manager->RegisterControlledEntity(Unit);
-			}
+			continue;
 		}
-		if (!bPlayerSummon)
+		const float UnitSpacing = FMath::Max(FormationSpacing, Definition.OffsetInLine);
+		const float AngleStep = TotalUnitCount > 1 ? (2.0f * UE_PI / TotalUnitCount) : 0.0f;
+		const float Radius = Hero->GetCapsuleComponent()->GetScaledCapsuleRadius() +
+							 Defaults->GetCapsuleComponent()->GetScaledCapsuleRadius() +
+							 UnitSpacing / (TotalUnitCount > 1 ? 2.0f * FMath::Sin(UE_PI / TotalUnitCount) : 1.0f);
+		const FVector Forward = Hero->GetActorForwardVector().GetSafeNormal2D();
+		const FVector Right = Hero->GetActorRightVector().GetSafeNormal2D();
+
+		for (int32 UnitIndex = 0; UnitIndex < UnitCount; ++UnitIndex)
 		{
-			if (UOverloadInteractorComponent* Interactor = NewObject<UOverloadInteractorComponent>(Unit, TEXT("OverloadInteractor")))
+			const float Angle = AngleStep * SpawnIndex++;
+			FVector Location = Hero->GetActorLocation() + (Forward * FMath::Cos(Angle) + Right * FMath::Sin(Angle)) * Radius;
+			FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(SunriseHeroSquadSpawn), false);
+			QueryParams.AddIgnoredActor(Hero);
+			FHitResult GroundHit;
+			const FVector TraceStart = Location + FVector(0.0f, 0.0f, 500.0f);
+			const FVector TraceEnd = Location - FVector(0.0f, 0.0f, 1000.0f);
+			if (!World->LineTraceSingleByObjectType(
+					GroundHit, TraceStart, TraceEnd, FCollisionObjectQueryParams(ECC_WorldStatic), QueryParams) ||
+				!GroundHit.GetComponent() || GroundHit.GetComponent()->GetCollisionResponseToChannel(ECC_Pawn) != ECR_Block ||
+				!Defaults->GetCharacterMovement()->IsWalkable(GroundHit))
 			{
-				Interactor->RegisterComponent();
-				Interactor->InitializeForUnit();
+				continue;
 			}
-			for (TActorIterator<AOverloadLaneSpline> It(World); It; ++It)
+			Location = GroundHit.ImpactPoint;
+			Location.Z += Defaults->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 2.0f;
+			ASunriseUnit* Unit = USunriseUnitManagerComponent::SpawnUnit(LoadedData, FTransform(Hero->GetActorRotation(), Location), Hero);
+			if (!Unit)
 			{
-				AOverloadLaneSpline* Candidate = *It;
-				if (Candidate && (Candidate->GetSourceTeamId() == Hero->GetTeamId() || Candidate->GetTargetTeamId() == Hero->GetTeamId()))
+				continue;
+			}
+			Unit->SetGenericTeamId(Hero->GetGenericTeamId());
+			const bool bPlayerSummon = Hero->GetControllingAgent().GetObject() != nullptr;
+			Unit->ConfigureControl(Hero->GetControllingAgent());
+			Unit->SetLifeSpan(FMath::Max(0.1f, UnitLifetime));
+			Unit->SpawnDefaultController();
+			if (UControllableComponent* Controllable = UControllableComponent::FindControllableComponent(Unit))
+			{
+				Controllable->SetEntityDefinition(LoadedData);
+			}
+			if (AController* Controller = Cast<AController>(Hero->GetControllingAgent().GetObject()))
+			{
+				if (UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(Controller))
 				{
-					UOverloadLaneFollowerComponent* Follower =
-						NewObject<UOverloadLaneFollowerComponent>(Unit, TEXT("OverloadLaneFollower"));
-					Follower->RegisterComponent();
-					Follower->Initialize(Candidate);
-					break;
+					Manager->RegisterControlledEntity(Unit);
 				}
 			}
+			if (!bPlayerSummon)
+			{
+				if (UOverloadInteractorComponent* Interactor = NewObject<UOverloadInteractorComponent>(Unit, TEXT("OverloadInteractor")))
+				{
+					Interactor->RegisterComponent();
+					Interactor->InitializeForUnit();
+				}
+				for (TActorIterator<AOverloadLaneSpline> It(World); It; ++It)
+				{
+					AOverloadLaneSpline* Candidate = *It;
+					if (Candidate &&
+						(Candidate->GetSourceTeamId() == Hero->GetTeamId() || Candidate->GetTargetTeamId() == Hero->GetTeamId()))
+					{
+						UOverloadLaneFollowerComponent* Follower =
+							NewObject<UOverloadLaneFollowerComponent>(Unit, TEXT("OverloadLaneFollower"));
+						Follower->RegisterComponent();
+						Follower->Initialize(Candidate);
+						break;
+					}
+				}
+			}
+			SpawnedUnits.Add(Unit);
 		}
-		SpawnedUnits.Add(Unit);
 	}
 	return !SpawnedUnits.IsEmpty();
 }

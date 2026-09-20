@@ -2,7 +2,6 @@
 
 #include "GameModes/Overload/Components/OverloadLaneFollowerComponent.h"
 
-#include "Abilities/SunriseHeroSquadAbility.h"
 #include "Components/SplineComponent.h"
 #include "GameModes/Overload/Actors/OverloadGuardTower.h"
 #include "GameModes/Overload/Actors/OverloadLaneSpline.h"
@@ -11,49 +10,45 @@
 
 UOverloadLaneFollowerComponent::UOverloadLaneFollowerComponent()
 {
-	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.TickInterval = 0.35f;
-	PrimaryComponentTick.bStartWithTickEnabled = true;
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
-void UOverloadLaneFollowerComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+bool UOverloadLaneFollowerComponent::RequestNextMove()
 {
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	if (!Unit || !Unit->HasAuthority() || !Unit->IsAlive() || !Lane.IsValid())
+	if (!Unit || !Unit->HasAuthority() || !Unit->IsAlive() || !Lane.IsValid() || Unit->HasActivePlayerOrder())
 	{
-		return;
-	}
-	if (Unit->HasActivePlayerOrder())
-	{
-		return;
-	}
-	USplineComponent* Spline = Lane->GetLaneSpline();
-	CurrentDistance = Spline->GetDistanceAlongSplineAtLocation(Unit->GetActorLocation(), ESplineCoordinateSpace::World);
-
-	if (Unit->IsHero() && Unit->GetHeroSquadAbilityClass())
-	{
-		USunriseHeroSquadAbility::ActivateForHero(Unit, Unit->GetHeroSquadAbilityClass());
+		return false;
 	}
 
 	if (!Unit->IsHero() && (Unit->GetOrderState() == ESunriseOrderState::Attacking || Unit->GetOrderState() == ESunriseOrderState::Healing))
 	{
-		return;
+		return false;
 	}
 
+	USplineComponent* Spline = Lane->GetLaneSpline();
+	const float CurrentDistance = Spline->GetDistanceAlongSplineAtLocation(Unit->GetActorLocation(), ESplineCoordinateSpace::World);
 	if (AOverloadGuardTower* Tower = Lane->FindNextHostileTower(Unit->GetTeamId(), CurrentDistance, TravelDirection))
 	{
 		if (UOverloadInteractorComponent* Interactor = Unit->FindComponentByClass<UOverloadInteractorComponent>())
 		{
-			Interactor->RequestHack(Tower);
-			return;
+			if (Interactor->RequestHack(Tower))
+			{
+				return false;
+			}
 		}
+		return false;
 	}
 
 	const float NextDistance = FMath::Clamp(CurrentDistance + TravelDirection * WaypointSpacing, 0.0f, Spline->GetSplineLength());
-	FVector NextLocation = Spline->GetLocationAtDistanceAlongSpline(NextDistance, ESplineCoordinateSpace::World);
+	if (FMath::IsNearlyEqual(NextDistance, CurrentDistance, 1.0f))
+	{
+		return false;
+	}
+
+	const FVector SplineLocation = Spline->GetLocationAtDistanceAlongSpline(NextDistance, ESplineCoordinateSpace::World);
 	const FVector Right = Spline->GetRightVectorAtDistanceAlongSpline(NextDistance, ESplineCoordinateSpace::World);
-	NextLocation += Right * LateralOffset;
-	Unit->IssueAutonomousMoveOrder(NextLocation);
+	const FVector NextLocation = SplineLocation + Right * LateralOffset;
+	return Unit->IssueAutonomousMoveOrder(NextLocation);
 }
 
 void UOverloadLaneFollowerComponent::Initialize(AOverloadLaneSpline* InLane, float InLateralOffset)
@@ -62,6 +57,4 @@ void UOverloadLaneFollowerComponent::Initialize(AOverloadLaneSpline* InLane, flo
 	Lane = InLane;
 	LateralOffset = InLateralOffset;
 	TravelDirection = Unit && Lane.IsValid() && Unit->GetTeamId() == Lane->GetTargetTeamId() ? -1.0f : 1.0f;
-	CurrentDistance = TravelDirection > 0.0f || !Lane.IsValid() ? 0.0f : Lane->GetLaneSpline()->GetSplineLength();
-	IssuedDistance = -1.0f;
 }

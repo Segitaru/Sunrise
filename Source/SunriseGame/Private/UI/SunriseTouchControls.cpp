@@ -3,7 +3,12 @@
 
 #include "UI/SunriseTouchControls.h"
 
+#include <AbilitySystemComponent.h>
+#include <AbilitySystemGlobals.h>
+
+#include "Abilities/SunriseSelectionAbility.h"
 #include "Player/SunrisePlayerController.h"
+#include "Units/SunrisePawn.h"
 
 void USunriseTouchControls::SetPlayerController(ASunrisePlayerController* PC)
 {
@@ -12,26 +17,36 @@ void USunriseTouchControls::SetPlayerController(ASunrisePlayerController* PC)
 
 void USunriseTouchControls::ResetZoom()
 {
-	if (PlayerController)
+	if (ASunrisePawn* Pawn = PlayerController ? PlayerController->GetPawn<ASunrisePawn>() : nullptr)
 	{
-		PlayerController->DoCameraResetZoomCommand();
-
-		BP_SetZoomPercentage(PlayerController->GetDefaultZoomPercentage());
+		Pawn->DoCameraResetZoomCommand();
+		BP_SetZoomPercentage(Pawn->GetZoomPercentage());
 	}
 }
 
 void USunriseTouchControls::ToggleSelectAllUnits()
 {
-	if (PlayerController)
+	const auto* const ASC = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(PlayerController->GetPawn());
+	if (!ASC)
 	{
-		PlayerController->DoToggleSelectAllUnitsCommand();
+		return;
+	}
+	FGameplayAbilitySpec* AbilitySpec = ASC->FindAbilitySpecFromClass(USunriseSelectionAbility::StaticClass());
+	if (!AbilitySpec)
+	{
+		return;
+	}
+	if (USunriseSelectionAbility* Selection = Cast<USunriseSelectionAbility>(AbilitySpec->Ability); IsValid(Selection))
+	{
+		Selection->DoToggleSelectAllUnitsCommand();
 	}
 }
 
 void USunriseTouchControls::SetZoomPercentage(float Percentage)
 {
-	if (PlayerController)
+	if (ASunrisePawn* Pawn = PlayerController ? PlayerController->GetPawn<ASunrisePawn>() : nullptr)
 	{
-		PlayerController->DoCameraSetZoomPercentageCommand(Percentage);
+		Pawn->DoCameraSetZoomPercentageCommand(Percentage);
+		BP_SetZoomPercentage(Pawn->GetZoomPercentage());
 	}
 }

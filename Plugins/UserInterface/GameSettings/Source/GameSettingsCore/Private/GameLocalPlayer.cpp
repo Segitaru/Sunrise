@@ -16,3 +16,28 @@ UGameSettingsShared* UGameLocalPlayer::GetSharedSettings()
 {
 	return UGameSettingsShared::GetSharedSettings(this);
 }
+
+void UGameLocalPlayer::LoadSharedSettingsFromDisk(bool bForceLoad)
+{
+	FUniqueNetIdRepl CurrentNetId = GetCachedUniqueNetId();
+	if (!bForceLoad && SharedSettings && CurrentNetId == NetIdForSharedSettings)
+	{
+		// Already loaded once, don't reload
+		return;
+	}
+
+	ensure(UGameSettingsShared::AsyncLoadOrCreateSettings(
+		this, UGameSettingsShared::FOnSettingsLoadedEvent::CreateUObject(this, &UGameLocalPlayer::OnSharedSettingsLoaded)));
+}
+
+void UGameLocalPlayer::OnSharedSettingsLoaded(UGameSettingsShared* LoadedOrCreatedSettings)
+{
+	// The settings are applied before it gets here
+	if (ensure(LoadedOrCreatedSettings))
+	{
+		// This will replace the temporary or previously loaded object which will GC out normally
+		SharedSettings = LoadedOrCreatedSettings;
+
+		NetIdForSharedSettings = GetCachedUniqueNetId();
+	}
+}

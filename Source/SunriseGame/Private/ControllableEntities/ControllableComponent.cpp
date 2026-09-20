@@ -41,7 +41,7 @@ bool UControllableComponent::CanBeControlledBy(const AController* Controller) co
 	return Agent.GetObject() == Controller || Agent.GetObject() == Controller->GetPlayerState<APlayerState>();
 }
 
-void UControllableComponent::SetEntityDefinition(UControllableEntityDefinition* NewDefinition)
+void UControllableComponent::SetEntityDefinition(UModularPawnData* NewDefinition)
 {
 	if (GetOwner() && GetOwner()->HasAuthority())
 	{

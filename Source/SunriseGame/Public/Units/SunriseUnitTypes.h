@@ -6,44 +6,6 @@
 
 #include "SunriseUnitTypes.generated.h"
 
-/** The two combat sides used by the RTS prototype. */
-UENUM(BlueprintType)
-enum class ESunriseTeam : uint8
-{
-	Friendly UMETA(DisplayName = "Player"),
-	Enemy UMETA(DisplayName = "Enemy"),
-	Neutral UMETA(DisplayName = "Neutral")
-};
-
-/** A role changes the native default attributes and target-selection rules. */
-UENUM(BlueprintType)
-enum class ESunriseUnitRole : uint8
-{
-	Melee UMETA(DisplayName = "Swordsman"),
-	Ranged UMETA(DisplayName = "Archer"),
-	Healer UMETA(DisplayName = "Healer (Drums)"),
-	Mage UMETA(DisplayName = "Mage (Staff)"),
-	Vanguard UMETA(DisplayName = "Vanguard (Spear and Shield)")
-};
-
-/** Gameplay ownership class; independent from combat role and presentation loadout. */
-UENUM(BlueprintType)
-enum class ESunriseUnitKind : uint8
-{
-	Creep,
-	Hero,
-	Summoned
-};
-
-/** Broad combat responsibility; UnitRole below it is the concrete class/loadout. */
-UENUM(BlueprintType)
-enum class ESunriseCombatRole : uint8
-{
-	DamageDealer UMETA(DisplayName = "Damage Dealer"),
-	Support UMETA(DisplayName = "Support"),
-	Tank UMETA(DisplayName = "Tank")
-};
-
 UENUM(BlueprintType)
 enum class ESunriseOrderState : uint8
 {
@@ -128,7 +90,7 @@ struct FSunriseUnitStats
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats", meta = (ClampMin = "0.05", Units = "s"))
 	float ActionInterval = 1.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats", meta = (ClampMin = "0.0", Units = "cm/s"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats", meta = (ClampMin = "0.0" /*, Units = "cm/s"*/))
 	float MoveSpeed = 420.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats", meta = (ClampMin = "0.0", Units = "cm"))

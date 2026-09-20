@@ -4,31 +4,38 @@
 
 #include "Components/CapsuleComponent.h"
 #include "Components/SplineComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameModes/Overload/Actors/OverloadLaneSpline.h"
 #include "GameModes/Overload/Components/OverloadInteractorComponent.h"
 #include "GameModes/Overload/Components/OverloadLaneFollowerComponent.h"
+#include "GameModes/Overload/Types/OverloadTeamIds.h"
+#include "GameModes/Spawning/PawnFormationTypes.h"
 #include "Kismet/GameplayStatics.h"
 #include "NavigationSystem.h"
+#include "Net/UnrealNetwork.h"
+#include "Pawn/ModularPawnData.h"
 #include "TimerManager.h"
+#include "Units/Components/SunriseUnitManagerComponent.h"
 #include "Units/SunriseUnit.h"
 
 UOverloadWaveSpawnerComponent::UOverloadWaveSpawnerComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
+	SetIsReplicatedByDefault(true);
 }
 
-void UOverloadWaveSpawnerComponent::Initialize(AOverloadLaneSpline* InLane, TSubclassOf<ASunriseUnit> InUnitClass)
+void UOverloadWaveSpawnerComponent::Initialize(AOverloadLaneSpline* InLane, const TArray<FPawnFormation>& InFormations)
 {
 	Lane = InLane;
-	UnitClass = InUnitClass;
+	CurrentFormations = InFormations;
 	if (!GetOwner() || !GetOwner()->HasAuthority())
 	{
 		return;
 	}
-	if (!Lane.IsValid() || !UnitClass)
+	if (!Lane.IsValid() || CurrentFormations.IsEmpty())
 	{
-		UE_LOG(LogTemp, Error, TEXT("Overload wave spawner %s cannot initialize: lane=%s unit class=%s"), *GetName(),
-			*GetNameSafe(Lane.Get()), *GetNameSafe(UnitClass.Get()));
+		UE_LOG(LogTemp, Error, TEXT("Overload wave spawner %s cannot initialize: lane=%s definitions=%d"), *GetName(),
+			*GetNameSafe(Lane.Get()), CurrentFormations.Num());
 		return;
 	}
 	GetWorld()->GetTimerManager().ClearTimer(WaveTimer);
@@ -39,13 +46,17 @@ void UOverloadWaveSpawnerComponent::Initialize(AOverloadLaneSpline* InLane, TSub
 
 void UOverloadWaveSpawnerComponent::ApplyEnemyDifficulty(float CountMultiplier)
 {
-	EnemyWaveMultiplier = FMath::Max(0.5f, CountMultiplier);
-	WaveInterval = FMath::Max(5.0f, WaveInterval / EnemyWaveMultiplier);
+	if (!GetOwner() || !GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	EnemyWaveMultiplier = FMath::IsFinite(CountMultiplier) ? FMath::Max(0.5f, CountMultiplier) : 1.0f;
+	// EnemyCountMultiplier affects enemy population, never the shared wave cadence.
 }
 
 void UOverloadWaveSpawnerComponent::SpawnWave()
 {
-	if (!GetOwner()->HasAuthority() || !Lane.IsValid() || !UnitClass)
+	if (!GetOwner()->HasAuthority() || !Lane.IsValid() || CurrentFormations.IsEmpty())
 	{
 		return;
 	}
@@ -75,68 +86,111 @@ int32 UOverloadWaveSpawnerComponent::GetAliveUnitCount(int32 TeamId) const
 
 void UOverloadWaveSpawnerComponent::SpawnWaveForTeam(int32 TeamId, bool bSpawnAtSplineStart)
 {
-	static constexpr ESunriseUnitRole Roles[] = {
-		ESunriseUnitRole::Melee, ESunriseUnitRole::Ranged, ESunriseUnitRole::Healer, ESunriseUnitRole::Vanguard};
-	const int32 AliveCount = GetAliveUnitCount(TeamId);
-	const int32 WaveSize = FMath::Max(1, FMath::RoundToInt(UE_ARRAY_COUNT(Roles) * (TeamId == 0 ? 1.0f : EnemyWaveMultiplier)));
-	if (AliveCount + WaveSize > FMath::RoundToInt(MaxAliveUnitsPerTeam * (TeamId == 0 ? 1.0f : EnemyWaveMultiplier)))
+	if (!OverloadTeamIds::IsPlayable(TeamId))
 	{
-		UE_LOG(LogTemp, Verbose, TEXT("Overload lane %s skipped team %d wave: population %d/%d"), *GetNameSafe(Lane.Get()), TeamId,
-			AliveCount, MaxAliveUnitsPerTeam);
 		return;
 	}
+
+	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	if (!Navigation || UNavigationSystemV1::IsNavigationBeingBuiltOrLocked(this))
+	{
+		return;
+	}
+
 	USplineComponent* Spline = Lane->GetLaneSpline();
 	const float SplineLength = Spline->GetSplineLength();
 	const float SafeInset = FMath::Min(SpawnInsetDistance, SplineLength * 0.25f);
 	const float SpawnDistance = bSpawnAtSplineStart ? SafeInset : SplineLength - SafeInset;
 	const FVector Start = Spline->GetLocationAtDistanceAlongSpline(SpawnDistance, ESplineCoordinateSpace::World);
+	const FVector Forward = Spline->GetDirectionAtDistanceAlongSpline(SpawnDistance, ESplineCoordinateSpace::World);
 	const FVector Right = Spline->GetRightVectorAtDistanceAlongSpline(SpawnDistance, ESplineCoordinateSpace::World);
-	const FRotator Facing = (bSpawnAtSplineStart ? Spline->GetDirectionAtDistanceAlongSpline(SpawnDistance, ESplineCoordinateSpace::World)
-												 : -Spline->GetDirectionAtDistanceAlongSpline(SpawnDistance, ESplineCoordinateSpace::World))
-								.Rotation();
-	UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	FRotator Facing = (bSpawnAtSplineStart ? Spline->GetDirectionAtDistanceAlongSpline(SpawnDistance, ESplineCoordinateSpace::World)
+										   : -Spline->GetDirectionAtDistanceAlongSpline(SpawnDistance, ESplineCoordinateSpace::World))
+						  .Rotation();
+	Facing.Pitch = 0.0f;
+	Facing.Roll = 0.0f;
+
+
+	const float CountMultiplier = TeamId == OverloadTeamIds::InitialPlayer ? 1.0f : EnemyWaveMultiplier;
+
+	int32 LineCount = CurrentFormations.Num();
 	int32 SpawnedCount = 0;
-	for (int32 Index = 0; Index < WaveSize; ++Index)
+	int32 ResultWaveSize = 0;
+	for (const auto& Formation : CurrentFormations)
 	{
-		const float LateralOffset = (Index - 1.5f) * UnitSpacing;
-		FVector Location = Start + Right * LateralOffset;
-		FNavLocation Projected;
-		if (Navigation && Navigation->ProjectPointToNavigation(Location, Projected, FVector(250.0f, 250.0f, 500.0f)))
+		const UModularPawnData* Data = Formation.Definition.LoadSynchronous();
+		if (!Data || !Data->Specification.HasTag(SunrisePawnTags::Kind_Creep))
 		{
-			Location = Projected.Location;
-		}
-		FActorSpawnParameters Parameters;
-		Parameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
-		const FTransform SpawnTransform(Facing, Location);
-		ASunriseUnit* Unit = GetWorld()->SpawnActorDeferred<ASunriseUnit>(
-			UnitClass, SpawnTransform, nullptr, nullptr, Parameters.SpawnCollisionHandlingOverride);
-		if (!Unit)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Overload lane %s could not place role %d for team %d without collision"),
-				*GetNameSafe(Lane.Get()), static_cast<int32>(Roles[Index % UE_ARRAY_COUNT(Roles)]), TeamId);
 			continue;
 		}
-		Unit->SetTeamId(TeamId);
-		Unit->ConfigureControl(ESunriseUnitKind::Creep, nullptr);
-		// Stats are prepared now; GAS attributes are initialized safely during FinishSpawning/BeginPlay.
-		Unit->SetUnitRole(Roles[Index % UE_ARRAY_COUNT(Roles)], true);
-		UGameplayStatics::FinishSpawningActor(Unit, Unit->GetActorTransform());
-		if (bUseNonBlockingPawnCollision)
-		{
-			Unit->GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-		}
-		SpawnedUnits.Add(Unit);
-		++SpawnedCount;
 
-		UOverloadInteractorComponent* Interactor = NewObject<UOverloadInteractorComponent>(Unit, TEXT("OverloadInteractor"));
-		Interactor->RegisterComponent();
-		Interactor->InitializeForUnit();
-		UOverloadLaneFollowerComponent* Follower = NewObject<UOverloadLaneFollowerComponent>(Unit, TEXT("OverloadLaneFollower"));
-		Follower->RegisterComponent();
-		Follower->Initialize(Lane.Get(), LateralOffset);
+		const FVector ForwardOffset = (bSpawnAtSplineStart ? Forward : -Forward) * LineCount * UnitSpacing;
+		LineCount--;
+
+		const int32 ResultCount = Formation.Count * CountMultiplier;
+		ResultWaveSize += ResultCount;
+
+		for (int32 Index = 0; Index < ResultCount; ++Index)
+		{
+			const float LateralOffset =
+				(static_cast<float>(Index) - (static_cast<float>(ResultCount) - 1.0f) * 0.5f) * Formation.OffsetInLine;
+			const FVector ResultOffset = Right * LateralOffset + ForwardOffset;
+			FVector Location = Start + ResultOffset;
+			FNavLocation Projected;
+			if (!Navigation->ProjectPointToNavigation(Location, Projected, FVector(250.0f, 250.0f, 500.0f)))
+			{
+				UE_LOG(LogTemp, Verbose, TEXT("Overload wave skipped: no navigation for team %d at %s"), TeamId, *Location.ToString());
+				continue;
+			}
+			FHitResult GroundHit;
+			const FVector TraceStart = Projected.Location + FVector(0.0f, 0.0f, 100.0f);
+			const FVector TraceEnd = Projected.Location - FVector(0.0f, 0.0f, 200.0f);
+			FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(OverloadWaveSpawnGround), false, GetOwner());
+			if (!GetWorld()->LineTraceSingleByObjectType(
+					GroundHit, TraceStart, TraceEnd, FCollisionObjectQueryParams(ECC_WorldStatic), QueryParams) ||
+				!GroundHit.GetComponent() || GroundHit.GetComponent()->GetCollisionResponseToChannel(ECC_Pawn) != ECR_Block)
+			{
+				UE_LOG(LogTemp, Verbose, TEXT("Overload wave skipped: no blocking ground for team %d at %s"), TeamId, *Location.ToString());
+				continue;
+			}
+
+			Location = GroundHit.ImpactPoint;
+			UClass* PawnClass = Data->PawnClass.LoadSynchronous();
+			if (!PawnClass || !PawnClass->IsChildOf(ASunriseUnit::StaticClass()))
+			{
+				continue;
+			}
+			const ASunriseUnit* Defaults = PawnClass->GetDefaultObject<ASunriseUnit>();
+			if (!Defaults->GetCharacterMovement()->IsWalkable(GroundHit))
+			{
+				continue;
+			}
+			Location.Z += Defaults->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() + 2.0f;
+			ASunriseUnit* Unit = USunriseUnitManagerComponent::SpawnUnit(Data, FTransform(Facing, Location), GetOwner());
+			if (!Unit)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Overload lane %s could not place definition %d for team %d without collision"),
+					*GetNameSafe(Lane.Get()), Index % CurrentFormations.Num(), TeamId);
+				continue;
+			}
+			Unit->SetGenericTeamId(IntegerToGenericTeamId(TeamId));
+			if (bUseNonBlockingPawnCollision)
+			{
+				Unit->GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+			}
+			SpawnedUnits.Add(Unit);
+			++SpawnedCount;
+
+			UOverloadInteractorComponent* Interactor = NewObject<UOverloadInteractorComponent>(Unit, TEXT("OverloadInteractor"));
+			Interactor->RegisterComponent();
+			Interactor->InitializeForUnit();
+			UOverloadLaneFollowerComponent* Follower = NewObject<UOverloadLaneFollowerComponent>(Unit, TEXT("OverloadLaneFollower"));
+			Follower->RegisterComponent();
+			Follower->Initialize(Lane.Get(), LateralOffset);
+		}
 	}
 	UE_LOG(LogTemp, Log, TEXT("Overload lane %s spawned %d/%d units for team %d at %s"), *GetNameSafe(Lane.Get()), SpawnedCount,
-		UE_ARRAY_COUNT(Roles), TeamId, bSpawnAtSplineStart ? TEXT("start") : TEXT("end"));
+		ResultWaveSize, TeamId, bSpawnAtSplineStart ? TEXT("start") : TEXT("end"));
 }
 
 void UOverloadWaveSpawnerComponent::PruneTrackedUnits()
@@ -147,4 +201,10 @@ void UOverloadWaveSpawnerComponent::PruneTrackedUnits()
 			const ASunriseUnit* Unit = UnitPtr.Get();
 			return !Unit || !Unit->IsAlive();
 		});
+}
+
+void UOverloadWaveSpawnerComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ThisClass, EnemyWaveMultiplier);
 }

@@ -25,8 +25,13 @@ UGameSettingRegistry::UGameSettingRegistry()
 
 UGameSettingRegistry* UGameSettingRegistry::Get(ULocalPlayer* InLocalPlayer)
 {
+#if UE_VERSION_5_8_x
 	UGameSettingRegistry* Registry =
 		FindObject<UGameSettingRegistry>(InLocalPlayer, TEXT("GameGameSettingRegistry"), EFindObjectFlags::ExactClass);
+#else
+	UGameSettingRegistry* Registry =
+		FindObject<UGameSettingRegistry>(InLocalPlayer, TEXT("GameGameSettingRegistry"));
+#endif
 	if (Registry == nullptr)
 	{
 		Registry = NewObject<UGameSettingRegistry>(InLocalPlayer, TEXT("GameGameSettingRegistry"));

@@ -1,32 +1,56 @@
 #pragma once
-#include "Abilities/GameplayAbility.h"
+
+#include "Abilities/ModularGameplayAbility.h"
 #include "CoreMinimal.h"
+#include "GameplayEffect.h"
 
 #include "SunriseHeroSquadAbility.generated.h"
-class UControllableEntityDefinition;
+
+class UModularPawnData;
 class ASunriseUnit;
-UCLASS(Blueprintable)
-class SUNRISEGAME_API USunriseHeroSquadAbility : public UGameplayAbility
+struct FPawnFormation;
+
+UCLASS()
+class SUNRISEGAME_API USunriseHeroSquadCooldownEffect : public UGameplayEffect
 {
 	GENERATED_BODY()
 public:
-	USunriseHeroSquadAbility();
+	USunriseHeroSquadCooldownEffect();
+};
+
+UCLASS(Blueprintable)
+class SUNRISEGAME_API USunriseHeroSquadAbility : public UModularGameplayAbility
+{
+	GENERATED_BODY()
+
+public:
+	USunriseHeroSquadAbility(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
 	virtual bool CanActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags,
 		FGameplayTagContainer* OptionalRelevantTags) const override;
+
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
 		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
-	UFUNCTION(BlueprintCallable, Category = "Sunrise|Hero Ability")
+
+	UFUNCTION(BlueprintCallable, Category = "Sunrise")
 	static bool ActivateForHero(ASunriseUnit* Hero, TSubclassOf<USunriseHeroSquadAbility> AbilityClass);
 
+	static float GetCooldownRemaining(const ASunriseUnit* Hero);
+
 protected:
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise|Hero Ability")
-	TArray<TSoftObjectPtr<UControllableEntityDefinition>> SquadDefinitions;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise|Hero Ability", meta = (ClampMin = "1.0", Units = "s"))
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise")
+	TArray<FPawnFormation> SquadFormations;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise", meta = (ClampMin = "1.0", Units = "s"))
 	float Cooldown = 30.0f;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise|Hero Ability", meta = (ClampMin = "50.0", Units = "cm"))
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise", meta = (ClampMin = "0.1", Units = "s"))
+	float UnitLifetime = 15.0f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sunrise", meta = (ClampMin = "50.0", Units = "cm"))
 	float FormationSpacing = 170.0f;
-	float NextActivationTime = 0.0f;
+
 	UPROPERTY(Transient)
 	TArray<TWeakObjectPtr<ASunriseUnit>> SpawnedUnits;
 	bool SpawnSquad(ASunriseUnit* Hero);

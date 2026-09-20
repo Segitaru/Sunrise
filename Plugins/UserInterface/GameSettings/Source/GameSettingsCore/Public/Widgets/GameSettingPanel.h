@@ -6,8 +6,9 @@
 #include "Containers/Ticker.h"
 #include "GameSettingFilterState.h"
 #include "GameplayTagContainer.h"
+#if UE_VERSION_5_8_x
 #include "Misc/ExpressionParserTypesFwd.h"
-
+#endif
 #include "GameSettingPanel.generated.h"
 
 #define UE_API GAMESETTINGSCORE_API

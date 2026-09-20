@@ -52,6 +52,11 @@ void UOverloadInteractorComponent::TickComponent(float DeltaTime, ELevelTick Tic
 	{
 		return;
 	}
+	if (!Unit->IsAlive())
+	{
+		CancelHack();
+		return;
+	}
 	if (Unit->HasActivePlayerOrder())
 	{
 		CancelHack();
@@ -65,7 +70,9 @@ void UOverloadInteractorComponent::TickComponent(float DeltaTime, ELevelTick Tic
 		return;
 	}
 	LastObservedHealth = CurrentHealth;
-	if (ShouldAbortHackForThreat())
+	// Once committed, the capture component owns the contested state and temporarily
+	// releases hackers for combat without discarding their registration.
+	if (!bRegisteredAtTarget && ShouldAbortHackForThreat())
 	{
 		CancelHack();
 		return;
@@ -124,16 +131,25 @@ bool UOverloadInteractorComponent::RequestHack(AActor* Target, bool bFromPlayer)
 	{
 		return false;
 	}
-	if (!Unit || !Unit->HasAuthority() || !IsValid(Target) || !Target->Implements<UOverloadHackable>() ||
+
+	if (!Unit || !Unit->IsAlive() || !Unit->HasAuthority() || !IsValid(Target) || !Target->Implements<UOverloadHackable>() ||
 		!IOverloadHackable::Execute_CanBeHackedByTeam(Target, Unit->GetTeamId()))
 	{
 		return false;
 	}
+
 	if (HackTarget.Get() == Target)
 	{
 		return true;
-	};
+	}
+
+	if (FVector::Distance(Target->GetActorLocation(), GetOwner()->GetActorLocation()) < InteractionRange)
+	{
+		return false;
+	}
+
 	CancelHack();
+
 	if (bFromPlayer)
 	{
 		Unit->StopOrder_Implementation();
@@ -171,7 +187,7 @@ void UOverloadInteractorComponent::CancelHack()
 
 void UOverloadInteractorComponent::CommitHack()
 {
-	if (!Unit || !HackTarget.IsValid())
+	if (!Unit || !Unit->IsAlive() || !HackTarget.IsValid())
 	{
 		return;
 	}
@@ -195,7 +211,7 @@ void UOverloadInteractorComponent::StartApproachQuery()
 void UOverloadInteractorComponent::HandleApproachQueryFinished(TSharedPtr<FEnvQueryResult> Result)
 {
 	bApproachQueryPending = false;
-	if (!Unit || !HackTarget.IsValid())
+	if (!Unit || !Unit->IsAlive() || !HackTarget.IsValid())
 	{
 		return;
 	}
@@ -242,7 +258,7 @@ bool UOverloadInteractorComponent::ShouldAbortHackForThreat() const
 
 void UOverloadInteractorComponent::IssueApproachMove()
 {
-	if (bApproachMoveIssued || !Unit)
+	if (bApproachMoveIssued || !Unit || !Unit->IsAlive())
 	{
 		return;
 	}

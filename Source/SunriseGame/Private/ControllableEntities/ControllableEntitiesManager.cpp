@@ -1,12 +1,12 @@
 #include "ControllableEntities/ControllableEntitiesManager.h"
 
 #include "ControllableEntities/ControllableComponent.h"
-#include "ControllableEntities/Data/ControllableEntityDefinition.h"
 #include "ControllableEntities/IControllableEntity.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
+#include "ModularPawnData.h"
 #include "Net/UnrealNetwork.h"
-#include "System/TFTeamSubsystem.h"
+#include "Units/Components/SunriseUnitManagerComponent.h"
 #include "Units/SunriseUnit.h"
 
 UControllableEntitiesManager::UControllableEntitiesManager()
@@ -19,6 +19,7 @@ void UControllableEntitiesManager::GetLifetimeReplicatedProps(TArray<FLifetimePr
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UControllableEntitiesManager, ControlledEntities);
+	DOREPLIFETIME(UControllableEntitiesManager, SelectedEntities);
 }
 
 bool UControllableEntitiesManager::CanControlEntity(const AActor* Entity) const
@@ -47,6 +48,10 @@ void UControllableEntitiesManager::UnregisterControlledEntity(AActor* Entity)
 	{
 		return;
 	}
+	if (SelectedEntities.Remove(Entity) > 0)
+	{
+		OnEntityUnselected.Broadcast(Entity);
+	}
 	if (ControlledEntities.Remove(Entity) > 0)
 	{
 		OnEntityUnregistered.Broadcast(Entity);
@@ -62,16 +67,51 @@ void UControllableEntitiesManager::ClearSummonedUnits()
 	for (int32 Index = ControlledEntities.Num() - 1; Index >= 0; --Index)
 	{
 		ASunriseUnit* Unit = Cast<ASunriseUnit>(ControlledEntities[Index]);
-		if (Unit && Unit->GetUnitKind() == ESunriseUnitKind::Summoned)
+		if (Unit && Unit->HasPawnTag(SunrisePawnTags::Kind_Summoned))
 		{
+			if (SelectedEntities.Remove(Unit) > 0)
+			{
+				OnEntityUnselected.Broadcast(Unit);
+			}
 			OnEntityUnregistered.Broadcast(Unit);
 			ControlledEntities.RemoveAtSwap(Index);
 			Unit->Destroy();
 		}
 	}
 }
+
+void UControllableEntitiesManager::SelectControlledEntity(AActor* Entity)
+{
+	if (!GetOwner() || !CanControlEntity(Entity))
+	{
+		return;
+	}
+
+	if (!SelectedEntities.Contains(Entity))
+	{
+		SelectedEntities.Add(Entity);
+		OnEntitySelected.Broadcast(Entity);
+	}
+}
+
+void UControllableEntitiesManager::UnselectControlledEntity(AActor* Entity)
+{
+	if (!GetOwner())
+	{
+		return;
+	}
+	if (SelectedEntities.Remove(Entity) > 0)
+	{
+		OnEntityUnselected.Broadcast(Entity);
+	}
+}
+TArray<AActor*> UControllableEntitiesManager::GetSelectedEntities() const
+{
+	return SelectedEntities;
+}
+
 TArray<APawn*> UControllableEntitiesManager::SpawnControlledUnitsAtLocations(
-	TSoftObjectPtr<UControllableEntityDefinition> RequiredEntity, const TArray<FVector>& TargetLocations)
+	TSoftObjectPtr<UModularPawnData> RequiredEntity, const TArray<FVector>& TargetLocations)
 {
 	TArray<APawn*> Result;
 	AController* Controller = Cast<AController>(GetOwner());
@@ -79,14 +119,13 @@ TArray<APawn*> UControllableEntitiesManager::SpawnControlledUnitsAtLocations(
 	{
 		return Result;
 	}
-	UControllableEntityDefinition* Definition = RequiredEntity.LoadSynchronous();
-	UClass* UnitClass = Definition ? Definition->UnitClass.LoadSynchronous() : nullptr;
-	if (!UnitClass)
+	UModularPawnData* Definition = RequiredEntity.LoadSynchronous();
+	UClass* UnitClass = Definition ? Definition->PawnClass.LoadSynchronous() : nullptr;
+	if (!UnitClass || !Definition->Specification.HasTag(SunrisePawnTags::Kind_Summoned) ||
+		Definition->Specification.HasTag(SunrisePawnTags::Kind_Hero))
 	{
 		return Result;
 	}
-	UTFTeamSubsystem* TeamSubsystem = GetWorld()->GetSubsystem<UTFTeamSubsystem>();
-	const int32 TeamId = TeamSubsystem ? TeamSubsystem->FindTeamFromObject(Controller) : INDEX_NONE;
 	TScriptInterface<IIControllableEntity> Agent;
 	Agent.SetObject(Controller);
 	Agent.SetInterface(Cast<IIControllableEntity>(Controller));
@@ -97,21 +136,10 @@ TArray<APawn*> UControllableEntitiesManager::SpawnControlledUnitsAtLocations(
 
 	for (const FVector& Location : TargetLocations)
 	{
-		FActorSpawnParameters Params;
-		Params.Owner = Controller;
-		Params.Instigator = Controller->GetPawn();
-		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
-		ASunriseUnit* Unit = GetWorld()->SpawnActor<ASunriseUnit>(UnitClass, Location, FRotator::ZeroRotator, Params);
+		ASunriseUnit* Unit = USunriseUnitManagerComponent::SpawnUnit(Definition, FTransform(FRotator::ZeroRotator, Location), Controller);
 		if (!Unit)
 		{
 			continue;
-		}
-		Unit->SpawnDefaultController();
-		Unit->SetTeamId(TeamId);
-		Unit->ConfigureControl(ESunriseUnitKind::Summoned, Agent);
-		if (UControllableComponent* Component = UControllableComponent::FindControllableComponent(Unit))
-		{
-			Component->SetEntityDefinition(Definition);
 		}
 		RegisterControlledEntity(Unit);
 		Result.Add(Unit);

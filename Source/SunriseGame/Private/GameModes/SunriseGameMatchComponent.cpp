@@ -4,15 +4,15 @@
 
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Components/CapsuleComponent.h"
-#include "Components/EFExperienceManagerComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
-#include "Data/EFExperienceDefinition.h"
-#include "EngineUtils.h"
+#include "GameFeatures/Components/ExperienceManagerComponent.h"
+#include "GameFeatures/ExperienceDefinition.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerStart.h"
 #include "Kismet/GameplayStatics.h"
 #include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
+#include "Pawn/ModularPawnData.h"
 #include "Player/SunrisePlayerController.h"
 #include "System/SunriseGameInstance.h"
 #include "TimerManager.h"
@@ -20,20 +20,9 @@
 #include "Units/Components/SunriseUnitManagerComponent.h"
 #include "Units/SunriseUnit.h"
 
-namespace SunriseMatch
-{
-	ESunriseUnitRole GetRoleForSlot(int32 Index)
-	{
-		static constexpr ESunriseUnitRole Formation[] = {ESunriseUnitRole::Melee, ESunriseUnitRole::Vanguard, ESunriseUnitRole::Ranged,
-			ESunriseUnitRole::Healer, ESunriseUnitRole::Mage};
-		return Formation[Index % UE_ARRAY_COUNT(Formation)];
-	}
-} // namespace SunriseMatch
-
 USunriseGameMatchComponent::USunriseGameMatchComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	UnitClass = ASunriseUnit::StaticClass();
 }
 
 void USunriseGameMatchComponent::BeginPlay()
@@ -49,11 +38,11 @@ void USunriseGameMatchComponent::BeginPlay()
 		UnitManager->OnUnitDied.AddUObject(this, &ThisClass::HandleUnitDied);
 	}
 
-	UEFExperienceManagerComponent* ExperienceManager = GetOwner()->FindComponentByClass<UEFExperienceManagerComponent>();
+	UExperienceManagerComponent* ExperienceManager = GetOwner()->FindComponentByClass<UExperienceManagerComponent>();
 	if (ensureMsgf(ExperienceManager, TEXT("SunriseGameMatchComponent requires EFExperienceManagerComponent")))
 	{
 		ExperienceManager->CallOrRegister_OnExperienceLoaded_LowPriority(
-			FOnEFExperienceLoaded::FDelegate::CreateUObject(this, &ThisClass::HandleExperienceLoaded));
+			FOnExperienceLoaded::FDelegate::CreateUObject(this, &ThisClass::HandleExperienceLoaded));
 	}
 }
 
@@ -87,7 +76,7 @@ void USunriseGameMatchComponent::ReturnToMainMenu()
 	UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Sunrise/Maps/Test/L_MainMenu")), true);
 }
 
-void USunriseGameMatchComponent::HandleExperienceLoaded(const UEFExperienceDefinition* CurrentExperience)
+void USunriseGameMatchComponent::HandleExperienceLoaded(const UExperienceDefinition* CurrentExperience)
 {
 	if (!IsValid(CurrentExperience) || !GetWorld())
 	{
@@ -179,24 +168,35 @@ void USunriseGameMatchComponent::InitializeScenario()
 	const FSunriseDifficultyTuning Tuning = GameInstance ? GameInstance->GetDifficultyTuning() : FSunriseDifficultyTuning();
 	const int32 FriendlyCount = FMath::Max(1, BaseFriendlyUnitCount);
 	const int32 EnemyCount = FMath::Max(1, FMath::RoundToInt(BaseEnemyUnitCount * Tuning.EnemyCountMultiplier));
+	if (FriendlyArmyDefinitions.IsEmpty() || EnemyArmyDefinitions.IsEmpty())
+	{
+		UE_LOG(LogTemp, Error, TEXT("Sunrise armies require PawnData definitions"));
+		bScenarioInitialized = false;
+		return;
+	}
 	for (int32 Index = 0; Index < FriendlyCount; ++Index)
 	{
-		if (!SpawnUnitAtAvailableLocation(
-				ESunriseTeam::Friendly, SunriseMatch::GetRoleForSlot(Index), FriendlyCenter, EffectiveSpawnRadius, Index))
+		const UModularPawnData* Data = FriendlyArmyDefinitions[Index % FriendlyArmyDefinitions.Num()].LoadSynchronous();
+		if (ASunriseUnit* Unit = SpawnUnitAtAvailableLocation(Data, FriendlyCenter, EffectiveSpawnRadius, Index))
 		{
-			UE_LOG(LogTemp, Error, TEXT("Failed to spawn friendly Sunrise unit %d/%d"), Index + 1, FriendlyCount);
+			Unit->SetGenericTeamId(IntegerToGenericTeamId(0));
+			if (ASunrisePlayerController* Controller = Cast<ASunrisePlayerController>(UGameplayStatics::GetPlayerController(this, 0)))
+			{
+				Unit->ConfigureControl(Controller->GetControllingAgent());
+				if (UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(Controller))
+				{
+					Manager->RegisterControlledEntity(Unit);
+				}
+			}
 		}
 	}
 	for (int32 Index = 0; Index < EnemyCount; ++Index)
 	{
-		if (ASunriseUnit* Enemy = SpawnUnitAtAvailableLocation(
-				ESunriseTeam::Enemy, SunriseMatch::GetRoleForSlot(Index), EnemyCenter, EffectiveSpawnRadius, Index))
+		const UModularPawnData* Data = EnemyArmyDefinitions[Index % EnemyArmyDefinitions.Num()].LoadSynchronous();
+		if (ASunriseUnit* Enemy = SpawnUnitAtAvailableLocation(Data, EnemyCenter, EffectiveSpawnRadius, Index))
 		{
+			Enemy->SetGenericTeamId(IntegerToGenericTeamId(1));
 			Enemy->ApplyDifficultyScaling(Tuning.EnemyHealthMultiplier, Tuning.EnemyPowerMultiplier);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("Failed to spawn enemy Sunrise unit %d/%d"), Index + 1, EnemyCount);
 		}
 	}
 
@@ -273,9 +273,11 @@ void USunriseGameMatchComponent::OnRep_MatchResult()
 }
 
 ASunriseUnit* USunriseGameMatchComponent::SpawnUnitAtAvailableLocation(
-	ESunriseTeam Team, ESunriseUnitRole InRole, const FVector& ArmyCenter, float SpawnRadius, int32 FormationIndex)
+	const UModularPawnData* PawnData, const FVector& ArmyCenter, float SpawnRadius, int32 FormationIndex)
 {
-	if (!UnitClass || !GetWorld())
+	UClass* UnitClass = PawnData ? PawnData->PawnClass.LoadSynchronous() : nullptr;
+	if (!UnitClass || !UnitClass->IsChildOf(ASunriseUnit::StaticClass()) || !GetWorld() ||
+		PawnData->Specification.HasTag(SunrisePawnTags::Kind_Hero))
 	{
 		return nullptr;
 	}
@@ -325,25 +327,10 @@ ASunriseUnit* USunriseGameMatchComponent::SpawnUnitAtAvailableLocation(
 			continue;
 		}
 
-		FActorSpawnParameters Parameters;
-		Parameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
-		ASunriseUnit* Unit = GetWorld()->SpawnActor<ASunriseUnit>(UnitClass, Candidate, FRotator::ZeroRotator, Parameters);
+		ASunriseUnit* Unit = USunriseUnitManagerComponent::SpawnUnit(PawnData, FTransform(FRotator::ZeroRotator, Candidate), GetOwner());
 		if (!Unit)
 		{
 			continue;
-		}
-		Unit->SetTeam(Team);
-		Unit->SetUnitRole(InRole, true);
-		if (Team == ESunriseTeam::Friendly)
-		{
-			if (ASunrisePlayerController* PlayerController = Cast<ASunrisePlayerController>(UGameplayStatics::GetPlayerController(this, 0)))
-			{
-				Unit->ConfigureControl(ESunriseUnitKind::Summoned, PlayerController->GetControllingAgent());
-				if (UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(PlayerController))
-				{
-					Manager->RegisterControlledEntity(Unit);
-				}
-			}
 		}
 		if (USunriseUnitManagerComponent* UnitManager = GetUnitManager())
 		{

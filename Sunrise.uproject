@@ -1,6 +1,6 @@
 {
 	"FileVersion": 3,
-	"EngineAssociation": "5.8",
+	"EngineAssociation": "5.4",
 	"Category": "",
 	"Description": "",
 	"Modules": [
@@ -23,6 +23,10 @@
 			]
 		},
 		{
+			"Name": "GameFeatures",
+			"Enabled": true
+		},
+		{
 			"Name": "GameplayAbilities",
 			"Enabled": true
 		},
@@ -36,6 +40,42 @@
 		},
 		{
 			"Name": "ModularGameplay",
+			"Enabled": true
+		},
+		{
+			"Name": "ModularGameplayActors",
+			"Enabled": true
+		},
+		{
+			"Name": "CommonLoadingScreen",
+			"Enabled": true
+		},
+		{
+			"Name": "CommonUser",
+			"Enabled": true
+		},
+		{
+			"Name": "CommonGame",
+			"Enabled": true
+		},
+		{
+			"Name": "CommonUI",
+			"Enabled": true
+		},
+		{
+			"Name": "CommonConversation",
+			"Enabled": true
+		},
+		{
+			"Name": "CommonStartupLoadingScreen",
+			"Enabled": true
+		},
+		{
+			"Name": "AsyncMixin",
+			"Enabled": true
+		},
+		{
+			"Name": "NPC_Optimizator",
 			"Enabled": true
 		}
 	]

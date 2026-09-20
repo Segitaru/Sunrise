@@ -1,20 +1,18 @@
 #pragma once
 
-
-#include "AbilitySystem/Attributes/SunriseAttributeSet.h"
+#include "Attribute/ModularAttributeSet.h"
 
 #include "SunriseMovementSet.generated.h"
 
-
 /** Movement-only runtime attributes. */
 UCLASS(BlueprintType)
-class SUNRISEGAME_API USunriseMovementSet : public USunriseAttributeSet
+class SUNRISEGAME_API USunriseMovementSet : public UModularAttributeSet
 {
 	GENERATED_BODY()
 public:
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	SUNRISE_ATTRIBUTE_ACCESSORS(USunriseMovementSet, MoveSpeed)
+	ATTRIBUTE_ACCESSORS(USunriseMovementSet, MoveSpeed)
 private:
 	UFUNCTION()
 	void OnRep_MoveSpeed(const FGameplayAttributeData& OldValue);

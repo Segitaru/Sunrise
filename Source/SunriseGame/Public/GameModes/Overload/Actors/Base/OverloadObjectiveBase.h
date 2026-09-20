@@ -15,7 +15,7 @@ class UOverloadIntegritySet;
 class UOverloadDefenseSet;
 class UOverloadHackSet;
 class UOverloadEnergySet;
-class UTFTeamActorComponent;
+class UModularTeamActorComponent;
 class USceneComponent;
 class UStaticMeshComponent;
 class UGameplayEffect;
@@ -32,21 +32,29 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Overload|Team")
 	int32 GetTeamId() const;
+
 	UFUNCTION(BlueprintPure, Category = "Overload|Team")
 	int32 GetOriginalTeamId() const;
+
 	UFUNCTION(BlueprintPure, Category = "Overload|GAS")
 	UOverloadIntegritySet* GetIntegrityAttributes() const { return IntegrityAttributes; }
+
 	UFUNCTION(BlueprintPure, Category = "Overload|GAS")
 	UOverloadDefenseSet* GetDefenseAttributes() const { return DefenseAttributes; }
+
 	UFUNCTION(BlueprintPure, Category = "Overload|GAS")
 	UOverloadHackSet* GetHackAttributes() const { return HackAttributes; }
+
 	UFUNCTION(BlueprintPure, Category = "Overload|GAS")
 	UOverloadEnergySet* GetEnergyAttributes() const { return EnergyAttributes; }
+
 	UFUNCTION(BlueprintPure, meta = (DeprecatedFunction, DeprecationMessage = "Use focused Overload attribute accessors"),
 		Category = "Overload|GAS")
 	UOverloadAttributeSet* GetOverloadAttributes() const { return LegacyAttributes; }
+
 	UFUNCTION(BlueprintCallable, Category = "Overload|Team")
 	void InitializeTeam(int32 TeamId);
+
 	UFUNCTION(BlueprintCallable, Category = "Overload|GAS")
 	void ApplyDynamicScaling(float AttackMultiplier, float ArmorMultiplier, float ResistanceMultiplier);
 
@@ -72,7 +80,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Overload|Components")
 	TObjectPtr<UOverloadEnergySet> EnergyAttributes;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Overload|Components")
-	TObjectPtr<UTFTeamActorComponent> TeamComponent;
+	TObjectPtr<UModularTeamActorComponent> TeamComponent;
 	UPROPERTY(Replicated, VisibleInstanceOnly, BlueprintReadOnly, Category = "Overload|Team")
 	int32 OriginalTeamId = INDEX_NONE;
 

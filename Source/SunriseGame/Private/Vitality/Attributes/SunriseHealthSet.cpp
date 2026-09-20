@@ -5,6 +5,7 @@
 #include "AbilitySystemComponent.h"
 #include "GameplayEffectExtension.h"
 #include "Net/UnrealNetwork.h"
+#include "Perception/AISense_Damage.h"
 
 USunriseHealthSet::USunriseHealthSet()
 	: Health(100.0f)
@@ -22,6 +23,11 @@ void USunriseHealthSet::PreAttributeChange(const FGameplayAttribute& Attribute, 
 {
 	Super::PreAttributeChange(Attribute, NewValue);
 	ClampAttribute(Attribute, NewValue);
+	if (Attribute == GetHealthAttribute() && NewValue > 0.0f)
+	{
+		// Direct base-value restoration must re-arm the next out-of-health event too.
+		bOutOfHealth = false;
+	}
 }
 
 void USunriseHealthSet::ClampAttribute(const FGameplayAttribute& Attribute, float& NewValue) const
@@ -58,6 +64,17 @@ void USunriseHealthSet::PostGameplayEffectExecute(const FGameplayEffectModCallba
 	{
 		const float OldValue = HealthBeforeEffect;
 		SetHealth(FMath::Clamp(GetHealth(), 0.0f, GetMaxHealth()));
+		if (Data.EvaluatedData.Magnitude < 0.0f && Instigator)
+		{
+			if (UAbilitySystemComponent* OwningASC = GetOwningAbilitySystemComponent())
+			{
+				if (AActor* DamagedActor = OwningASC->GetAvatarActor(); DamagedActor && DamagedActor != Instigator)
+				{
+					UAISense_Damage::ReportDamageEvent(DamagedActor->GetWorld(), DamagedActor, Instigator, -Data.EvaluatedData.Magnitude,
+						Instigator->GetActorLocation(), DamagedActor->GetActorLocation());
+				}
+			}
+		}
 		OnHealthChanged.Broadcast(Instigator, Causer, &Data.EffectSpec, Data.EvaluatedData.Magnitude, OldValue, GetHealth());
 		if (!bOutOfHealth && GetHealth() <= 0.0f)
 		{

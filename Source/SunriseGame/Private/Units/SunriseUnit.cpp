@@ -3,21 +3,29 @@
 #include "Units/SunriseUnit.h"
 
 #include "AIController.h"
+#include "Abilities/SunriseDeathAbility.h"
+#include "Abilities/SunriseUnitOrderExecutionAbility.h"
+#include "AbilitySystem/ModularAbilitySystemComponent.h"
 #include "AbilitySystemComponent.h"
-#include "Components/CapsuleComponent.h"
+#include "BrainComponent.h"
 #include "Components/DecalComponent.h"
+#include "Components/ModularPawnExtensionComponent.h"
 #include "Components/SphereComponent.h"
-#include "Components/TFTeamActorComponent.h"
 #include "ControllableEntities/ControllableComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
-#include "Engine/OverlapResult.h"
+#include "Engine/TargetPoint.h"
+#include "EngineUtils.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Kismet/GameplayStatics.h"
-#include "Navigation/PathFollowingComponent.h"
-#include "NavigationPath.h"
-#include "NavigationSystem.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
+#include "NPC_Optimizator/Public/OptimizationComponent.h"
+#include "Navigation/CrowdFollowingComponent.h"
 #include "Net/UnrealNetwork.h"
+#include "Pawn/ModularPawnData.h"
+#include "Pawn/UserFacingModularPawnDefinition.h"
 #include "Player/SunrisePlayerController.h"
+#include "Teams/Components/ModularTeamActorComponent.h"
+#include "TimerManager.h"
 #include "Units/AI/SunriseUnitAIController.h"
 #include "Units/Components/SunriseUnitManagerComponent.h"
 #include "Vitality/Attributes/SunriseCombatSet.h"
@@ -29,56 +37,48 @@
 
 namespace
 {
-	static bool ResolveValidatedMoveDestination(ASunriseUnit* Unit, const FVector& RequestedDestination, FVector& OutDestination)
+	const FName DeathUnitsStorageTag(TEXT("DEATH_UNITS_STORAGE"));
+
+	ATargetPoint* FindDeathUnitsStorage(UWorld* World)
 	{
-		if (!Unit || !Unit->GetWorld())
+		for (TActorIterator<ATargetPoint> It(World); It; ++It)
 		{
-			return false;
-		}
-
-		UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(Unit->GetWorld());
-		if (!Navigation)
-		{
-			return false;
-		}
-
-		FNavLocation ProjectedDestination;
-		if (!Navigation->ProjectPointToNavigation(RequestedDestination, ProjectedDestination, FVector(250.0f, 250.0f, 500.0f)))
-		{
-			return false;
-		}
-
-		if (UNavigationPath* Path = Navigation->FindPathToLocationSynchronously(
-				Unit->GetWorld(), Unit->GetActorLocation(), ProjectedDestination.Location, Unit))
-		{
-			if (Path->IsValid() && !Path->IsPartial())
+			if (It->ActorHasTag(DeathUnitsStorageTag))
 			{
-				OutDestination = ProjectedDestination.Location;
-				return true;
+				return *It;
 			}
 		}
-		return false;
+		return nullptr;
 	}
 } // namespace
 
 ASunriseUnit::ASunriseUnit(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	PrimaryActorTick.bCanEverTick = true;
-	PrimaryActorTick.TickInterval = 0.1f;
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 	AIControllerClass = ASunriseUnitAIController::StaticClass();
 	bReplicates = true;
 
-	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(TEXT("AbilitySystem"));
+	PawnExtensionComponent = CreateDefaultSubobject<UModularPawnExtensionComponent>("ExtensionComponent");
+	//OptimizationProxy = CreateDefaultSubobject<UOptimizationProxyComponent>("OptimizationProxy");
+	AbilitySystemComponent = CreateDefaultSubobject<UModularAbilitySystemComponent>(TEXT("AbilitySystem"));
 	AbilitySystemComponent->SetIsReplicated(true);
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
+	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(USunriseHealthSet::GetHealthAttribute())
+		.AddUObject(this, &ASunriseUnit::HandleHealthAttributeChanged);
+	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(USunriseMovementSet::GetMoveSpeedAttribute())
+		.AddUObject(this, &ASunriseUnit::HandleMoveSpeedAttributeChanged);
+
 	HealthSet = CreateDefaultSubobject<USunriseHealthSet>(TEXT("HealthAttributes"));
 	CombatSet = CreateDefaultSubobject<USunriseCombatSet>(TEXT("CombatAttributes"));
 	MovementSet = CreateDefaultSubobject<USunriseMovementSet>(TEXT("MovementAttributes"));
+
 	VitalityComponent = CreateDefaultSubobject<UVitalityComponent>(TEXT("Vitality"));
+	VitalityComponent->OnVitalityStateChanged.AddDynamic(this, &ThisClass::HandleVitalityStateChanged);
+
 	ControllableComponent = CreateDefaultSubobject<UControllableComponent>(TEXT("Controllable"));
-	TeamComponent = CreateDefaultSubobject<UTFTeamActorComponent>(TEXT("Team"));
+	TeamComponent = CreateDefaultSubobject<UModularTeamActorComponent>(TEXT("Team"));
+	TeamComponent->OnTeamChanged.AddDynamic(this, &ThisClass::HandleTeamChanged);
 
 	InteractionRange = CreateDefaultSubobject<USphereComponent>(TEXT("InteractionRange"));
 	InteractionRange->SetupAttachment(RootComponent);
@@ -108,115 +108,82 @@ ASunriseUnit::ASunriseUnit(const FObjectInitializer& ObjectInitializer)
 
 void ASunriseUnit::BeginPlay()
 {
+	InitialSpawnTransform = GetActorTransform();
 	Super::BeginPlay();
-	TeamComponent->OnTeamChanged.AddDynamic(this, &ThisClass::HandleTeamChanged);
-	if (!bHasExplicitTeamId)
-	{
-		SetTeam(Team);
-	}
+
 	if (bUseRoleDefaults)
 	{
 		ApplyRoleDefaults();
 	}
+
 	AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	// Heroes expose effect durations to HUD consumers even when owned by GameState.
+	if (IsHero())
+	{
+		AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Full);
+	}
 	InitializeAbilityAttributes();
+	if (HasAuthority())
+	{
+		UClass* LifecycleClass = DeathAbilityClass ? DeathAbilityClass.Get()
+								 : IsHero()		   ? USunriseRespawnAbility::StaticClass()
+												   : USunriseDeathAbility::StaticClass();
+		AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(LifecycleClass, 1, INDEX_NONE, this));
+		if (!AbilitySystemComponent->FindAbilitySpecFromClass(USunriseUnitOrderExecutionAbility::StaticClass()))
+		{
+			AbilitySystemComponent->GiveAbility(
+				FGameplayAbilitySpec(USunriseUnitOrderExecutionAbility::StaticClass(), 1, INDEX_NONE, this));
+		}
+	}
 	VitalityComponent->InitializeWithAbilitySystem(AbilitySystemComponent);
 	EquipDefaultWeaponForRole();
-	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(USunriseHealthSet::GetHealthAttribute())
-		.AddUObject(this, &ASunriseUnit::HandleHealthAttributeChanged);
-	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(USunriseMovementSet::GetMoveSpeedAttribute())
-		.AddUObject(this, &ASunriseUnit::HandleMoveSpeedAttributeChanged);
-	VitalityComponent->OnVitalityStateChanged.AddDynamic(this, &ThisClass::HandleVitalityStateChanged);
-	DecisionTimeRemaining = FMath::FRandRange(0.0f, DecisionInterval);
 
 	if (USunriseUnitManagerComponent* UnitManager = USunriseUnitManagerComponent::Find(this))
 	{
 		UnitManager->RegisterUnit(this);
 	}
-	if (IsHero())
-	{
-		if (ASunrisePlayerController* PlayerController = Cast<ASunrisePlayerController>(UGameplayStatics::GetPlayerController(this, 0)))
-		{
-			PlayerController->FocusCameraOnHero(this);
-		}
-	}
 	OnHealthChanged.Broadcast(this, 1.0f);
-}
-
-void ASunriseUnit::Tick(float DeltaSeconds)
-{
-	Super::Tick(DeltaSeconds);
-	if (!HasAuthority() || !IsAlive())
-	{
-		return;
-	}
-
-	DecisionTimeRemaining -= DeltaSeconds;
-	ActionTimeRemaining = FMath::Max(0.0f, ActionTimeRemaining - DeltaSeconds);
-	if (bExternalInteractionActive)
-	{
-		return;
-	}
-	if (const ASunriseUnitAIController* UnitController = Cast<ASunriseUnitAIController>(Controller);
-		UnitController && UnitController->IsStateTreeDrivingDecisions())
-	{
-		return;
-	}
-	if (DecisionTimeRemaining <= 0.0f)
-	{
-		DecisionTimeRemaining = FMath::Max(0.1f, DecisionInterval);
-		UpdateOrder(DecisionInterval);
-	}
 }
 
 void ASunriseUnit::NotifyControllerChanged()
 {
 	Super::NotifyControllerChanged();
-	AIController = Cast<AAIController>(Controller);
-	if (AIController)
-	{
-		if (UPathFollowingComponent* Path = AIController->GetPathFollowingComponent())
-		{
-			Path->OnRequestFinished.RemoveAll(this);
-			Path->OnRequestFinished.AddUObject(this, &ASunriseUnit::OnMoveFinished);
-		}
-	}
+	PawnExtensionComponent->HandleControllerChanged();
 }
 
 void ASunriseUnit::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(ASunriseUnit, UnitKind);
+	DOREPLIFETIME(ASunriseUnit, RespawnReadyTime);
 	DOREPLIFETIME(ASunriseUnit, ActionTarget);
 	DOREPLIFETIME(ASunriseUnit, ControllingAgentActor);
 }
 
 float ASunriseUnit::TakeDamage(float DamageAmount, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	if (!IsAlive() || DamageAmount <= 0.0f)
+	if (!HasAuthority() || !IsAlive() || !FMath::IsFinite(DamageAmount) || DamageAmount <= 0.0f)
 	{
 		return 0.0f;
 	}
 	const float Before = GetHealth();
 	ASunriseUnit* SourceUnit = Cast<ASunriseUnit>(DamageCauser);
 	ApplyHealthGameplayEffect(SourceUnit, USunriseDamageEffect::StaticClass(), USunriseDamageEffect::GetMagnitudeDataName(), -DamageAmount);
-	const float Applied = Before - GetHealth();
-
-	if (!bPlayerOrderActive && !ActionTarget && DamageCauser)
-	{
-		ASunriseUnit* Attacker = SourceUnit;
-		if (IsValidActionTarget(Attacker))
-		{
-			ActionTarget = Attacker;
-			OrderState = ESunriseOrderState::Attacking;
-		}
-	}
-	return Applied;
+	return Before - GetHealth();
 }
 
 UAbilitySystemComponent* ASunriseUnit::GetAbilitySystemComponent() const
 {
 	return AbilitySystemComponent;
+}
+
+void ASunriseUnit::OnPlayerStateChanged(APlayerState* NewPlayerState, APlayerState* OldPlayerState)
+{
+	Super::OnPlayerStateChanged(NewPlayerState, OldPlayerState);
+}
+
+void ASunriseUnit::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
 }
 
 bool ASunriseUnit::CanBeSelectedBy_Implementation(const APlayerController* InController) const
@@ -244,34 +211,65 @@ void ASunriseUnit::SetSunriseSelected_Implementation(bool bInSelected)
 
 void ASunriseUnit::IssueMoveOrder_Implementation(const FVector& Destination)
 {
-	IssueMoveOrderInternal(Destination, true);
+	if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController()))
+	{
+		AI->IssueMoveOrder(Destination, true);
+	}
 }
 
-void ASunriseUnit::IssueTargetOrder_Implementation(AActor* TargetActor)
+void ASunriseUnit::IssueTargetOrder_Implementation(AActor* InTargetActor)
 {
-	IssueTargetOrderInternal(Cast<ASunriseUnit>(TargetActor), true);
+	if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController()))
+	{
+		AI->IssueTargetOrder(Cast<ASunriseUnit>(InTargetActor), true);
+	}
 }
 
 void ASunriseUnit::StopOrder_Implementation()
 {
-	ActionTarget = nullptr;
-	bForcedTarget = false;
-	SetPlayerOrderActive(false);
-	OrderState = IsAlive() ? ESunriseOrderState::Idle : ESunriseOrderState::Dead;
+	if (!HasAuthority())
+	{
+		return;
+	}
+	if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController()))
+	{
+		AI->StopOrders();
+	}
 	StopMoving();
 }
 
 bool ASunriseUnit::IssueAutonomousMoveOrder(const FVector& Destination)
 {
-	return IssueMoveOrderInternal(Destination, false);
+	ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController());
+	return AI && AI->IssueMoveOrder(Destination, false);
+}
+
+bool ASunriseUnit::HasActivePlayerOrder() const
+{
+	const ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController());
+	return AI && AI->HasActivePlayerOrder();
+}
+
+FVector ASunriseUnit::GetMovementGoal() const
+{
+	const ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController());
+	return AI ? AI->GetMovementGoal() : GetActorLocation();
+}
+
+void ASunriseUnit::SetAIOrderPresentation(ASunriseUnit* Target, ESunriseOrderState State)
+{
+	if (HasAuthority())
+	{
+		ActionTarget = IsAlive() ? Target : nullptr;
+		OrderState = IsAlive() ? State : ESunriseOrderState::Dead;
+	}
 }
 
 void ASunriseUnit::StopMoving()
 {
-	ActiveMoveRequestId = FAIRequestID::InvalidRequest;
-	if (AIController)
+	if (AAIController* AI = Cast<AAIController>(GetController()))
 	{
-		AIController->StopMovement();
+		AI->StopMovement();
 	}
 	GetCharacterMovement()->StopMovementImmediately();
 	BP_StopAnimation();
@@ -279,36 +277,22 @@ void ASunriseUnit::StopMoving()
 
 bool ASunriseUnit::ApplyFocusTarget(ASunriseUnit* Target, float Duration)
 {
-	if (!HasAuthority() || bPlayerOrderActive || !IsValidActionTarget(Target) || Duration <= 0.0f || !GetWorld())
-	{
-		return false;
-	}
-	FocusTarget = Target;
-	FocusTargetExpiryTime = GetWorld()->GetTimeSeconds() + Duration;
-	ActionTarget = Target;
-	bForcedTarget = false;
-	OrderState = ESunriseOrderState::Attacking;
-	return true;
+	ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController());
+	return AI && AI->ApplyFocusTarget(Target, Duration);
 }
 
 void ASunriseUnit::SetExternalInteractionActive(bool bActive)
 {
-	if (bExternalInteractionActive == bActive)
+	if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController()))
 	{
-		return;
+		AI->SetExternalInteractionActive(bActive);
 	}
-	if (bActive && bPlayerOrderActive)
-	{
-		return;
-	}
-	bExternalInteractionActive = bActive;
-	if (bExternalInteractionActive)
-	{
-		ActionTarget = nullptr;
-		bForcedTarget = false;
-		OrderState = ESunriseOrderState::Idle;
-		StopMoving();
-	}
+}
+
+bool ASunriseUnit::IsExternalInteractionActive() const
+{
+	const ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController());
+	return AI && AI->IsExternalInteractionActive();
 }
 
 void ASunriseUnit::UnitSelected()
@@ -323,63 +307,41 @@ void ASunriseUnit::UnitDeselected()
 
 void ASunriseUnit::Interact(ASunriseUnit* Interactor)
 {
-	if (Interactor)
+	if (IsValid(Interactor))
 	{
-		Interactor->IssueTargetOrderInternal(this, false);
-		BP_InteractionBehavior(Interactor);
+		if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(Interactor->GetController()))
+		{
+			if (AI->IssueTargetOrder(this, false))
+			{
+				BP_InteractionBehavior(Interactor);
+			}
+		}
 	}
-}
-
-void ASunriseUnit::MoveToLocation(const FVector& Location, bool bInteract, const TArray<ASunriseUnit*> IgnoreList)
-{
-	bInteractOnArrival = bInteract;
-	InteractIgnoreList.Reset();
-	for (ASunriseUnit* Unit : IgnoreList)
-	{
-		InteractIgnoreList.Add(Unit);
-	}
-	IssueMoveOrderInternal(Location, false);
 }
 
 int32 ASunriseUnit::GetTeamId() const
 {
-	return TeamComponent ? TeamComponent->GetTeamId() : TeamId;
-}
-
-void ASunriseUnit::SetTeam(ESunriseTeam NewTeam)
-{
-	Team = NewTeam;
-	SetTeamId(Team == ESunriseTeam::Friendly ? 0 : Team == ESunriseTeam::Enemy ? 1 : INDEX_NONE);
-	if (Team != ESunriseTeam::Friendly && bSelected)
-	{
-		ISunriseSelectable::Execute_SetSunriseSelected(this, false);
-	}
+	return TeamComponent->GetTeamId();
 }
 
 void ASunriseUnit::SetTeamId(int32 NewTeamId)
 {
-	bHasExplicitTeamId = true;
-	const int32 PreviousTeamId = TeamId;
-	if (TeamComponent)
-	{
-		TeamComponent->SetTeamId(NewTeamId);
-	}
-	HandleTeamChanged(this, PreviousTeamId, NewTeamId);
+	TeamComponent->SetTeamId(NewTeamId);
 }
 
 void ASunriseUnit::SetGenericTeamId(const FGenericTeamId& NewTeamId)
 {
-	SetTeamId(TFTeamIdToInteger(NewTeamId));
+	TeamComponent->SetGenericTeamId(NewTeamId);
 }
 
 FGenericTeamId ASunriseUnit::GetGenericTeamId() const
 {
-	return TeamComponent ? TeamComponent->GetGenericTeamId() : IntegerToTFTeamId(TeamId);
+	return TeamComponent->GetGenericTeamId();
 }
 
-FOnTFTeamIndexChangedDelegate* ASunriseUnit::GetOnTeamIndexChangedDelegate()
+FOnTeamIndexChangedDelegate* ASunriseUnit::GetOnTeamIndexChangedDelegate()
 {
-	return TeamComponent ? TeamComponent->GetOnTeamIndexChangedDelegate() : nullptr;
+	return TeamComponent->GetOnTeamIndexChangedDelegate();
 }
 
 TScriptInterface<IIControllableEntity> ASunriseUnit::GetControllingAgent()
@@ -402,55 +364,22 @@ void ASunriseUnit::SetControllingAgent(TScriptInterface<IIControllableEntity> Ne
 	OnRep_ControllingAgent(OldAgentActor);
 }
 
-ESunriseCombatRole ASunriseUnit::GetCombatRole() const
+bool ASunriseUnit::HasPawnTag(FGameplayTag Tag) const
 {
-	switch (UnitRole)
-	{
-		case ESunriseUnitRole::Healer:
-			return ESunriseCombatRole::Support;
-		case ESunriseUnitRole::Vanguard:
-			return ESunriseCombatRole::Tank;
-		default:
-			return ESunriseCombatRole::DamageDealer;
-	}
+	const UModularPawnData* Data = PawnExtensionComponent->GetPawnData<UModularPawnData>();
+	return Data && Data->Specification.HasTag(Tag);
 }
 
 FText ASunriseUnit::GetUnitClassDisplayName() const
 {
-	switch (UnitRole)
+	const UModularPawnData* Data = PawnExtensionComponent ? PawnExtensionComponent->GetPawnData<UModularPawnData>() : nullptr;
+	const FSoftObjectPath UIPath = Data ? Data->PawnUIDefinition.ToSoftObjectPath() : FSoftObjectPath();
+	if (CachedPawnUIPath != UIPath)
 	{
-		case ESunriseUnitRole::Melee:
-			return FText::FromString(TEXT("Мечник"));
-		case ESunriseUnitRole::Ranged:
-			return FText::FromString(TEXT("Лучник"));
-		case ESunriseUnitRole::Healer:
-			return FText::FromString(TEXT("Целитель"));
-		case ESunriseUnitRole::Mage:
-			return FText::FromString(TEXT("Маг"));
-		case ESunriseUnitRole::Vanguard:
-			return FText::FromString(TEXT("Рыцарь авангарда"));
-		default:
-			return FText::FromString(TEXT("Юнит"));
+		CachedPawnUIPath = UIPath;
+		CachedPawnUIDefinition = Data ? Data->PawnUIDefinition.LoadSynchronous() : nullptr;
 	}
-}
-
-void ASunriseUnit::SetUnitRole(ESunriseUnitRole NewRole, bool bApplyDefaults)
-{
-	const float OldPercent = GetHealthPercent();
-	UnitRole = NewRole;
-	if (bApplyDefaults)
-	{
-		ApplyRoleDefaults();
-		// A deferred-spawned ASC does not own its AttributeSet until component registration/BeginPlay.
-		if (HasActorBegunPlay())
-		{
-			InitializeAbilityAttributes(OldPercent > 0.0f ? OldPercent : 1.0f);
-		}
-	}
-	if (HasActorBegunPlay())
-	{
-		EquipDefaultWeaponForRole();
-	}
+	return CachedPawnUIDefinition ? CachedPawnUIDefinition->PawnDisplayedName : FText::GetEmpty();
 }
 
 float ASunriseUnit::GetHealth() const
@@ -463,20 +392,65 @@ float ASunriseUnit::GetMaxHealth() const
 	return HealthSet ? HealthSet->GetMaxHealth() : FMath::Max(1.0f, Stats.MaxHealth);
 }
 
-void ASunriseUnit::ConfigureControl(ESunriseUnitKind NewKind, TScriptInterface<IIControllableEntity> NewAgent)
+void ASunriseUnit::ConfigureControl(TScriptInterface<IIControllableEntity> NewAgent)
 {
 	if (!HasAuthority())
 	{
 		return;
 	}
-	const bool bWasHero = IsHero();
-	UnitKind = NewKind;
 	SetControllingAgent(NewAgent);
-	ControllableComponent->SetPlayerControllable(UnitKind != ESunriseUnitKind::Creep && NewAgent.GetObject() != nullptr);
-	if (HasActorBegunPlay() && bWasHero != IsHero())
+	ControllableComponent->SetPlayerControllable(!HasPawnTag(SunrisePawnTags::Kind_Creep) && NewAgent.GetInterface() != nullptr);
+}
+
+float ASunriseUnit::GetRespawnSeconds() const
+{
+	const AGameStateBase* GameState = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	return RespawnReadyTime >= 0.0f && GameState ? FMath::Max(0.0f, RespawnReadyTime - GameState->GetServerWorldTimeSeconds()) : -1.0f;
+}
+
+void ASunriseUnit::SetRespawnReadyTime(float Time)
+{
+	if (HasAuthority())
 	{
-		InitializeAbilityAttributes(GetHealthPercent() > 0.0f ? GetHealthPercent() : 1.0f);
+		RespawnReadyTime = Time;
+		ForceNetUpdate();
 	}
+}
+
+bool ASunriseUnit::RestoreAfterDeath(const FTransform& Transform)
+{
+	if (!HasAuthority() || !GetWorld() || IsAlive())
+	{
+		return false;
+	}
+	FVector Location = Transform.GetLocation();
+	FRotator Rotation = Transform.Rotator();
+	SetActorEnableCollision(true);
+	if (!GetWorld()->FindTeleportSpot(this, Location, Rotation))
+	{
+		SetActorEnableCollision(false);
+		return false;
+	}
+	SetActorLocationAndRotation(Location, Rotation, false, nullptr, ETeleportType::TeleportPhysics);
+	VitalityComponent->RestoreVitality();
+	ConfigureControl(GetControllingAgent());
+	if (AController* Agent = Cast<AController>(GetControllingAgent().GetObject()))
+	{
+		if (const IModularTeamAgentInterface* TeamAgent = Cast<IModularTeamAgentInterface>(Agent->PlayerState))
+		{
+			SetGenericTeamId(TeamAgent->GetGenericTeamId());
+		}
+		if (UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(Agent))
+		{
+			Manager->RegisterControlledEntity(this);
+		}
+	}
+	if (USunriseUnitManagerComponent* Manager = USunriseUnitManagerComponent::Find(this))
+	{
+		Manager->OnArmyCountChanged.Broadcast(Manager->GetFriendlyAlive(), Manager->GetEnemyAlive());
+	}
+	ForceNetUpdate();
+	return true;
 }
 
 bool ASunriseUnit::CanTargetWithWeapon(const ASunriseUnit* Target) const
@@ -528,6 +502,10 @@ void ASunriseUnit::ApplyWeaponAttributes(float Damage, float Range, float Interv
 	{
 		return;
 	}
+	if (!HasAuthority())
+	{
+		return;
+	}
 	const float PowerScale = IsHero() ? HeroPowerMultiplier : 1.0f;
 	AbilitySystemComponent->SetNumericAttributeBase(USunriseCombatSet::GetAttackPowerAttribute(), Stats.Power * PowerScale);
 	AbilitySystemComponent->SetNumericAttributeBase(USunriseCombatSet::GetActionRangeAttribute(), Stats.ActionRange);
@@ -541,7 +519,7 @@ float ASunriseUnit::GetAttackPowerAttribute() const
 
 void ASunriseUnit::DealWeaponDamage(ASunriseUnit* Target, float Damage)
 {
-	if (!IsValidActionTarget(Target) || Damage <= 0.0f)
+	if (!HasAuthority() || !CanTargetWithWeapon(Target) || Damage <= 0.0f)
 	{
 		return;
 	}
@@ -550,18 +528,11 @@ void ASunriseUnit::DealWeaponDamage(ASunriseUnit* Target, float Damage)
 
 void ASunriseUnit::DealWeaponHealing(ASunriseUnit* Target, float Healing)
 {
-	if (!Target || Healing <= 0.0f || Target->GetTeamId() != GetTeamId())
+	if (!HasAuthority() || !IsValid(Target) || !Target->IsAlive() || Healing <= 0.0f || Target->GetTeamId() != GetTeamId())
 	{
 		return;
 	}
 	Target->ApplyHealthGameplayEffect(this, USunriseHealingEffect::StaticClass(), USunriseHealingEffect::GetMagnitudeDataName(), Healing);
-	if (Target->GetHealthPercent() >= 0.999f && ActionTarget == Target)
-	{
-		ActionTarget = nullptr;
-		bForcedTarget = false;
-		SetPlayerOrderActive(false);
-		OrderState = ESunriseOrderState::Idle;
-	}
 }
 
 void ASunriseUnit::NotifyWeaponAction(ASunriseUnit* Target, bool bHealing, bool bAreaAction)
@@ -572,23 +543,25 @@ void ASunriseUnit::NotifyWeaponAction(ASunriseUnit* Target, bool bHealing, bool 
 
 void ASunriseUnit::ApplyRoleDefaults()
 {
-	switch (UnitRole)
+	if (HasPawnTag(SunrisePawnTags::Class_Swordsman))
 	{
-		case ESunriseUnitRole::Melee:
-			Stats = {180.0f, 28.0f, 250.0f, 0.9f, 440.0f, 1100.0f};
-			break;
-		case ESunriseUnitRole::Ranged:
-			Stats = {115.0f, 20.0f, 850.0f, 1.25f, 410.0f, 1450.0f};
-			break;
-		case ESunriseUnitRole::Healer:
-			Stats = {115.0f, 12.0f, 525.0f, 1.6f, 420.0f, 1150.0f};
-			break;
-		case ESunriseUnitRole::Mage:
-			Stats = {130.0f, 24.0f, 600.0f, 1.1f, 425.0f, 1300.0f};
-			break;
-		case ESunriseUnitRole::Vanguard:
-			Stats = {240.0f, 22.0f, 285.0f, 0.95f, 385.0f, 1050.0f};
-			break;
+		Stats = {180.0f, 28.0f, 250.0f, 0.9f, 440.0f, 1100.0f};
+	}
+	else if (HasPawnTag(SunrisePawnTags::Class_Archer))
+	{
+		Stats = {115.0f, 20.0f, 850.0f, 1.25f, 410.0f, 1450.0f};
+	}
+	else if (HasPawnTag(SunrisePawnTags::Class_Healer))
+	{
+		Stats = {115.0f, 12.0f, 525.0f, 1.6f, 420.0f, 1150.0f};
+	}
+	else if (HasPawnTag(SunrisePawnTags::Class_Mage))
+	{
+		Stats = {130.0f, 24.0f, 600.0f, 1.1f, 425.0f, 1300.0f};
+	}
+	else if (HasPawnTag(SunrisePawnTags::Class_Vanguard))
+	{
+		Stats = {240.0f, 22.0f, 285.0f, 0.95f, 385.0f, 1050.0f};
 	}
 }
 
@@ -600,22 +573,21 @@ void ASunriseUnit::EquipDefaultWeaponForRole()
 	}
 
 	UClass* WeaponClass = USunriseSwordWeapon::StaticClass();
-	switch (UnitRole)
+	if (HasPawnTag(SunrisePawnTags::Class_Archer))
 	{
-		case ESunriseUnitRole::Ranged:
-			WeaponClass = USunriseBowWeapon::StaticClass();
-			break;
-		case ESunriseUnitRole::Healer:
-			WeaponClass = USunriseDrumsWeapon::StaticClass();
-			break;
-		case ESunriseUnitRole::Mage:
-			WeaponClass = USunriseStaffWeapon::StaticClass();
-			break;
-		case ESunriseUnitRole::Vanguard:
-			WeaponClass = USunriseSpearShieldWeapon::StaticClass();
-			break;
-		default:
-			break;
+		WeaponClass = USunriseBowWeapon::StaticClass();
+	}
+	else if (HasPawnTag(SunrisePawnTags::Class_Healer))
+	{
+		WeaponClass = USunriseDrumsWeapon::StaticClass();
+	}
+	else if (HasPawnTag(SunrisePawnTags::Class_Mage))
+	{
+		WeaponClass = USunriseStaffWeapon::StaticClass();
+	}
+	else if (HasPawnTag(SunrisePawnTags::Class_Vanguard))
+	{
+		WeaponClass = USunriseSpearShieldWeapon::StaticClass();
 	}
 	Weapon = NewObject<USunriseWeapon>(this, WeaponClass);
 	if (Weapon)
@@ -626,7 +598,7 @@ void ASunriseUnit::EquipDefaultWeaponForRole()
 
 void ASunriseUnit::InitializeAbilityAttributes(float HealthPercent)
 {
-	if (!AbilitySystemComponent || !HealthSet || !CombatSet || !MovementSet)
+	if (!HasAuthority() || !AbilitySystemComponent || !HealthSet || !CombatSet || !MovementSet)
 	{
 		return;
 	}
@@ -681,15 +653,30 @@ void ASunriseUnit::HandleMoveSpeedAttributeChanged(const FOnAttributeChangeData&
 	GetCharacterMovement()->MaxWalkSpeed = FMath::Max(0.0f, ChangeData.NewValue);
 }
 
-void ASunriseUnit::HandleVitalityStateChanged(AActor*, EVitalityState, EVitalityState NewState)
+void ASunriseUnit::HandleVitalityStateChanged(AActor*, EVitalityState OldState, EVitalityState NewState)
 {
-	if (NewState == EVitalityState::Dying)
+	if (NewState == EVitalityState::Dying || NewState == EVitalityState::Dead)
 	{
 		Die(LastDamageSource.IsValid() ? LastDamageSource->GetController() : nullptr, LastDamageSource.Get());
-		if (HasAuthority())
+	}
+	else if (NewState == EVitalityState::Healthy && OldState != EVitalityState::Healthy)
+	{
+		OrderState = ESunriseOrderState::Idle;
+		SetActorHiddenInGame(false);
+		SetActorEnableCollision(true);
+		GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+		if (AAIController* AI = Cast<AAIController>(GetController()); HasAuthority() && AI)
 		{
-			VitalityComponent->FinishDeath();
+			if (UCrowdFollowingComponent* Crowd = Cast<UCrowdFollowingComponent>(AI->GetPathFollowingComponent()))
+			{
+				Crowd->SetCrowdSimulationState(ECrowdSimulationState::Enabled);
+			}
+			if (AI->GetBrainComponent())
+			{
+				AI->GetBrainComponent()->RestartLogic();
+			}
 		}
+		BP_UnitRespawned();
 	}
 }
 
@@ -707,142 +694,9 @@ void ASunriseUnit::OnRep_ControllingAgent(AActor* OldAgentActor)
 
 void ASunriseUnit::HandleTeamChanged(UObject* TeamAgent, int32 PreviousTeamId, int32 NewTeamId)
 {
-	(void)TeamAgent;
-	(void)PreviousTeamId;
-	TeamId = NewTeamId;
-	Team = TeamId < 0 ? ESunriseTeam::Neutral : TeamId == 0 ? ESunriseTeam::Friendly : ESunriseTeam::Enemy;
 	if (GetTeamId() != 0 && bSelected)
 	{
 		ISunriseSelectable::Execute_SetSunriseSelected(this, false);
-	}
-}
-
-void ASunriseUnit::UpdateOrder(float DeltaSeconds)
-{
-	if (bPlayerOrderActive && OrderState == ESunriseOrderState::Moving &&
-		FVector::Dist2D(GetActorLocation(), CurrentMovementGoal) <= MovementAcceptanceRadius * 2.0f)
-	{
-		ActiveMoveRequestId = FAIRequestID::InvalidRequest;
-		SetPlayerOrderActive(false);
-		OrderState = ESunriseOrderState::Idle;
-		HandleMoveFinished();
-	}
-	if (FocusTarget.IsValid() && GetWorld() && GetWorld()->GetTimeSeconds() < FocusTargetExpiryTime && !bPlayerOrderActive &&
-		IsValidActionTarget(FocusTarget.Get()))
-	{
-		ActionTarget = FocusTarget.Get();
-	}
-	else if (GetWorld() && GetWorld()->GetTimeSeconds() >= FocusTargetExpiryTime)
-	{
-		FocusTarget.Reset();
-	}
-	const bool bPlayerEnemyFocus = bPlayerOrderActive && ActionTarget && ActionTarget->IsAlive() && UnitRole != ESunriseUnitRole::Healer;
-	if (ActionTarget && !IsValidActionTarget(ActionTarget) && !bPlayerEnemyFocus)
-	{
-		ActionTarget = nullptr;
-		bForcedTarget = false;
-		SetPlayerOrderActive(false);
-		OrderState = ESunriseOrderState::Idle;
-	}
-	if (bPlayerOrderActive && !ActionTarget)
-	{
-		return;
-	}
-
-	if (!ActionTarget && !bPlayerOrderActive && bAutoAcquireTargets && OrderState != ESunriseOrderState::Moving)
-	{
-		AcquireAutomaticTarget();
-	}
-	if (!ActionTarget)
-	{
-		return;
-	}
-
-	const float Distance = FVector::Dist2D(GetActorLocation(), ActionTarget->GetActorLocation());
-	if (Distance > CombatSet->GetActionRange() * 1.15f)
-	{
-		MoveTowardActor(ActionTarget);
-		return;
-	}
-
-	if (AIController)
-	{
-		AIController->StopMovement();
-	}
-	const FVector Direction = ActionTarget->GetActorLocation() - GetActorLocation();
-	if (!Direction.IsNearlyZero())
-	{
-		SetActorRotation(Direction.Rotation());
-	}
-	OrderState = UnitRole == ESunriseUnitRole::Healer ? ESunriseOrderState::Healing : ESunriseOrderState::Attacking;
-	PerformAction(ActionTarget);
-}
-
-void ASunriseUnit::AcquireAutomaticTarget()
-{
-	if (bPlayerOrderActive)
-	{
-		return;
-	}
-	TArray<FOverlapResult> Overlaps;
-	FCollisionObjectQueryParams Objects(ECC_Pawn);
-	FCollisionQueryParams Params(SCENE_QUERY_STAT(SunriseAggro), false, this);
-	GetWorld()->OverlapMultiByObjectType(
-		Overlaps, GetActorLocation(), FQuat::Identity, Objects, FCollisionShape::MakeSphere(CombatSet->GetAggroRadius()), Params);
-
-	ASunriseUnit* Best = nullptr;
-	float BestScore = TNumericLimits<float>::Max();
-	for (const FOverlapResult& Overlap : Overlaps)
-	{
-		ASunriseUnit* Candidate = Cast<ASunriseUnit>(Overlap.GetActor());
-		if (!IsValidActionTarget(Candidate))
-		{
-			continue;
-		}
-		const float Distance = FVector::DistSquared2D(GetActorLocation(), Candidate->GetActorLocation());
-		const float Score = UnitRole == ESunriseUnitRole::Healer ? Candidate->GetHealthPercent() * 100000000.0f + Distance : Distance;
-		if (Score < BestScore)
-		{
-			BestScore = Score;
-			Best = Candidate;
-		}
-	}
-	if (Best)
-	{
-		ActionTarget = Best;
-		bForcedTarget = false;
-		OrderState = UnitRole == ESunriseUnitRole::Healer ? ESunriseOrderState::Healing : ESunriseOrderState::Attacking;
-	}
-}
-
-bool ASunriseUnit::IsValidActionTarget(const ASunriseUnit* Candidate) const
-{
-	return CanTargetWithWeapon(Candidate);
-}
-
-void ASunriseUnit::PerformAction(ASunriseUnit* Target)
-{
-	if (!IsValidActionTarget(Target))
-	{
-		return;
-	}
-	if (Weapon)
-	{
-		Weapon->TryActivatePrimaryAttack(Target);
-	}
-}
-
-void ASunriseUnit::MoveTowardActor(ASunriseUnit* Target)
-{
-	if (AIController && Target)
-	{
-		const FAIRequestID RequestId =
-			AIController->MoveToActor(Target, CombatSet->GetActionRange() * 0.95f, true, true, true, nullptr, true);
-		if (RequestId == FAIRequestID::InvalidRequest)
-		{
-			AIController->MoveToLocation(
-				Target->GetActorLocation(), CombatSet->GetActionRange() * 0.95f, true, true, true, true, nullptr, true);
-		}
 	}
 }
 
@@ -853,112 +707,60 @@ void ASunriseUnit::Die(AController* KillerController, AActor* DamageCauser)
 		return;
 	}
 	OrderState = ESunriseOrderState::Dead;
-	SetPlayerOrderActive(false);
-	AbilitySystemComponent->SetNumericAttributeBase(USunriseHealthSet::GetHealthAttribute(), 0.0f);
+	if (HasAuthority())
+	{
+		AbilitySystemComponent->SetNumericAttributeBase(USunriseHealthSet::GetHealthAttribute(), 0.0f);
+	}
 	ActionTarget = nullptr;
 	bSelected = false;
 	SelectionDecal->SetVisibility(false);
-	if (AIController)
+	if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController()))
 	{
-		AIController->StopMovement();
+		AI->StopOrders();
 	}
-	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	StopMoving();
+	SetActorEnableCollision(false);
+	SetActorHiddenInGame(true);
+	GetCharacterMovement()->DisableMovement();
+	if (HasAuthority())
+	{
+		ControllableComponent->SetPlayerControllable(false);
+		if (AAIController* AI = Cast<AAIController>(GetController()); AI)
+		{
+			if (UCrowdFollowingComponent* Crowd = Cast<UCrowdFollowingComponent>(AI->GetPathFollowingComponent()))
+			{
+				Crowd->SetCrowdSimulationState(ECrowdSimulationState::Disabled);
+			}
+			if (AI->GetBrainComponent())
+			{
+				AI->GetBrainComponent()->StopLogic(TEXT("Pawn death"));
+			}
+		}
+	}
 	OnDied.Broadcast(this);
 	BP_UnitDied();
 	if (USunriseUnitManagerComponent* UnitManager = USunriseUnitManagerComponent::Find(this))
 	{
 		UnitManager->NotifyUnitDied(this);
 	}
-	SetLifeSpan(IsHero() ? FMath::Min(2.5f, HeroRespawnDelay * 0.25f) : 2.5f);
-}
-
-void ASunriseUnit::HandleMoveFinished()
-{
-	OnMoveCompleted.Broadcast(this);
-}
-
-void ASunriseUnit::OnMoveFinished(FAIRequestID RequestID, const FPathFollowingResult& Result)
-{
-	if (RequestID != FAIRequestID::InvalidRequest && ActiveMoveRequestId != FAIRequestID::InvalidRequest &&
-		RequestID != ActiveMoveRequestId &&
-		(!bPlayerOrderActive || OrderState != ESunriseOrderState::Moving ||
-			FVector::Dist2D(GetActorLocation(), CurrentMovementGoal) > MovementAcceptanceRadius * 2.0f))
+	if (HasAuthority() && GetWorld())
 	{
-		return;
-	}
-	if (OrderState == ESunriseOrderState::Moving)
-	{
-		ActiveMoveRequestId = FAIRequestID::InvalidRequest;
-		SetPlayerOrderActive(false);
-		OrderState = ESunriseOrderState::Idle;
-		HandleMoveFinished();
-		UpdateOrder(0.0f);
-	}
-}
-
-bool ASunriseUnit::IssueMoveOrderInternal(const FVector& Destination, bool bFromPlayer)
-{
-	if (!IsAlive() || (!bFromPlayer && bPlayerOrderActive))
-	{
-		return false;
-	}
-	FVector ValidatedDestination = FVector::ZeroVector;
-	if (!ResolveValidatedMoveDestination(this, Destination, ValidatedDestination))
-	{
-		return false;
-	}
-	ActionTarget = nullptr;
-	bForcedTarget = false;
-	bInteractOnArrival = false;
-	SetPlayerOrderActive(bFromPlayer);
-	CurrentMovementGoal = ValidatedDestination;
-	OrderState = ESunriseOrderState::Moving;
-	if (AIController)
-	{
-		ActiveMoveRequestId =
-			AIController->MoveToLocation(ValidatedDestination, MovementAcceptanceRadius, true, true, true, true, nullptr, true);
-	}
-	return true;
-}
-
-void ASunriseUnit::IssueTargetOrderInternal(ASunriseUnit* Unit, bool bFromPlayer)
-{
-	const bool bPlayerEnemyFocus = bFromPlayer && Unit && Unit->IsAlive() && Unit != this && UnitRole != ESunriseUnitRole::Healer;
-	if (!IsAlive() || (!bFromPlayer && bPlayerOrderActive) || !IsValid(Unit) || Unit == this ||
-		(!IsValidActionTarget(Unit) && !bPlayerEnemyFocus))
-	{
-		return;
-	}
-	ActionTarget = Unit;
-	ActiveMoveRequestId = FAIRequestID::InvalidRequest;
-	bForcedTarget = true;
-	SetPlayerOrderActive(bFromPlayer);
-	OrderState = UnitRole == ESunriseUnitRole::Healer ? ESunriseOrderState::Healing : ESunriseOrderState::Attacking;
-	UpdateOrder(0.0f);
-}
-
-void ASunriseUnit::SetPlayerOrderActive(bool bActive)
-{
-	if (bPlayerOrderActive == bActive)
-	{
-		return;
-	}
-	bPlayerOrderActive = bActive;
-	if (ASunriseUnitAIController* UnitController = Cast<ASunriseUnitAIController>(Controller))
-	{
-		if (bActive)
+		ATargetPoint* Storage = FindDeathUnitsStorage(GetWorld());
+		if (!Storage)
 		{
-			UnitController->SuspendDecisionLogicForPlayerOrder();
+			UE_LOG(LogTemp, Warning, TEXT("Dead unit %s cannot be moved: no ATargetPoint tagged DEATH_UNITS_STORAGE"), *GetName());
+			return;
 		}
-		else
-		{
-			UnitController->ResumeDecisionLogicAfterPlayerOrder();
-		}
+		const TWeakObjectPtr<ATargetPoint> WeakStorage = Storage;
+		// Respawn ability captures the death transform synchronously after this notification.
+		GetWorldTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this,
+			[this, WeakStorage]()
+			{
+				if (!IsAlive() && WeakStorage.IsValid())
+				{
+					SetActorLocation(WeakStorage->GetActorLocation(), false, nullptr, ETeleportType::TeleportPhysics);
+					ForceNetUpdate();
+				}
+			}));
 	}
-}
-
-void ASunriseUnit::OnEQSFinished(UEnvQueryInstanceBlueprintWrapper* QueryInstance, EEnvQueryStatus::Type QueryStatus)
-{
-	// Retained as a no-op compatibility endpoint for existing template Blueprint assets.
 }

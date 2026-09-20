@@ -2,7 +2,9 @@
 
 #include "Screens/GameHDRCalibrationEditor.h"
 
+#if UE_VERSION_5_8_x
 #include "ColorManagement/TransferFunctions.h"
+#endif
 #include "CommonButtonBase.h"
 #include "CommonRichTextBlock.h"
 #include "Components/Image.h"
@@ -34,11 +36,13 @@ void UGameHDRCalibrationEditor::NativeOnActivated()
 {
 	Super::NativeOnActivated();
 
+
 	// Render UI to 10000 nits for calibration.
 	IConsoleVariable* const CVarUILevel = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.UI.Level"));
 	bStartingUILevel = CVarUILevel->GetFloat();
 	CVarUILevel->SetWithCurrentPriority(1.f);
 	UGameSettingsLocal* const Settings = UGameSettingsLocal::Get();
+#if UE_VERSION_5_8_x
 	bStartingUILuminance = Settings->GetHDRUILuminanceNits();
 	Settings->SetHDRUILuminanceNits(10000.f);
 	bStartingUILuminanceSeparate = Settings->IsHDRUILuminanceSeparate();
@@ -47,7 +51,7 @@ void UGameHDRCalibrationEditor::NativeOnActivated()
 	const float MaxLuminance = Settings->GetMaximumHDRDisplayNits() / 10000.f;
 	MaxLuminancePQ = UE::Color::EncodeNormalizedToST2084(MaxLuminance);
 	OnMaxLuminanceChange(MaxLuminance);
-
+#endif
 	Button_Done->OnClicked().AddUObject(this, &UGameHDRCalibrationEditor::HandleDoneClicked);
 
 	Button_Back->SetVisibility((bCanCancel) ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
@@ -55,6 +59,7 @@ void UGameHDRCalibrationEditor::NativeOnActivated()
 	{
 		Button_Back->OnClicked().AddUObject(this, &UGameHDRCalibrationEditor::HandleBackClicked);
 	}
+	
 }
 
 void UGameHDRCalibrationEditor::NativeOnDeactivated()
@@ -63,9 +68,10 @@ void UGameHDRCalibrationEditor::NativeOnDeactivated()
 	IConsoleVariable* const CVarUILevel = IConsoleManager::Get().FindConsoleVariable(TEXT("r.HDR.UI.Level"));
 	CVarUILevel->SetWithCurrentPriority(bStartingUILevel);
 	UGameSettingsLocal* const Settings = UGameSettingsLocal::Get();
+#if UE_VERSION_5_8_x
 	Settings->SetHDRUILuminanceNits(bStartingUILuminance);
 	Settings->SetHDRUILuminanceSeparate(bStartingUILuminanceSeparate);
-
+#endif
 	Super::NativeOnDeactivated();
 }
 
@@ -90,8 +96,9 @@ FReply UGameHDRCalibrationEditor::NativeOnAnalogValueChanged(const FGeometry& In
 	{
 		const float UnclampedPQ = MaxLuminancePQ + InAnalogEvent.GetAnalogValue() * HDRCalibrationEditor::HDRCalibrationChangeSpeed;
 		MaxLuminancePQ = FMath::Clamp(UnclampedPQ, HDRCalibrationEditor::HDRCalibrationMinimumPQ, 1.f);
+#if UE_VERSION_5_8_x
 		OnMaxLuminanceChange(UE::Color::DecodeNormalizedFromST2084(MaxLuminancePQ));
-
+#endif
 		return FReply::Handled();
 	}
 	return Super::NativeOnAnalogValueChanged(InGeometry, InAnalogEvent);
@@ -101,8 +108,9 @@ FReply UGameHDRCalibrationEditor::NativeOnMouseWheel(const FGeometry& InGeometry
 {
 	const float UnclampedPQ = MaxLuminancePQ + InMouseEvent.GetWheelDelta() * HDRCalibrationEditor::HDRCalibrationChangeSpeed;
 	MaxLuminancePQ = FMath::Clamp(UnclampedPQ, HDRCalibrationEditor::HDRCalibrationMinimumPQ, 1.f);
+#if UE_VERSION_5_8_x
 	OnMaxLuminanceChange(UE::Color::DecodeNormalizedFromST2084(MaxLuminancePQ));
-
+#endif
 	return FReply::Handled();
 }
 
@@ -113,6 +121,7 @@ void UGameHDRCalibrationEditor::HandleBackClicked()
 
 void UGameHDRCalibrationEditor::HandleDoneClicked()
 {
+#if UE_VERSION_5_8_x
 	const float MaxLuminance = UE::Color::DecodeST2084(MaxLuminancePQ);
 	if (ValueSetting.IsValid())
 	{
@@ -121,7 +130,9 @@ void UGameHDRCalibrationEditor::HandleDoneClicked()
 	else
 	{
 		UGameSettingsLocal::Get()->SetMaximumHDRDisplayNits(MaxLuminance);
+
 	}
+#endif
 	DeactivateWidget();
 }
 

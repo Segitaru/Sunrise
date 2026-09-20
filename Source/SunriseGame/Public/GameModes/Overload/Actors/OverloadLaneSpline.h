@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "GameModes/Overload/Types/OverloadTeamIds.h"
 
 #include "OverloadLaneSpline.generated.h"
 
@@ -55,10 +56,10 @@ protected:
 	TObjectPtr<UStaticMeshComponent> StartMarkerMesh;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Overload|Lane")
 	TObjectPtr<UStaticMeshComponent> EndMarkerMesh;
-	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Overload|Lane", meta = (ClampMin = "0"))
-	int32 SourceTeamId = 0;
-	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Overload|Lane", meta = (ClampMin = "0"))
-	int32 TargetTeamId = 1;
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Overload|Lane", meta = (ClampMin = "1", ClampMax = "254"))
+	int32 SourceTeamId = OverloadTeamIds::InitialPlayer;
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "Overload|Lane", meta = (ClampMin = "1", ClampMax = "254"))
+	int32 TargetTeamId = OverloadTeamIds::FirstOpponent;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Overload|Lane", meta = (ClampMin = "1", ClampMax = "12"))
 	int32 CheckpointCount = 5;
 

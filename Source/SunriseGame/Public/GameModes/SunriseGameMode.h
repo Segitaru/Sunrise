@@ -2,13 +2,14 @@
 
 #pragma once
 
-#include "GameMode/EFGameMode.h"
-
+#include "ModularGameMode.h"
 #include "SunriseGameMode.generated.h"
 
-/** Single product GameMode provider. Gameplay rules are composed as GameState components by Experiences. */
+/**
+ * Single product GameMode provider. Gameplay rules are composed as GameState components by Experiences.
+ */
 UCLASS(Config = Game)
-class SUNRISEGAME_API ASunriseGameMode : public AEFGameMode
+class SUNRISEGAME_API ASunriseGameMode : public AModularGameModeBase
 {
 	GENERATED_BODY()
 

@@ -2,13 +2,12 @@
 
 #pragma once
 
-#include "AIController.h"
 #include "AbilitySystemInterface.h"
 #include "ControllableEntities/IControllableEntity.h"
 #include "CoreMinimal.h"
-#include "EnvironmentQuery/EnvQueryTypes.h"
-#include "GameFramework/Character.h"
-#include "System/TFTeamAgentInterface.h"
+#include "ModularCharacter.h"
+#include "Teams/System/ModularTeamAgentInterface.h"
+#include "Units/SunrisePawnTags.h"
 #include "Units/SunriseUnitInterfaces.h"
 #include "Units/SunriseUnitTypes.h"
 #include "Vitality/VitalityComponent.h"
@@ -16,10 +15,12 @@
 #include "SunriseUnit.generated.h"
 
 class UDecalComponent;
-class UEnvQuery;
-class UEnvQueryInstanceBlueprintWrapper;
 class USphereComponent;
 class UAbilitySystemComponent;
+class UModularAbilitySystemComponent;
+class UOptimizationProxyComponent;
+class USunriseDeathAbility;
+class USunriseRespawnAbility;
 class USunriseHealthSet;
 class USunriseCombatSet;
 class USunriseMovementSet;
@@ -28,7 +29,10 @@ class UControllableComponent;
 class UGameplayEffect;
 class USunriseWeapon;
 class USunriseHeroSquadAbility;
-class UTFTeamActorComponent;
+class UModularTeamActorComponent;
+class UModularPawnExtensionComponent;
+class UUserFacingModularPawnDefinition;
+
 struct FOnAttributeChangeData;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUnitMoveCompletedDelegate, ASunriseUnit*, Unit);
@@ -36,13 +40,13 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSunriseUnitHealthChanged, ASunri
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSunriseUnitDied, ASunriseUnit*, Unit);
 
 /**
- * Reusable RTS combat unit. Movement, orders, aggro, combat, healing and death are native;
- * Blueprint children only need to supply presentation assets and optional event effects.
+ * RTS pawn owning identity, GAS, lifecycle and presentation.
+ * AIController owns order intent; Behavior Tree nodes execute movement and combat.
  */
 UCLASS(Blueprintable)
-class SUNRISEGAME_API ASunriseUnit : public ACharacter,
+class SUNRISEGAME_API ASunriseUnit : public AModularCharacter,
 									 public IAbilitySystemInterface,
-									 public ITFTeamAgentInterface,
+									 public IModularTeamAgentInterface,
 									 public IIControllableEntity,
 									 public ISunriseSelectable,
 									 public ISunriseOrderReceiver
@@ -53,12 +57,17 @@ public:
 	ASunriseUnit(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaSeconds) override;
 	virtual void NotifyControllerChanged() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual float TakeDamage(
 		float DamageAmount, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+
+	UPROPERTY(EditDefaultsOnly)
+	TObjectPtr<UModularPawnExtensionComponent> PawnExtensionComponent;
+
+	virtual void OnPlayerStateChanged(APlayerState* NewPlayerState, APlayerState* OldPlayerState) override;
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
 	// ISunriseSelectable
 	virtual bool CanBeSelectedBy_Implementation(const APlayerController* InController) const override;
@@ -66,7 +75,7 @@ public:
 
 	// ISunriseOrderReceiver
 	virtual void IssueMoveOrder_Implementation(const FVector& Destination) override;
-	virtual void IssueTargetOrder_Implementation(AActor* TargetActor) override;
+	virtual void IssueTargetOrder_Implementation(AActor* InTargetActor) override;
 	virtual void StopOrder_Implementation() override;
 
 	/** Internal autonomous navigation command. It never overrides an active player order. Returns true when the destination was accepted. */
@@ -74,56 +83,50 @@ public:
 	/** Forces this autonomous unit to focus a hostile target without overriding an active player order. */
 	bool ApplyFocusTarget(ASunriseUnit* Target, float Duration);
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Orders")
-	bool HasActivePlayerOrder() const { return bPlayerOrderActive; }
+	bool HasActivePlayerOrder() const;
 	ASunriseUnit* GetActionTarget() const { return ActionTarget; }
+
+	/** Server-written presentation snapshot; Blackboard remains the source of AI intent. */
+	void SetAIOrderPresentation(ASunriseUnit* Target, ESunriseOrderState State);
 
 	UFUNCTION(BlueprintCallable, Category = "Sunrise|Orders")
 	void StopMoving();
 
 	/** Suspends autonomous combat decisions while an external component owns movement/action intent. */
 	void SetExternalInteractionActive(bool bActive);
-	bool IsExternalInteractionActive() const { return bExternalInteractionActive; }
+	bool IsExternalInteractionActive() const;
 
 	/** Compatibility wrappers used by the original Epic Sunrise Blueprint. */
 	void UnitSelected();
 	void UnitDeselected();
 	void Interact(ASunriseUnit* Interactor);
-	void MoveToLocation(const FVector& Location, bool bInteract = false, const TArray<ASunriseUnit*> IgnoreList = {});
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Orders")
-	FVector GetMovementGoal() const { return CurrentMovementGoal; }
-
-	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	ESunriseTeam GetTeam() const { return Team; }
+	FVector GetMovementGoal() const;
 
 	/** Numeric authority used by multi-team modes. 0=player, 1=legacy enemy, -1=neutral. */
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
 	int32 GetTeamId() const;
 
 	UFUNCTION(BlueprintCallable, Category = "Sunrise|Unit")
-	void SetTeam(ESunriseTeam NewTeam);
-
-	UFUNCTION(BlueprintCallable, Category = "Sunrise|Unit")
 	void SetTeamId(int32 NewTeamId);
 
+#pragma region IModularTeamAgentInterface
 	virtual void SetGenericTeamId(const FGenericTeamId& NewTeamId) override;
 	virtual FGenericTeamId GetGenericTeamId() const override;
-	virtual FOnTFTeamIndexChangedDelegate* GetOnTeamIndexChangedDelegate() override;
+	virtual FOnTeamIndexChangedDelegate* GetOnTeamIndexChangedDelegate() override;
+#pragma endregion IModularTeamAgentInterface
+
 	virtual TScriptInterface<IIControllableEntity> GetControllingAgent() override;
 	virtual void SetControllingAgent(TScriptInterface<IIControllableEntity> NewAgent) override;
 	virtual FOnControllingAgentChanged* GetOnControllingAgentChangedDelegate() override { return &OnControllingAgentChanged; }
 
+	/** Identity is read directly from the replicated PawnExtension's PawnData.Specification. */
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	ESunriseUnitRole GetUnitRole() const { return UnitRole; }
-
-	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	ESunriseCombatRole GetCombatRole() const;
+	bool HasPawnTag(FGameplayTag Tag) const;
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
 	FText GetUnitClassDisplayName() const;
-
-	UFUNCTION(BlueprintCallable, Category = "Sunrise|Unit")
-	void SetUnitRole(ESunriseUnitRole NewRole, bool bApplyDefaults = true);
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
 	ESunriseOrderState GetOrderState() const { return OrderState; }
@@ -136,22 +139,23 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|GAS")
 	USunriseHealthSet* GetHealthSet() const { return HealthSet; }
+
 	UFUNCTION(BlueprintPure, Category = "Sunrise|GAS")
 	USunriseCombatSet* GetCombatSet() const { return CombatSet; }
+
 	UFUNCTION(BlueprintPure, Category = "Sunrise|GAS")
 	USunriseMovementSet* GetMovementSet() const { return MovementSet; }
+
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	ESunriseUnitKind GetUnitKind() const { return UnitKind; }
-	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	bool IsHero() const { return UnitKind == ESunriseUnitKind::Hero; }
-	UFUNCTION(BlueprintPure, Category = "Sunrise|Hero")
-	TSubclassOf<USunriseHeroSquadAbility> GetHeroSquadAbilityClass() const { return HeroSquadAbilityClass; }
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Hero")
-	void SetHeroSquadAbilityClass(TSubclassOf<USunriseHeroSquadAbility> NewAbilityClass) { HeroSquadAbilityClass = NewAbilityClass; }
-	UFUNCTION(BlueprintPure, Category = "Sunrise|Unit")
-	float GetHeroRespawnDelay() const { return HeroRespawnDelay; }
+	bool IsHero() const { return HasPawnTag(SunrisePawnTags::Kind_Hero); }
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Sunrise|Unit")
-	void ConfigureControl(ESunriseUnitKind NewKind, TScriptInterface<IIControllableEntity> NewAgent);
+	void ConfigureControl(TScriptInterface<IIControllableEntity> NewAgent);
+
+	float GetRespawnSeconds() const;
+	const FTransform& GetInitialSpawnTransform() const { return InitialSpawnTransform; }
+	bool RestoreAfterDeath(const FTransform& Transform);
+	void SetRespawnReadyTime(float Time);
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Weapon")
 	USunriseWeapon* GetWeapon() const { return Weapon; }
@@ -191,6 +195,11 @@ public:
 	FOnSunriseUnitDied OnDied;
 
 protected:
+	// Presentation-only cache; avoids loading the same UI asset on every HUD draw.
+	UPROPERTY(Transient)
+	mutable TObjectPtr<UUserFacingModularPawnDefinition> CachedPawnUIDefinition;
+	mutable FSoftObjectPath CachedPawnUIPath;
+
 	void ApplyRoleDefaults();
 	void EquipDefaultWeaponForRole();
 	void InitializeAbilityAttributes(float HealthPercent = 1.0f);
@@ -204,20 +213,7 @@ protected:
 	void OnRep_ControllingAgent(AActor* OldAgent);
 	UFUNCTION()
 	void HandleTeamChanged(UObject* TeamAgent, int32 PreviousTeamId, int32 NewTeamId);
-	void UpdateOrder(float DeltaSeconds);
-	void AcquireAutomaticTarget();
-	bool IsValidActionTarget(const ASunriseUnit* Candidate) const;
-	void PerformAction(ASunriseUnit* Target);
-	void MoveTowardActor(ASunriseUnit* Target);
 	void Die(AController* KillerController, AActor* DamageCauser);
-	void HandleMoveFinished();
-	void OnMoveFinished(FAIRequestID RequestID, const FPathFollowingResult& Result);
-	bool IssueMoveOrderInternal(const FVector& Destination, bool bFromPlayer);
-	void IssueTargetOrderInternal(ASunriseUnit* Target, bool bFromPlayer);
-	void SetPlayerOrderActive(bool bActive);
-
-	UFUNCTION()
-	void OnEQSFinished(UEnvQueryInstanceBlueprintWrapper* QueryInstance, EEnvQueryStatus::Type QueryStatus);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Sunrise|Presentation", meta = (DisplayName = "Unit Selected"))
 	void BP_UnitSelected();
@@ -237,14 +233,20 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Sunrise|Presentation", meta = (DisplayName = "Unit Died"))
 	void BP_UnitDied();
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Sunrise|Presentation")
+	void BP_UnitRespawned();
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<USphereComponent> InteractionRange;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	TObjectPtr<UDecalComponent> SelectionDecal;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|Optimize")
+	TObjectPtr<UOptimizationProxyComponent> OptimizationProxy;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|GAS")
-	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
+	TObjectPtr<UModularAbilitySystemComponent> AbilitySystemComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|GAS")
 	TObjectPtr<USunriseHealthSet> HealthSet;
@@ -258,24 +260,18 @@ protected:
 	TObjectPtr<UControllableComponent> ControllableComponent;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Sunrise|Team")
-	TObjectPtr<UTFTeamActorComponent> TeamComponent;
+	TObjectPtr<UModularTeamActorComponent> TeamComponent;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Instanced, Transient, Category = "Sunrise|Weapon")
 	TObjectPtr<USunriseWeapon> Weapon;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sunrise|Identity")
-	ESunriseTeam Team = ESunriseTeam::Friendly;
+	/** Optional override. Native fallback is death for units and respawn for heroes. */
+	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Lifecycle")
+	TSubclassOf<USunriseDeathAbility> DeathAbilityClass;
+	UPROPERTY(Replicated, VisibleInstanceOnly, Category = "Sunrise|Lifecycle")
+	float RespawnReadyTime = -1.0f;
+	FTransform InitialSpawnTransform;
 
-	/** Deprecated compatibility mirror for existing BP_SunriseUnit assets. */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Sunrise|Identity", meta = (DeprecatedProperty))
-	int32 TeamId = 0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sunrise|Identity")
-	ESunriseUnitRole UnitRole = ESunriseUnitRole::Melee;
-	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = "Sunrise|Identity")
-	ESunriseUnitKind UnitKind = ESunriseUnitKind::Creep;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sunrise|Hero", meta = (ClampMin = "1.0", Units = "s"))
-	float HeroRespawnDelay = 12.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sunrise|Hero", meta = (ClampMin = "1.0"))
 	float HeroHealthMultiplier = 3.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Sunrise|Hero", meta = (ClampMin = "1.0"))
@@ -290,49 +286,16 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sunrise|Stats")
 	FSunriseUnitStats Stats;
 
-	/** Optional original-template EQS assets are retained for Blueprint compatibility. */
-	UPROPERTY(EditAnywhere, Category = "Sunrise|Navigation")
-	TObjectPtr<UEnvQuery> InteractionQuery;
-
-	UPROPERTY(EditAnywhere, Category = "Sunrise|Navigation")
-	TObjectPtr<UEnvQuery> NoInteractionQuery;
-
-	UPROPERTY(EditAnywhere, Category = "Sunrise|Navigation", meta = (ClampMin = "0", Units = "cm"))
-	float MovementAcceptanceRadius = 75.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Sunrise|Combat", meta = (ClampMin = "0", Units = "cm"))
-	float InteractionRadius = 250.0f;
-
-	UPROPERTY(EditAnywhere, Category = "Sunrise|Combat")
-	bool bAutoAcquireTargets = true;
-
-	UPROPERTY(EditAnywhere, Category = "Sunrise|Combat", meta = (ClampMin = "0.1", Units = "s"))
-	float DecisionInterval = 0.4f;
-
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Sunrise|Runtime")
 	ESunriseOrderState OrderState = ESunriseOrderState::Idle;
 
+	/** Replicated HUD snapshot, written by the server controller; never used to drive AI. */
 	UPROPERTY(Replicated, VisibleInstanceOnly, BlueprintReadOnly, Category = "Sunrise|Runtime")
 	TObjectPtr<ASunriseUnit> ActionTarget;
 
-	TObjectPtr<AAIController> AIController;
-	TObjectPtr<UEnvQueryInstanceBlueprintWrapper> EnvQueryInstance;
-	FVector CurrentMovementGoal = FVector::ZeroVector;
-	TArray<TObjectPtr<ASunriseUnit>> InteractIgnoreList;
-	float DecisionTimeRemaining = 0.0f;
-	float ActionTimeRemaining = 0.0f;
 	bool bSelected = false;
-	bool bForcedTarget = false;
-	/** Explicit player intent has priority over autonomous aggro and retaliation. */
-	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Sunrise|Orders")
-	bool bPlayerOrderActive = false;
-	bool bInteractOnArrival = false;
-	bool bHasExplicitTeamId = false;
-	bool bExternalInteractionActive = false;
 	TWeakObjectPtr<ASunriseUnit> LastDamageSource;
-	TWeakObjectPtr<ASunriseUnit> FocusTarget;
-	float FocusTargetExpiryTime = 0.0f;
-	FAIRequestID ActiveMoveRequestId;
+
 	UPROPERTY(ReplicatedUsing = OnRep_ControllingAgent)
 	TObjectPtr<AActor> ControllingAgentActor;
 	UPROPERTY()

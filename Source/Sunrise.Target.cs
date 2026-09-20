@@ -8,8 +8,8 @@ public class SunriseTarget : TargetRules
 	public SunriseTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Game;
-		DefaultBuildSettings = BuildSettingsVersion.V7;
-		IncludeOrderVersion = EngineIncludeOrderVersion.Unreal5_8;
+		IncludeOrderVersion = EngineIncludeOrderVersion.Oldest;
+		DefaultBuildSettings = BuildSettingsVersion.V5;
 		ExtraModuleNames.Add("SunriseGame");
 	}
 }

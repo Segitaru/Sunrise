@@ -1,25 +1,25 @@
 #pragma once
 
-#include "AbilitySystem/Attributes/SunriseAttributeSet.h"
+#include "Attribute/ModularAttributeSet.h"
 
 #include "OverloadAttributeSet.generated.h"
 
 UCLASS(meta = (DeprecatedNode, DeprecationMessage = "Use focused Overload attribute sets"))
-class SUNRISEGAME_API UOverloadAttributeSet : public USunriseAttributeSet
+class SUNRISEGAME_API UOverloadAttributeSet : public UModularAttributeSet
 {
 	GENERATED_BODY()
 };
 
 UCLASS(BlueprintType)
-class SUNRISEGAME_API UOverloadIntegritySet : public USunriseAttributeSet
+class SUNRISEGAME_API UOverloadIntegritySet : public UModularAttributeSet
 {
 	GENERATED_BODY()
 public:
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	SUNRISE_ATTRIBUTE_ACCESSORS(UOverloadIntegritySet, Integrity)
-	SUNRISE_ATTRIBUTE_ACCESSORS(UOverloadIntegritySet, MaxIntegrity)
+	ATTRIBUTE_ACCESSORS(UOverloadIntegritySet, Integrity)
+	ATTRIBUTE_ACCESSORS(UOverloadIntegritySet, MaxIntegrity)
 private:
 	UFUNCTION()
 	void OnRep_Integrity(const FGameplayAttributeData& OldValue);
@@ -32,14 +32,14 @@ private:
 };
 
 UCLASS(BlueprintType)
-class SUNRISEGAME_API UOverloadDefenseSet : public USunriseAttributeSet
+class SUNRISEGAME_API UOverloadDefenseSet : public UModularAttributeSet
 {
 	GENERATED_BODY()
 public:
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	SUNRISE_ATTRIBUTE_ACCESSORS(UOverloadDefenseSet, AttackPower)
-	SUNRISE_ATTRIBUTE_ACCESSORS(UOverloadDefenseSet, Armor)
+	ATTRIBUTE_ACCESSORS(UOverloadDefenseSet, AttackPower)
+	ATTRIBUTE_ACCESSORS(UOverloadDefenseSet, Armor)
 private:
 	UFUNCTION()
 	void OnRep_AttackPower(const FGameplayAttributeData& OldValue);
@@ -52,13 +52,13 @@ private:
 };
 
 UCLASS(BlueprintType)
-class SUNRISEGAME_API UOverloadHackSet : public USunriseAttributeSet
+class SUNRISEGAME_API UOverloadHackSet : public UModularAttributeSet
 {
 	GENERATED_BODY()
 public:
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	SUNRISE_ATTRIBUTE_ACCESSORS(UOverloadHackSet, HackResistance)
+	ATTRIBUTE_ACCESSORS(UOverloadHackSet, HackResistance)
 private:
 	UFUNCTION()
 	void OnRep_HackResistance(const FGameplayAttributeData& OldValue);
@@ -67,15 +67,15 @@ private:
 };
 
 UCLASS(BlueprintType)
-class SUNRISEGAME_API UOverloadEnergySet : public USunriseAttributeSet
+class SUNRISEGAME_API UOverloadEnergySet : public UModularAttributeSet
 {
 	GENERATED_BODY()
 public:
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	SUNRISE_ATTRIBUTE_ACCESSORS(UOverloadEnergySet, OverloadEnergy)
-	SUNRISE_ATTRIBUTE_ACCESSORS(UOverloadEnergySet, MaxOverloadEnergy)
+	ATTRIBUTE_ACCESSORS(UOverloadEnergySet, OverloadEnergy)
+	ATTRIBUTE_ACCESSORS(UOverloadEnergySet, MaxOverloadEnergy)
 private:
 	UFUNCTION()
 	void OnRep_OverloadEnergy(const FGameplayAttributeData& OldValue);

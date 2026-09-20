@@ -1,0 +1,527 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+#include "Abilities/SunriseSelectionAbility.h"
+
+#include "Abilities/GameplayAbilityTargetTypes.h"
+#include "Abilities/SunriseOrderCommandAbility.h"
+#include "Abilities/SunriseUnitOrderAbility.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystemComponent.h"
+#include "ControllableEntities/ControllableEntitiesManager.h"
+#include "Engine/OverlapResult.h"
+#include "Engine/World.h"
+#include "EngineUtils.h"
+#include "EnhancedInputComponent.h"
+#include "GameModes/Overload/Interfaces/OverloadHackable.h"
+#include "InputAction.h"
+#include "InputActionValue.h"
+#include "Player/SunrisePlayerController.h"
+#include "UI/SunriseHUD.h"
+#include "Units/SunrisePawn.h"
+#include "Units/SunriseUnit.h"
+#include "Units/SunriseUnitInterfaces.h"
+
+USunriseSelectionAbility::USunriseSelectionAbility(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalOnly;
+	ActivationPolicy = EModularAbilityActivationPolicy::OnSpawn;
+}
+
+void USunriseSelectionAbility::ActivateAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+{
+	AvatarPawn = ActorInfo ? Cast<ASunrisePawn>(ActorInfo->AvatarActor.Get()) : nullptr;
+	if (!AvatarPawn.IsValid() || !ActorInfo->IsLocallyControlled())
+	{
+		EndAbility(Handle, ActorInfo, ActivationInfo, false, true);
+		return;
+	}
+
+	BindInput(Cast<UEnhancedInputComponent>(AvatarPawn->InputComponent));
+}
+
+void USunriseSelectionAbility::EndAbility(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,
+	FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
+{
+	CancelInteraction();
+	DoDeselectAllUnitsCommand();
+	UnbindInput();
+
+	AvatarPawn.Reset();
+	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
+}
+
+ASunrisePlayerController* USunriseSelectionAbility::GetSunriseController() const
+{
+	return AvatarPawn.IsValid() ? AvatarPawn->GetController<ASunrisePlayerController>() : nullptr;
+}
+
+bool USunriseSelectionAbility::CanInteract() const
+{
+	const ASunrisePlayerController* PC = GetSunriseController();
+	return IsActive() && PC && PC->AreCommandsEnabled() && !PC->IsPaused();
+}
+
+void USunriseSelectionAbility::UnbindInput()
+{
+	if (UEnhancedInputComponent* Input = BoundInput.Get())
+	{
+		for (uint32 Handle : BindingHandles)
+		{
+			Input->RemoveBindingByHandle(Handle);
+		}
+		Input->KeyBindings.RemoveAll(
+			[this](const FInputKeyBinding& Binding)
+			{
+				return Binding.KeyDelegate.IsBoundToObject(this);
+			});
+	}
+	BindingHandles.Reset();
+	BoundInput.Reset();
+}
+
+void USunriseSelectionAbility::BindInput(UEnhancedInputComponent* Input)
+{
+	if (!Input || !IsActive())
+	{
+		return;
+	}
+	UnbindInput();
+	BoundInput = Input;
+	if (SelectClickAction)
+	{
+		BindingHandles.Add(Input->BindAction(SelectClickAction, ETriggerEvent::Triggered, this, &ThisClass::SelectClick).GetHandle());
+	}
+	if (SelectAllDoubleClickAction)
+	{
+		BindingHandles.Add(
+			Input->BindAction(SelectAllDoubleClickAction, ETriggerEvent::Triggered, this, &ThisClass::SelectAllDoubleClick).GetHandle());
+	}
+	if (SelectHoldAction)
+	{
+		BindingHandles.Add(Input->BindAction(SelectHoldAction, ETriggerEvent::Started, this, &ThisClass::SelectHoldStarted).GetHandle());
+		BindingHandles.Add(Input->BindAction(SelectHoldAction, ETriggerEvent::Triggered, this, &ThisClass::SelectHoldStarted).GetHandle());
+		BindingHandles.Add(
+			Input->BindAction(SelectHoldAction, ETriggerEvent::Completed, this, &ThisClass::SelectHoldCompleted).GetHandle());
+		BindingHandles.Add(Input->BindAction(SelectHoldAction, ETriggerEvent::Canceled, this, &ThisClass::CancelSelectHold).GetHandle());
+	}
+	if (SelectHeroAction)
+	{
+		BindingHandles.Add(Input->BindAction(SelectHeroAction, ETriggerEvent::Triggered, this, &ThisClass::SelectHero).GetHandle());
+	}
+	if (SelectMoveAction)
+	{
+		BindingHandles.Add(
+			Input->BindAction(SelectMoveAction, ETriggerEvent::Triggered, this, &ThisClass::SelectHoldTriggered).GetHandle());
+		BindingHandles.Add(Input->BindAction(SelectMoveAction, ETriggerEvent::Ongoing, this, &ThisClass::SelectHoldTriggered).GetHandle());
+	}
+}
+
+void USunriseSelectionAbility::PruneSelection()
+{
+	UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController());
+	if (!Manager)
+	{
+		return;
+	}
+	for (AActor* Entity : Manager->GetSelectedEntities())
+	{
+		ASunriseUnit* Unit = Cast<ASunriseUnit>(Entity);
+		if (!IsValid(Unit) || !Unit->IsAlive() || !Manager->CanControlEntity(Unit))
+		{
+			if (IsValid(Unit))
+			{
+				ISunriseSelectable::Execute_SetSunriseSelected(Unit, false);
+			}
+			Manager->UnselectControlledEntity(Entity);
+		}
+	}
+}
+
+TArray<ASunriseUnit*> USunriseSelectionAbility::GetSelectedUnits() const
+{
+	TArray<ASunriseUnit*> Result;
+	if (const UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController()))
+	{
+		for (AActor* Entity : Manager->GetSelectedEntities())
+		{
+			if (ASunriseUnit* Unit = Cast<ASunriseUnit>(Entity); IsValid(Unit) && Unit->IsAlive())
+			{
+				Result.Add(Unit);
+			}
+		}
+	}
+	return Result;
+}
+FVector USunriseSelectionAbility::GetMidPointFromSelectedUnits()
+{
+	const TArray<ASunriseUnit*> SelectedUnits = GetSelectedUnits();
+	FVector Result = FVector::ZeroVector;
+	for (const ASunriseUnit* Unit : SelectedUnits)
+	{
+		Result += Unit->GetActorLocation();
+	}
+	return SelectedUnits.IsEmpty() ? Result : Result / SelectedUnits.Num();
+}
+bool USunriseSelectionAbility::DoSelectCommand(const FVector& SelectLocation, bool bAdditiveSelection)
+{
+	if (!CanInteract() || SelectLocation.ContainsNaN())
+	{
+		return false;
+	}
+	PruneSelection();
+	UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController());
+	if (!Manager)
+	{
+		return false;
+	}
+	if (!bAdditiveSelection)
+	{
+		DoDeselectAllUnitsCommand();
+	}
+	TArray<FOverlapResult> Overlaps;
+	FCollisionObjectQueryParams Objects(ECC_Pawn);
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(SunriseSelect), false);
+	GetWorld()->OverlapMultiByObjectType(
+		Overlaps, SelectLocation, FQuat::Identity, Objects, FCollisionShape::MakeSphere(SelectionRadius), Params);
+
+	ASunriseUnit* Closest = nullptr;
+	float BestDistance = TNumericLimits<float>::Max();
+	for (const FOverlapResult& Overlap : Overlaps)
+	{
+		ASunriseUnit* Unit = Cast<ASunriseUnit>(Overlap.GetActor());
+		if (!Unit || !Manager->CanControlEntity(Unit))
+		{
+			continue;
+		}
+		const float Distance = FVector::DistSquared(Unit->GetActorLocation(), SelectLocation);
+		if (Distance < BestDistance)
+		{
+			Closest = Unit;
+			BestDistance = Distance;
+		}
+	}
+	if (!Closest)
+	{
+		return false;
+	}
+
+	const bool bWasSelected = Manager->GetSelectedEntities().Contains(Closest);
+	if (bWasSelected)
+	{
+		Manager->UnselectControlledEntity(Closest);
+		ISunriseSelectable::Execute_SetSunriseSelected(Closest, false);
+	}
+	else
+	{
+		Manager->SelectControlledEntity(Closest);
+		ISunriseSelectable::Execute_SetSunriseSelected(Closest, true);
+	}
+	return true;
+}
+void USunriseSelectionAbility::SelectHero(const FInputActionValue& Value)
+{
+	if (!CanInteract())
+	{
+		return;
+	}
+	UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController());
+	if (!Manager)
+	{
+		return;
+	}
+	ASunriseUnit* Hero = nullptr;
+	for (AActor* Entity : Manager->GetControlledEntities())
+	{
+		ASunriseUnit* Candidate = Cast<ASunriseUnit>(Entity);
+		if (IsValid(Candidate) && Candidate->IsHero() && Candidate->IsAlive() && Manager->CanControlEntity(Candidate))
+		{
+			Hero = Candidate;
+			break;
+		}
+	}
+	if (!Hero)
+	{
+		return;
+	}
+	DoDeselectAllUnitsCommand();
+	Manager->SelectControlledEntity(Hero);
+	ISunriseSelectable::Execute_SetSunriseSelected(Hero, true);
+}
+void USunriseSelectionAbility::DoDeselectAllUnitsCommand()
+{
+	if (UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController()))
+	{
+		for (AActor* Entity : Manager->GetSelectedEntities())
+		{
+			if (ASunriseUnit* Unit = Cast<ASunriseUnit>(Entity); IsValid(Unit))
+			{
+				ISunriseSelectable::Execute_SetSunriseSelected(Unit, false);
+			}
+			Manager->UnselectControlledEntity(Entity);
+		}
+	}
+}
+void USunriseSelectionAbility::DoToggleSelectAllUnitsCommand()
+{
+	if (GetSelectedUnits().IsEmpty())
+	{
+		DoSelectAllUnitsOnScreenCommand();
+	}
+	else
+	{
+		DoDeselectAllUnitsCommand();
+	}
+}
+void USunriseSelectionAbility::DoSelectAllUnitsOnScreenCommand()
+{
+	if (!CanInteract())
+	{
+		return;
+	}
+	ASunrisePlayerController* PC = GetSunriseController();
+	int32 Width = 0, Height = 0;
+	PC->GetViewportSize(Width, Height);
+	SelectBox(FVector2D::ZeroVector, FVector2D(Width, Height));
+}
+
+void USunriseSelectionAbility::SelectBox(const FVector2D& Start, const FVector2D& End)
+{
+	if (!CanInteract())
+	{
+		return;
+	}
+	DoDeselectAllUnitsCommand();
+	const FVector2D Min(FMath::Min(Start.X, End.X), FMath::Min(Start.Y, End.Y));
+	const FVector2D Max(FMath::Max(Start.X, End.X), FMath::Max(Start.Y, End.Y));
+	ASunrisePlayerController* PC = GetSunriseController();
+	for (TActorIterator<ASunriseUnit> It(GetWorld()); It; ++It)
+	{
+		ASunriseUnit* Unit = *It;
+		FVector2D Screen;
+		if (ISunriseSelectable::Execute_CanBeSelectedBy(Unit, PC) &&
+			PC->ProjectWorldLocationToScreen(Unit->GetActorLocation(), Screen, true) && Screen.X >= Min.X && Screen.X <= Max.X &&
+			Screen.Y >= Min.Y && Screen.Y <= Max.Y)
+		{
+			if (UControllableEntitiesManager* Manager =
+					UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController()))
+			{
+				Manager->SelectControlledEntity(Unit);
+			}
+			ISunriseSelectable::Execute_SetSunriseSelected(Unit, true);
+		}
+	}
+}
+
+bool USunriseSelectionAbility::GetHitUnderCursor(FHitResult& Hit) const
+{
+	const ASunrisePlayerController* PC = GetSunriseController();
+	return PC && PC->GetHitResultUnderCursorByChannel(SelectionTraceChannel, true, Hit);
+}
+
+FVector2D USunriseSelectionAbility::GetMouseLocationForPlayer() const
+{
+	float X = 0.0f, Y = 0.0f;
+	if (const ASunrisePlayerController* PC = GetSunriseController())
+	{
+		PC->GetMousePosition(X, Y);
+	}
+	return FVector2D(X, Y);
+}
+
+bool USunriseSelectionAbility::GetWorldLocationForPlayer(FVector& OutWorldLocation) const
+{
+	FHitResult Hit;
+	if (const ASunrisePlayerController* PC = GetSunriseController())
+	{
+		if (PC->GetHitResultUnderCursorByChannel(SelectionTraceChannel, true, Hit))
+		{
+			OutWorldLocation = Hit.ImpactPoint;
+			return true;
+		}
+	}
+	return false;
+}
+
+void USunriseSelectionAbility::SelectBoxWorld(const FVector& StartWorldLocation, const FVector& EndWorldLocation)
+{
+	ASunrisePlayerController* PC = GetSunriseController();
+	FVector2D StartScreen;
+	FVector2D EndScreen;
+	if (PC && PC->ProjectWorldLocationToScreen(StartWorldLocation, StartScreen, true) &&
+		PC->ProjectWorldLocationToScreen(EndWorldLocation, EndScreen, true))
+	{
+		SelectBox(StartScreen, EndScreen);
+	}
+}
+void USunriseSelectionAbility::OrderFromHit(const FHitResult& Hit, ASunriseUnit* SingleUnit)
+{
+	AActor* Target = Hit.GetActor();
+	FGameplayTag OrderTag = SunriseOrders::Move;
+	if (Cast<ASunriseUnit>(Target) && Target != SingleUnit)
+	{
+		OrderTag = SunriseOrders::Target;
+	}
+	else if (IsValid(Target) && Target->Implements<UOverloadHackable>())
+	{
+		OrderTag = SunriseOrders::Hack;
+	}
+
+	const bool bSent =
+		USunriseUnitOrderAbility::SendOrderEvent(AvatarPawn.Get(), OrderTag, GetSelectedUnits(), SingleUnit, Hit.ImpactPoint, Target);
+	if (bSent)
+	{
+		if (UAbilitySystemComponent* ASC = AvatarPawn->GetAbilitySystemComponent())
+		{
+			if (FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromClass(USunriseOrderCommandAbility::StaticClass()))
+			{
+				if (USunriseOrderCommandAbility* OrderCommand = Cast<USunriseOrderCommandAbility>(Spec->Ability))
+				{
+					OrderCommand->PlayOrderFeedback(Hit.ImpactPoint, OrderTag);
+				}
+			}
+		}
+	}
+}
+void USunriseSelectionAbility::SelectHoldStarted(const FInputActionValue& Value)
+{
+	if (!CanInteract())
+	{
+		return;
+	}
+	if (bSelectionGestureActive)
+	{
+		return;
+	}
+	bSelectionGestureActive = true;
+	StartingBoxSelectionPosition = GetMouseLocationForPlayer();
+	if (!GetWorldLocationForPlayer(StartingBoxSelectionWorldLocation))
+	{
+		CancelSelectHold(Value);
+		return;
+	}
+	if (ASunriseHUD* HUD = Cast<ASunriseHUD>(GetSunriseController()->GetHUD()))
+	{
+		HUD->DragSelectUpdate(StartingBoxSelectionWorldLocation, StartingBoxSelectionWorldLocation, true);
+	}
+	DraggedCommandUnit.Reset();
+	FHitResult Hit;
+	if (GetHitUnderCursor(Hit))
+	{
+		ASunriseUnit* Unit = Cast<ASunriseUnit>(Hit.GetActor());
+		if (Unit && ISunriseSelectable::Execute_CanBeSelectedBy(Unit, GetSunriseController()))
+		{
+			DraggedCommandUnit = Unit;
+			if (!GetSelectedUnits().Contains(Unit))
+			{
+				DoDeselectAllUnitsCommand();
+				if (UControllableEntitiesManager* Manager =
+						UControllableEntitiesManager::FindControllableEntitiesManager(GetSunriseController()))
+				{
+					Manager->SelectControlledEntity(Unit);
+				}
+				ISunriseSelectable::Execute_SetSunriseSelected(Unit, true);
+			}
+		}
+	}
+}
+
+void USunriseSelectionAbility::SelectHoldTriggered(const FInputActionValue& Value)
+{
+	if (!CanInteract() || !bSelectionGestureActive)
+	{
+		return;
+	}
+	const FVector2D Current = GetMouseLocationForPlayer();
+	const float GestureDistance = FVector2D::Distance(Current, StartingBoxSelectionPosition);
+	if (GestureDistance > 5.0f)
+	{
+		// Enhanced Input can deliver the click Triggered event before the hold
+		// Completed event. Mark the gesture as a drag immediately so that the
+		// late click cannot clear the box selection.
+		LastBoxSelectionTime = GetWorld()->GetTimeSeconds();
+	}
+	FVector CurrentWorldLocation;
+	if (!GetWorldLocationForPlayer(CurrentWorldLocation))
+	{
+		return;
+	}
+	if (DraggedCommandUnit.IsValid())
+	{
+		if (ASunriseHUD* HUD = Cast<ASunriseHUD>(GetSunriseController()->GetHUD()))
+		{
+			HUD->CommandDragUpdate(DraggedCommandUnit.Get(), Current, true);
+		}
+	}
+	else if (FVector2D::Distance(Current, StartingBoxSelectionPosition) > 5.0f)
+	{
+		SelectBoxWorld(StartingBoxSelectionWorldLocation, CurrentWorldLocation);
+		if (ASunriseHUD* HUD = Cast<ASunriseHUD>(GetSunriseController()->GetHUD()))
+		{
+			HUD->DragSelectUpdate(StartingBoxSelectionWorldLocation, CurrentWorldLocation, true);
+		}
+	}
+}
+
+void USunriseSelectionAbility::SelectHoldCompleted(const FInputActionValue& Value)
+{
+	if (!bSelectionGestureActive)
+	{
+		return;
+	}
+	if (CanInteract() && DraggedCommandUnit.IsValid() &&
+		FVector2D::Distance(GetMouseLocationForPlayer(), StartingBoxSelectionPosition) > 8.0f)
+	{
+		FHitResult Hit;
+		if (GetHitUnderCursor(Hit))
+		{
+			OrderFromHit(Hit, DraggedCommandUnit.Get());
+		}
+	}
+	else if (CanInteract() && !DraggedCommandUnit.IsValid() &&
+			 FVector2D::Distance(GetMouseLocationForPlayer(), StartingBoxSelectionPosition) > 5.0f)
+	{
+		LastBoxSelectionTime = GetWorld()->GetTimeSeconds();
+	}
+	CancelSelectHold(Value);
+}
+
+void USunriseSelectionAbility::CancelSelectHold(const FInputActionValue& Value)
+{
+	bSelectionGestureActive = false;
+	DraggedCommandUnit.Reset();
+	if (ASunrisePlayerController* PC = GetSunriseController())
+	{
+		if (ASunriseHUD* HUD = Cast<ASunriseHUD>(PC->GetHUD()))
+		{
+			HUD->CommandDragUpdate(nullptr, FVector2D::ZeroVector, false);
+			HUD->DragSelectUpdate(FVector::ZeroVector, FVector::ZeroVector, false);
+		}
+	}
+}
+
+void USunriseSelectionAbility::CancelInteraction()
+{
+	CancelSelectHold(FInputActionValue());
+
+	DoDeselectAllUnitsCommand();
+}
+
+void USunriseSelectionAbility::SelectClick(const FInputActionValue& Value)
+{
+	if (GetWorld()->GetTimeSeconds() - LastBoxSelectionTime <= 0.15f)
+	{
+		return;
+	}
+	FHitResult Hit;
+	if (CanInteract() && GetHitUnderCursor(Hit))
+	{
+		DoSelectCommand(Hit.ImpactPoint, false);
+	}
+}
+
+void USunriseSelectionAbility::SelectAllDoubleClick(const FInputActionValue& Value)
+{
+	DoSelectAllUnitsOnScreenCommand();
+}

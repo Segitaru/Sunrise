@@ -2,7 +2,10 @@
 
 #include "System/SunriseGameInstance.h"
 
+#include <Engine/AssetManager.h>
+
 #include "Kismet/GameplayStatics.h"
+#include "ModularPawnData.h"
 
 void USunriseGameInstance::Init()
 {
@@ -11,6 +14,13 @@ void USunriseGameInstance::Init()
 	{
 		SelectedDifficulty = Save->SelectedDifficulty;
 		MatchHistory = Save->MatchHistory;
+		TSharedPtr<FStreamableHandle> Handle = UAssetManager::Get().LoadPrimaryAsset(Save->SelectedPawnDefinitionId);
+		if (ensure(Handle.IsValid()))
+		{
+			Handle->WaitUntilComplete();
+		}
+		SelectedPawnDefinition = Cast<UModularPawnData>(UAssetManager::Get().GetPrimaryAssetObject(Save->SelectedPawnDefinitionId));
+		ensure(SelectedPawnDefinition);
 	}
 }
 
@@ -49,6 +59,15 @@ void USunriseGameInstance::RecordMatch(const FSunriseMatchRecord& Record)
 		MatchHistory.SetNum(MaxStoredMatches);
 	}
 	SaveProgress();
+}
+
+void USunriseGameInstance::SetSelectedPawnDefinitionId(UModularPawnData* NewPawnDefinition)
+{
+	if (SelectedPawnDefinition != NewPawnDefinition)
+	{
+		SelectedPawnDefinition = NewPawnDefinition;
+		SaveProgress();
+	}
 }
 
 FText USunriseGameInstance::BuildHistoryText(int32 MaxEntries) const
@@ -95,6 +114,11 @@ void USunriseGameInstance::SaveProgress()
 	{
 		Save->SelectedDifficulty = SelectedDifficulty;
 		Save->MatchHistory = MatchHistory;
+		if (SelectedPawnDefinition)
+		{
+			Save->SelectedPawnDefinitionId = SelectedPawnDefinition->GetPrimaryAssetId();
+		}
+
 		UGameplayStatics::SaveGameToSlot(Save, SaveSlotName, SaveUserIndex);
 	}
 }

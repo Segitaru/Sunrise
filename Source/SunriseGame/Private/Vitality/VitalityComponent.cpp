@@ -140,6 +140,7 @@ void UVitalityComponent::SetVitalityState(EVitalityState NewState)
 		GetOwner()->ForceNetUpdate();
 	}
 }
+
 void UVitalityComponent::ClearGameplayTags()
 {
 	if (!AbilitySystemComponent)
@@ -149,6 +150,7 @@ void UVitalityComponent::ClearGameplayTags()
 	AbilitySystemComponent->SetLooseGameplayTagCount(TAG_Sunrise_Status_Death_Dying, 0);
 	AbilitySystemComponent->SetLooseGameplayTagCount(TAG_Sunrise_Status_Death_Dead, 0);
 }
+
 void UVitalityComponent::HandleHealthChanged(AActor* Instigator, AActor*, const FGameplayEffectSpec*, float, float OldValue, float NewValue)
 {
 	OnAttributeChanged.Broadcast(this, USunriseHealthSet::GetHealthAttribute(), OldValue, NewValue, Instigator);
@@ -159,6 +161,7 @@ void UVitalityComponent::HandleMaxHealthChanged(
 {
 	OnAttributeChanged.Broadcast(this, USunriseHealthSet::GetMaxHealthAttribute(), OldValue, NewValue, Instigator);
 }
+
 void UVitalityComponent::HandleOutOfHealth(AActor* Instigator, AActor*, const FGameplayEffectSpec* Spec, float Magnitude, float, float)
 {
 	if (!GetOwner() || !GetOwner()->HasAuthority())
@@ -180,6 +183,7 @@ void UVitalityComponent::HandleOutOfHealth(AActor* Instigator, AActor*, const FG
 	}
 	StartDeath();
 }
+
 void UVitalityComponent::OnRep_VitalityState(EVitalityState OldState)
 {
 	OnVitalityStateChanged.Broadcast(GetOwner(), OldState, VitalityState);
