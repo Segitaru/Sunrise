@@ -15,12 +15,14 @@ ASunriseProjectile::ASunriseProjectile()
 	CollisionRoot = CreateDefaultSubobject<UBoxComponent>(TEXT("CollisionRoot"));
 	SetRootComponent(CollisionRoot);
 	CollisionRoot->SetBoxExtent(FVector(12.0f));
+	CollisionRoot->SetCanEverAffectNavigation(false);
 	CollisionRoot->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CollisionRoot->SetCollisionObjectType(ECC_WorldDynamic);
 	CollisionRoot->SetCollisionResponseToAllChannels(ECR_Block);
 	CollisionRoot->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 	VisualSphere = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VisualSphere"));
 	VisualSphere->SetupAttachment(CollisionRoot);
+	VisualSphere->SetCanEverAffectNavigation(false);
 	VisualSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
 	if (SphereMesh.Succeeded())

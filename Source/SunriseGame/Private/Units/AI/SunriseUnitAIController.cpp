@@ -334,8 +334,7 @@ bool ASunriseUnitAIController::CanAttackTarget(const ASunriseUnit* Target) const
 	}
 	// The BT node resolves Target from its own configured Blackboard key. Do not
 	// reject a valid target because another branch currently owns the active key.
-	return FVector::DistSquared2D(Unit->GetActorLocation(), Target->GetActorLocation()) <=
-		   FMath::Square(Unit->GetCombatSet()->GetActionRange());
+	return FVector::Distance(Unit->GetActorLocation(), Target->GetActorLocation()) <= Unit->GetCombatSet()->GetActionRange() * 1.15;
 }
 
 void ASunriseUnitAIController::CompleteMoveOrder(FName LocationKey, uint32 Revision, bool bSucceeded)
