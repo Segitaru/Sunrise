@@ -29,17 +29,21 @@ TSharedRef<SWidget> USurvivalProductionQueueWidget::RebuildWidget()
 	const TWeakObjectPtr<ThisClass> WeakThis(this);
 	return SNew(SBox).MinDesiredWidth(210.0f).MaxDesiredWidth(
 		300.0f)[SNew(SBorder)
-					.Padding(FMargin(10.0f, 6.0f))
-					.BorderBackgroundColor(FLinearColor(
-						0.015f, 0.02f, 0.035f, 0.88f))[SNew(STextBlock)
-														   .Text_Lambda(
-															   [WeakThis]()
-															   {
-																   return WeakThis.IsValid() ? WeakThis->GetQueueText() : FText::GetEmpty();
-															   })
-														   .ColorAndOpacity(FLinearColor(0.9f, 0.95f, 1.0f))
-														   .Font(FCoreStyle::GetDefaultFontStyle("Bold", 13))
-														   .Justification(ETextJustify::Center)]];
+					.BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
+					.BorderBackgroundColor(FLinearColor(0.18f, 0.22f, 0.28f, 0.98f))
+					.Padding(2.0f)[SNew(SBorder)
+									   .BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
+									   .BorderBackgroundColor(FLinearColor(0.005f, 0.008f, 0.015f, 0.96f))
+									   .Padding(FMargin(10.0f, 6.0f))[SNew(STextBlock)
+																		  .Text_Lambda(
+																			  [WeakThis]()
+																			  {
+																				  return WeakThis.IsValid() ? WeakThis->GetQueueText()
+																											: FText::GetEmpty();
+																			  })
+																		  .ColorAndOpacity(FLinearColor(0.9f, 0.95f, 1.0f))
+																		  .Font(FCoreStyle::GetDefaultFontStyle("Bold", 13))
+																		  .Justification(ETextJustify::Center)]]];
 }
 
 FText USurvivalProductionQueueWidget::GetQueueText() const

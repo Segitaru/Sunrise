@@ -26,7 +26,7 @@ namespace SurvivalHUD
 {
 	constexpr float PanelBottomMargin = 20.0f;
 	constexpr float ButtonWidth = 190.0f;
-	constexpr float ButtonHeight = 28.0f;
+	constexpr float ButtonHeight = 42.0f;
 	constexpr float ButtonGap = 4.0f;
 	constexpr float PanelGap = 16.0f;
 
@@ -64,6 +64,33 @@ namespace SurvivalHUD
 		FString Result = Tag.ToString();
 		int32 Separator = INDEX_NONE;
 		return Result.FindLastChar(TEXT('.'), Separator) ? Result.Mid(Separator + 1) : Result;
+	}
+
+	FString FormatResourceCost(const FSurvivalResourceAmounts& Cost)
+	{
+		FString Result;
+		auto AppendCost = [&Result](const TCHAR* Resource, float Amount)
+		{
+			if (Amount <= 0.0f)
+			{
+				return;
+			}
+			if (!Result.IsEmpty())
+			{
+				Result += TEXT("  ");
+			}
+			Result += FString::Printf(TEXT("%s %.0f"), Resource, Amount);
+		};
+
+		AppendCost(TEXT("F"), Cost.Food);
+		AppendCost(TEXT("W"), Cost.Wood);
+		AppendCost(TEXT("S"), Cost.Stone);
+		AppendCost(TEXT("M"), Cost.Metal);
+		if (Result.IsEmpty())
+		{
+			return TEXT("FREE");
+		}
+		return Result;
 	}
 
 	const TCHAR* GetBuildFailureLabel(ESurvivalBuildFailure Failure)
@@ -423,7 +450,9 @@ void USurvivalHUDComponent::DrawHUD(ASunriseHUD* HUD)
 			const float ButtonY = PanelY + Index * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
 			HUD->DrawRect(FLinearColor(0.04f, 0.08f, 0.05f, 0.94f), BuildX, ButtonY, SurvivalHUD::ButtonWidth, SurvivalHUD::ButtonHeight);
 			HUD->DrawText(FString::Printf(TEXT("BUILD %s"), *SurvivalHUD::ShortTag(Options[Index].BuildingId)), FLinearColor::White,
-				BuildX + 8.0f, ButtonY + 5.0f, GEngine->GetSmallFont(), 0.82f);
+				BuildX + 8.0f, ButtonY + 3.0f, GEngine->GetSmallFont(), 0.82f);
+			HUD->DrawText(SurvivalHUD::FormatResourceCost(Options[Index].Cost), FLinearColor(1.0f, 0.82f, 0.25f), BuildX + 8.0f,
+				ButtonY + 21.0f, GEngine->GetSmallFont(), 0.68f);
 		}
 	}
 	if (Build && (Worker || PendingBuildingId.IsValid()) && Build->GetLastBuildFailure() != ESurvivalBuildFailure::None)
@@ -454,7 +483,10 @@ void USurvivalHUDComponent::DrawHUD(ASunriseHUD* HUD)
 				HUD->DrawRect(
 					FLinearColor(0.07f, 0.06f, 0.12f, 0.94f), ProductionX, ButtonY, SurvivalHUD::ButtonWidth, SurvivalHUD::ButtonHeight);
 				HUD->DrawText(FString::Printf(TEXT("TRAIN %s"), *SurvivalHUD::ShortTag(Options[Index].UnitId)), FLinearColor::White,
-					ProductionX + 8.0f, ButtonY + 5.0f, GEngine->GetSmallFont(), 0.82f);
+					ProductionX + 8.0f, ButtonY + 3.0f, GEngine->GetSmallFont(), 0.82f);
+				HUD->DrawText(FString::Printf(
+								  TEXT("%s  POP %d"), *SurvivalHUD::FormatResourceCost(Options[Index].Cost), Options[Index].PopulationCost),
+					FLinearColor(1.0f, 0.82f, 0.25f), ProductionX + 8.0f, ButtonY + 21.0f, GEngine->GetSmallFont(), 0.68f);
 			}
 		}
 	}
