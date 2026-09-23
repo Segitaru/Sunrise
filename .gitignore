@@ -111,3 +111,4 @@ Plugins/[Dd]evelopers/*
 # VS config
 .vsconfig
 .sln.*
+Sunrise.sln.DotSettings.user
