@@ -12,6 +12,7 @@
 #include "EngineUtils.h"
 #include "EnhancedInputComponent.h"
 #include "GameModes/Overload/Interfaces/OverloadHackable.h"
+#include "GameModes/Survival/UI/SurvivalHUDComponent.h"
 #include "InputAction.h"
 #include "InputActionValue.h"
 #include "Player/SunrisePlayerController.h"
@@ -510,6 +511,21 @@ void USunriseSelectionAbility::CancelInteraction()
 
 void USunriseSelectionAbility::SelectClick(const FInputActionValue& Value)
 {
+	if (!CanInteract())
+	{
+		return;
+	}
+	if (ASunrisePlayerController* Controller = GetSunriseController())
+	{
+		if (ASunriseHUD* HUD = Cast<ASunriseHUD>(Controller->GetHUD()))
+		{
+			if (USurvivalHUDComponent* SurvivalHUD = HUD->FindComponentByClass<USurvivalHUDComponent>();
+				SurvivalHUD && SurvivalHUD->HandlePrimaryClick())
+			{
+				return;
+			}
+		}
+	}
 	if (GetWorld()->GetTimeSeconds() - LastBoxSelectionTime <= 0.15f)
 	{
 		return;

@@ -9,7 +9,7 @@ class ASurvivalBuilding;
 class ASunriseResourceNode;
 class FLifetimeProperty;
 
-/** Server-owned gather, carry, return and deposit loop for a Survival worker. */
+/** Server-owned gather, carry, return, deposit and construction loop for a Survival worker. */
 UCLASS(Blueprintable, BlueprintType, meta = (BlueprintSpawnableComponent))
 class SUNRISEGAME_API USurvivalWorkerComponent : public UActorComponent
 {
@@ -28,6 +28,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Survival|Worker")
 	bool StartGatherOrder(ASunriseResourceNode* Node);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Survival|Worker")
+	bool StartBuildOrder(ASurvivalBuilding* Building);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Survival|Worker")
 	void CancelWorkerOrder();
@@ -56,7 +59,8 @@ private:
 	{
 		None,
 		Gathering,
-		Returning
+		Returning,
+		Constructing
 	};
 
 	UPROPERTY(Replicated)
@@ -67,6 +71,7 @@ private:
 
 	TWeakObjectPtr<ASunriseResourceNode> TargetNode;
 	TWeakObjectPtr<ASurvivalBuilding> TargetDeposit;
+	TWeakObjectPtr<ASurvivalBuilding> TargetBuilding;
 	EWorkerOrderState WorkerOrderState = EWorkerOrderState::None;
 	float MoveRefreshRemaining = 0.0f;
 };

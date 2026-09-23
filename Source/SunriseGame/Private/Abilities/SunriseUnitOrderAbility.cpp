@@ -7,6 +7,7 @@
 #include "ControllableEntities/ControllableEntitiesManager.h"
 #include "Environment/Resources/SunriseResourceNode.h"
 #include "GameModes/Overload/Interfaces/OverloadHackable.h"
+#include "GameModes/Survival/Actors/SurvivalBuilding.h"
 #include "Player/SunrisePlayerController.h"
 #include "Units/SunriseUnit.h"
 
@@ -131,10 +132,13 @@ bool USunriseUnitOrderAbility::DispatchOrder(const FGameplayEventData& Event, co
 	AActor* TargetActor = const_cast<AActor*>(Event.Target.Get());
 	ASunriseUnit* TargetUnit = Cast<ASunriseUnit>(TargetActor);
 	const ASunriseResourceNode* ResourceNode = Cast<ASunriseResourceNode>(TargetActor);
+	const ASurvivalBuilding* ConstructionSite = Cast<ASurvivalBuilding>(TargetActor);
 	const bool bValidUnitTarget = IsValid(TargetUnit) && TargetUnit->GetWorld() == GetWorld() && TargetUnit->IsAlive();
 	const bool bValidResourceTarget =
 		IsValid(ResourceNode) && ResourceNode->GetWorld() == GetWorld() && ResourceNode->GetRemainingAmount() > 0;
-	if (Tag == SunriseOrders::Target && !bValidUnitTarget && !bValidResourceTarget)
+	const bool bValidConstructionTarget = IsValid(ConstructionSite) && ConstructionSite->GetWorld() == GetWorld() &&
+										  ConstructionSite->IsAlive() && !ConstructionSite->IsConstructionComplete();
+	if (Tag == SunriseOrders::Target && !bValidUnitTarget && !bValidResourceTarget && !bValidConstructionTarget)
 	{
 		return false;
 	}

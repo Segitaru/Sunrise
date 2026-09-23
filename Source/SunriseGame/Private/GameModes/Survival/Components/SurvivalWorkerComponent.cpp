@@ -76,8 +76,8 @@ int32 USurvivalWorkerComponent::GatherFrom(ASunriseResourceNode* Node)
 bool USurvivalWorkerComponent::DepositAt(ASurvivalBuilding* Building)
 {
 	AActor* Worker = GetOwner();
-	if (!Worker || !Worker->HasAuthority() || !IsValid(Building) || !Building->IsAlive() || CargoAmount <= 0 ||
-		!IsWithinInteractionRange(Worker, Building, InteractionRange) ||
+	if (!Worker || !Worker->HasAuthority() || !IsValid(Building) || !Building->IsAlive() || !Building->IsConstructionComplete() ||
+		CargoAmount <= 0 || !IsWithinInteractionRange(Worker, Building, InteractionRange) ||
 		(Building->GetBuildingRole() != ESurvivalBuildingRole::MainBase &&
 			Building->GetBuildingRole() != ESurvivalBuildingRole::Storehouse))
 	{
@@ -122,6 +122,7 @@ bool USurvivalWorkerComponent::StartGatherOrder(ASunriseResourceNode* Node)
 	}
 	TargetNode = Node;
 	TargetDeposit.Reset();
+	TargetBuilding.Reset();
 	WorkerOrderState = EWorkerOrderState::Gathering;
 	if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(Worker->GetController()))
 	{
@@ -129,6 +130,37 @@ bool USurvivalWorkerComponent::StartGatherOrder(ASunriseResourceNode* Node)
 	}
 	Worker->SetExternalInteractionActive(true);
 	MoveOwnerTo(Node);
+	SetComponentTickEnabled(true);
+	return true;
+}
+
+bool USurvivalWorkerComponent::StartBuildOrder(ASurvivalBuilding* Building)
+{
+	ASunriseUnit* Worker = Cast<ASunriseUnit>(GetOwner());
+	if (!Worker || !Worker->HasAuthority() || !Worker->IsAlive() || !IsValid(Building) || Building->IsConstructionComplete() ||
+		Building->GetOwner() == nullptr)
+	{
+		return false;
+	}
+
+	UObject* ControllingAgent = Worker->GetControllingAgent().GetObject();
+	const AController* Controller = Cast<AController>(ControllingAgent);
+	const APlayerState* WorkerPlayerState = IsValid(Controller) ? Controller->PlayerState.Get() : Cast<APlayerState>(ControllingAgent);
+	if (Building->GetOwner() != WorkerPlayerState)
+	{
+		return false;
+	}
+
+	TargetNode.Reset();
+	TargetDeposit.Reset();
+	TargetBuilding = Building;
+	WorkerOrderState = EWorkerOrderState::Constructing;
+	if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(Worker->GetController()))
+	{
+		AI->StopOrders();
+	}
+	Worker->SetExternalInteractionActive(true);
+	MoveOwnerTo(Building);
 	SetComponentTickEnabled(true);
 	return true;
 }
@@ -146,6 +178,7 @@ void USurvivalWorkerComponent::CancelWorkerOrder()
 	}
 	TargetNode.Reset();
 	TargetDeposit.Reset();
+	TargetBuilding.Reset();
 	WorkerOrderState = EWorkerOrderState::None;
 	SetComponentTickEnabled(false);
 }
@@ -161,6 +194,29 @@ void USurvivalWorkerComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 	}
 
 	MoveRefreshRemaining -= DeltaTime;
+	if (WorkerOrderState == EWorkerOrderState::Constructing)
+	{
+		ASurvivalBuilding* Building = TargetBuilding.Get();
+		if (!Building || !Building->IsAlive() || Building->IsConstructionComplete())
+		{
+			CancelWorkerOrder();
+			return;
+		}
+		if (!IsWithinInteractionRange(Worker, Building, InteractionRange))
+		{
+			if (MoveRefreshRemaining <= 0.0f)
+			{
+				MoveOwnerTo(Building);
+			}
+			return;
+		}
+		Worker->StopMoving();
+		if (Building->ApplyConstructionWork(DeltaTime))
+		{
+			CancelWorkerOrder();
+		}
+		return;
+	}
 	if (WorkerOrderState == EWorkerOrderState::Gathering)
 	{
 		ASunriseResourceNode* Node = TargetNode.Get();
@@ -236,7 +292,7 @@ ASurvivalBuilding* USurvivalWorkerComponent::FindClosestDepositBuilding() const
 	{
 		ASurvivalBuilding* Building = *It;
 		const ESurvivalBuildingRole Role = Building->GetBuildingRole();
-		if (!Building->IsAlive() || Building->GetOwner() != PlayerState ||
+		if (!Building->IsAlive() || !Building->IsConstructionComplete() || Building->GetOwner() != PlayerState ||
 			(Role != ESurvivalBuildingRole::MainBase && Role != ESurvivalBuildingRole::Storehouse))
 		{
 			continue;

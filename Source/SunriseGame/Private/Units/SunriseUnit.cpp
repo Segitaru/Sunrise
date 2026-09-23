@@ -19,6 +19,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
+#include "GameModes/Survival/Actors/SurvivalBuilding.h"
 #include "GameModes/Survival/Components/SurvivalWorkerComponent.h"
 #include "GameModes/Survival/SurvivalGameplayTags.h"
 #include "NPC_Optimizator/Public/OptimizationComponent.h"
@@ -235,6 +236,24 @@ void ASunriseUnit::IssueTargetOrder_Implementation(AActor* InTargetActor)
 {
 	if (!HasAuthority() || !IsAlive() || !IsValid(InTargetActor) || InTargetActor->GetWorld() != GetWorld())
 	{
+		return;
+	}
+	if (ASurvivalBuilding* ConstructionSite = Cast<ASurvivalBuilding>(InTargetActor))
+	{
+		if (!ConstructionSite->IsConstructionComplete())
+		{
+			USurvivalWorkerComponent* Worker = FindComponentByClass<USurvivalWorkerComponent>();
+			if (!Worker && HasPawnTag(SurvivalGameplayTags::Unit_Worker))
+			{
+				Worker = NewObject<USurvivalWorkerComponent>(this, TEXT("SurvivalWorker"));
+				AddInstanceComponent(Worker);
+				Worker->RegisterComponent();
+			}
+			if (Worker)
+			{
+				Worker->StartBuildOrder(ConstructionSite);
+			}
+		}
 		return;
 	}
 	if (ASunriseResourceNode* ResourceNode = Cast<ASunriseResourceNode>(InTargetActor))

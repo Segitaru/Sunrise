@@ -132,7 +132,7 @@ void USurvivalProductionComponent::ServerQueueUnit_Implementation(FGameplayTag U
 	APlayerState* PlayerState = Barracks ? Cast<APlayerState>(Barracks->GetOwner()) : nullptr;
 	USurvivalEconomyComponent* Economy = PlayerState ? PlayerState->FindComponentByClass<USurvivalEconomyComponent>() : nullptr;
 	const ESurvivalBuildingRole ProducerRole = Barracks ? Barracks->GetBuildingRole() : ESurvivalBuildingRole::Generic;
-	if (!Barracks || !Barracks->HasAuthority() || !Barracks->IsAlive() ||
+	if (!Barracks || !Barracks->HasAuthority() || !Barracks->IsAlive() || !Barracks->IsConstructionComplete() ||
 		(ProducerRole != ESurvivalBuildingRole::Barracks && ProducerRole != ESurvivalBuildingRole::MainBase) || !Option ||
 		Option->UnitDefinition.IsNull() || Queue.Num() >= MaxQueueSize || !Match ||
 		Match->GetSurvivalMatchState() != ESurvivalMatchState::InProgress || !Economy)

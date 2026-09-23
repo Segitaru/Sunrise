@@ -24,11 +24,18 @@
 
 namespace SurvivalHUD
 {
-	constexpr float PanelX = 20.0f;
 	constexpr float PanelBottomMargin = 20.0f;
 	constexpr float ButtonWidth = 190.0f;
 	constexpr float ButtonHeight = 28.0f;
 	constexpr float ButtonGap = 4.0f;
+	constexpr float PanelGap = 16.0f;
+
+	float GetPanelStartX(float ViewportWidth, bool bShowBuildPanel, bool bShowProductionPanel)
+	{
+		const int32 PanelCount = static_cast<int32>(bShowBuildPanel) + static_cast<int32>(bShowProductionPanel);
+		const float TotalWidth = PanelCount * ButtonWidth + FMath::Max(0, PanelCount - 1) * PanelGap;
+		return FMath::Max(0.0f, (ViewportWidth - TotalWidth) * 0.5f);
+	}
 
 	const TCHAR* GetStateLabel(ESurvivalMatchState State)
 	{
@@ -116,29 +123,13 @@ void USurvivalHUDComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 		EndPlacement();
 		return;
 	}
-	if (ASunriseUnit* Worker = FindSelectedWorker())
-	{
-		LastSelectedWorker = Worker;
-	}
-	const bool bPrimaryDown = Controller->IsInputKeyDown(EKeys::LeftMouseButton);
-	if (bPrimaryButtonWasDown && !bPrimaryDown)
-	{
-		HandlePrimaryClick();
-	}
-	bPrimaryButtonWasDown = bPrimaryDown;
 	if (PlacementPreview)
 	{
 		UpdatePlacementPreview();
-		const bool bSecondaryDown = Controller->IsInputKeyDown(EKeys::RightMouseButton);
-		if (bSecondaryButtonWasDown && !bSecondaryDown)
+		if (Controller->WasInputKeyJustReleased(EKeys::RightMouseButton))
 		{
 			EndPlacement();
 		}
-		bSecondaryButtonWasDown = bSecondaryDown;
-	}
-	else
-	{
-		bSecondaryButtonWasDown = false;
 	}
 }
 
@@ -168,12 +159,19 @@ ASunriseUnit* USurvivalHUDComponent::FindSelectedWorker() const
 	return nullptr;
 }
 
-void USurvivalHUDComponent::HandlePrimaryClick()
+bool USurvivalHUDComponent::HandlePrimaryClick()
 {
+	if (LastPrimaryClickFrame == GFrameCounter)
+	{
+		return bLastPrimaryClickHandled;
+	}
+	LastPrimaryClickFrame = GFrameCounter;
+	bLastPrimaryClickHandled = false;
+
 	ASunrisePlayerController* Controller = GetController();
 	if (!Controller)
 	{
-		return;
+		return false;
 	}
 	float MouseX = 0.0f;
 	float MouseY = 0.0f;
@@ -181,18 +179,19 @@ void USurvivalHUDComponent::HandlePrimaryClick()
 	int32 ViewportY = 0;
 	if (!Controller->GetMousePosition(MouseX, MouseY))
 	{
-		return;
+		return false;
 	}
 	Controller->GetViewportSize(ViewportX, ViewportY);
-	if (HandleCommandPanelClick(FVector2D(MouseX, MouseY), static_cast<float>(ViewportY)))
+	if (HandleCommandPanelClick(FVector2D(MouseX, MouseY), FVector2D(ViewportX, ViewportY)))
 	{
-		return;
+		bLastPrimaryClickHandled = true;
+		return true;
 	}
 
 	FHitResult Hit;
 	if (!Controller->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit))
 	{
-		return;
+		return false;
 	}
 	if (PendingBuildingId.IsValid() && PendingBuilder.IsValid())
 	{
@@ -205,51 +204,60 @@ void USurvivalHUDComponent::HandlePrimaryClick()
 			Build->ServerRequestBuild(PendingBuildingId, FTransform(FRotator::ZeroRotator, Location), PendingBuilder.Get());
 		}
 		EndPlacement();
-		return;
+		bLastPrimaryClickHandled = true;
+		return true;
 	}
 
-	SelectBuilding(Cast<ASurvivalBuilding>(Hit.GetActor()));
+	ASurvivalBuilding* ClickedBuilding = Cast<ASurvivalBuilding>(Hit.GetActor());
+	SelectBuilding(ClickedBuilding);
+	bLastPrimaryClickHandled = ClickedBuilding != nullptr;
+	return bLastPrimaryClickHandled;
 }
 
-bool USurvivalHUDComponent::HandleCommandPanelClick(const FVector2D& MousePosition, float ViewportHeight)
+bool USurvivalHUDComponent::HandleCommandPanelClick(const FVector2D& MousePosition, const FVector2D& ViewportSize)
 {
 	ASunrisePlayerController* Controller = GetController();
 	APlayerState* PlayerState = Controller ? Controller->PlayerState : nullptr;
 	USurvivalBuildComponent* Build = PlayerState ? PlayerState->FindComponentByClass<USurvivalBuildComponent>() : nullptr;
-	const float BuildY = ViewportHeight - SurvivalHUD::PanelBottomMargin - 4.0f * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
-	if (Build)
+	ASunriseUnit* Worker = FindSelectedWorker();
+	ASurvivalBuilding* Building = SelectedBuilding.Get();
+	USurvivalProductionComponent* Production = Building ? Building->FindComponentByClass<USurvivalProductionComponent>() : nullptr;
+	if (Production && (Building->GetOwner() != PlayerState || !Building->IsConstructionComplete()))
+	{
+		Production = nullptr;
+	}
+
+	const int32 BuildRows = Worker && Build ? Build->GetBuildOptions().Num() : 0;
+	const int32 ProductionRows = Production ? Production->GetProductionOptions().Num() : 0;
+	const bool bShowBuildPanel = BuildRows > 0;
+	const bool bShowProductionPanel = ProductionRows > 0;
+	const int32 RowCount = FMath::Max(1, FMath::Max(BuildRows, ProductionRows));
+	const float PanelY = ViewportSize.Y - SurvivalHUD::PanelBottomMargin - RowCount * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
+	const float BuildX = SurvivalHUD::GetPanelStartX(ViewportSize.X, bShowBuildPanel, bShowProductionPanel);
+	const float ProductionX = BuildX + (bShowBuildPanel ? SurvivalHUD::ButtonWidth + SurvivalHUD::PanelGap : 0.0f);
+
+	if (Worker && Build)
 	{
 		const TArray<FSurvivalBuildOption>& Options = Build->GetBuildOptions();
-		for (int32 Index = 0; Index < FMath::Min(4, Options.Num()); ++Index)
+		for (int32 Index = 0; Index < Options.Num(); ++Index)
 		{
-			const float Y = BuildY + Index * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
-			if (SurvivalHUD::Contains(MousePosition, SurvivalHUD::PanelX, Y, SurvivalHUD::ButtonWidth, SurvivalHUD::ButtonHeight))
+			const float Y = PanelY + Index * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
+			if (SurvivalHUD::Contains(MousePosition, BuildX, Y, SurvivalHUD::ButtonWidth, SurvivalHUD::ButtonHeight))
 			{
-				ASunriseUnit* Worker = FindSelectedWorker();
-				if (!Worker && LastSelectedWorker.IsValid() && LastSelectedWorker->IsAlive())
-				{
-					Worker = LastSelectedWorker.Get();
-				}
-				if (Worker)
-				{
-					BeginPlacement(Options[Index], Worker);
-				}
+				BeginPlacement(Options[Index], Worker);
 				return true;
 			}
 		}
 	}
 
-	ASurvivalBuilding* Building = SelectedBuilding.Get();
-	USurvivalProductionComponent* Production = Building ? Building->FindComponentByClass<USurvivalProductionComponent>() : nullptr;
-	if (!Production || Building->GetOwner() != PlayerState)
+	if (!Production)
 	{
 		return false;
 	}
 	const TArray<FSurvivalProductionOption>& Options = Production->GetProductionOptions();
-	const float ProductionX = SurvivalHUD::PanelX + SurvivalHUD::ButtonWidth + 16.0f;
-	for (int32 Index = 0; Index < FMath::Min(4, Options.Num()); ++Index)
+	for (int32 Index = 0; Index < Options.Num(); ++Index)
 	{
-		const float Y = BuildY + Index * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
+		const float Y = PanelY + Index * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
 		if (SurvivalHUD::Contains(MousePosition, ProductionX, Y, SurvivalHUD::ButtonWidth, SurvivalHUD::ButtonHeight))
 		{
 			Production->ServerQueueUnit(Options[Index].UnitId);
@@ -389,48 +397,64 @@ void USurvivalHUDComponent::DrawHUD(ASunriseHUD* HUD)
 			Match->GetAliveWorkerCount(), Match->GetAliveWaveEnemyCount(), Match->GetCurrentWave(), Match->GetTotalWaves(), *WaveText),
 		FLinearColor(0.95f, 0.78f, 0.22f), X + 210.0f, Y + 59.0f, GEngine->GetSmallFont(), 0.88f);
 
-	const float BuildY =
-		HUD->GetDrawingCanvas()->ClipY - SurvivalHUD::PanelBottomMargin - 4.0f * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
+	ASunriseUnit* Worker = FindSelectedWorker();
 	const USurvivalBuildComponent* Build = PlayerState ? PlayerState->FindComponentByClass<USurvivalBuildComponent>() : nullptr;
-	if (Build)
+	ASurvivalBuilding* Building = SelectedBuilding.Get();
+	const USurvivalProductionComponent* Production = Building ? Building->FindComponentByClass<USurvivalProductionComponent>() : nullptr;
+	if (Production && (Building->GetOwner() != PlayerState || !Building->IsConstructionComplete()))
+	{
+		Production = nullptr;
+	}
+	const int32 BuildRows = Worker && Build ? Build->GetBuildOptions().Num() : 0;
+	const int32 ProductionRows = Production ? Production->GetProductionOptions().Num() : 0;
+	const bool bShowBuildPanel = BuildRows > 0;
+	const bool bShowProductionPanel = ProductionRows > 0;
+	const int32 RowCount = FMath::Max(1, FMath::Max(BuildRows, ProductionRows));
+	const float PanelY =
+		HUD->GetDrawingCanvas()->ClipY - SurvivalHUD::PanelBottomMargin - RowCount * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
+	const float BuildX = SurvivalHUD::GetPanelStartX(HUD->GetDrawingCanvas()->ClipX, bShowBuildPanel, bShowProductionPanel);
+	const float ProductionX = BuildX + (bShowBuildPanel ? SurvivalHUD::ButtonWidth + SurvivalHUD::PanelGap : 0.0f);
+
+	if (Worker && Build)
 	{
 		const TArray<FSurvivalBuildOption>& Options = Build->GetBuildOptions();
-		for (int32 Index = 0; Index < FMath::Min(4, Options.Num()); ++Index)
+		for (int32 Index = 0; Index < Options.Num(); ++Index)
 		{
-			const float ButtonY = BuildY + Index * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
-			HUD->DrawRect(FLinearColor(0.04f, 0.08f, 0.05f, 0.94f), SurvivalHUD::PanelX, ButtonY, SurvivalHUD::ButtonWidth,
-				SurvivalHUD::ButtonHeight);
+			const float ButtonY = PanelY + Index * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
+			HUD->DrawRect(FLinearColor(0.04f, 0.08f, 0.05f, 0.94f), BuildX, ButtonY, SurvivalHUD::ButtonWidth, SurvivalHUD::ButtonHeight);
 			HUD->DrawText(FString::Printf(TEXT("BUILD %s"), *SurvivalHUD::ShortTag(Options[Index].BuildingId)), FLinearColor::White,
-				SurvivalHUD::PanelX + 8.0f, ButtonY + 5.0f, GEngine->GetSmallFont(), 0.82f);
+				BuildX + 8.0f, ButtonY + 5.0f, GEngine->GetSmallFont(), 0.82f);
 		}
 	}
-	if (Build && Build->GetLastBuildFailure() != ESurvivalBuildFailure::None)
+	if (Build && (Worker || PendingBuildingId.IsValid()) && Build->GetLastBuildFailure() != ESurvivalBuildFailure::None)
 	{
-		HUD->DrawText(SurvivalHUD::GetBuildFailureLabel(Build->GetLastBuildFailure()), FLinearColor(1.0f, 0.2f, 0.1f), SurvivalHUD::PanelX,
-			BuildY - 50.0f, GEngine->GetSmallFont(), 0.9f);
+		HUD->DrawText(SurvivalHUD::GetBuildFailureLabel(Build->GetLastBuildFailure()), FLinearColor(1.0f, 0.2f, 0.1f), BuildX,
+			PanelY - 50.0f, GEngine->GetSmallFont(), 0.9f);
 	}
 	if (PendingBuildingId.IsValid())
 	{
 		HUD->DrawText(FString::Printf(TEXT("PLACE %s: CLICK ON TERRAIN"), *SurvivalHUD::ShortTag(PendingBuildingId)),
-			FLinearColor(1.0f, 0.8f, 0.15f), SurvivalHUD::PanelX, BuildY - 26.0f, GEngine->GetSmallFont(), 0.9f);
+			FLinearColor(1.0f, 0.8f, 0.15f), BuildX, PanelY - 26.0f, GEngine->GetSmallFont(), 0.9f);
 	}
 
-	ASurvivalBuilding* Building = SelectedBuilding.Get();
 	if (Building)
 	{
-		const float PanelX = SurvivalHUD::PanelX + SurvivalHUD::ButtonWidth + 16.0f;
-		HUD->DrawText(FString::Printf(TEXT("BUILDING  HP %.0f / %.0f"), Building->GetHealth(), Building->GetMaxHealth()),
-			FLinearColor(0.45f, 0.9f, 1.0f), PanelX, BuildY - 26.0f, GEngine->GetSmallFont(), 0.9f);
-		if (const USurvivalProductionComponent* Production = Building->FindComponentByClass<USurvivalProductionComponent>())
+		const FString BuildingStatus =
+			Building->IsConstructionComplete()
+				? FString::Printf(TEXT("BUILDING  HP %.0f / %.0f"), Building->GetHealth(), Building->GetMaxHealth())
+				: FString::Printf(TEXT("CONSTRUCTION %.0f%%  HP %.0f / %.0f"), Building->GetSurvivalConstructionProgress() * 100.0f,
+					  Building->GetHealth(), Building->GetMaxHealth());
+		HUD->DrawText(BuildingStatus, FLinearColor(0.45f, 0.9f, 1.0f), ProductionX, PanelY - 26.0f, GEngine->GetSmallFont(), 0.9f);
+		if (Production)
 		{
 			const TArray<FSurvivalProductionOption>& Options = Production->GetProductionOptions();
-			for (int32 Index = 0; Index < FMath::Min(4, Options.Num()); ++Index)
+			for (int32 Index = 0; Index < Options.Num(); ++Index)
 			{
-				const float ButtonY = BuildY + Index * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
+				const float ButtonY = PanelY + Index * (SurvivalHUD::ButtonHeight + SurvivalHUD::ButtonGap);
 				HUD->DrawRect(
-					FLinearColor(0.07f, 0.06f, 0.12f, 0.94f), PanelX, ButtonY, SurvivalHUD::ButtonWidth, SurvivalHUD::ButtonHeight);
+					FLinearColor(0.07f, 0.06f, 0.12f, 0.94f), ProductionX, ButtonY, SurvivalHUD::ButtonWidth, SurvivalHUD::ButtonHeight);
 				HUD->DrawText(FString::Printf(TEXT("TRAIN %s"), *SurvivalHUD::ShortTag(Options[Index].UnitId)), FLinearColor::White,
-					PanelX + 8.0f, ButtonY + 5.0f, GEngine->GetSmallFont(), 0.82f);
+					ProductionX + 8.0f, ButtonY + 5.0f, GEngine->GetSmallFont(), 0.82f);
 			}
 		}
 	}

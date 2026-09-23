@@ -62,9 +62,6 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Survival|Build")
 	TArray<FSurvivalBuildOption> BuildOptions;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Survival|Build", meta = (ClampMin = "1.0", Units = "cm"))
-	float MaxBuildDistance = 1000.0f;
-
 private:
 	UFUNCTION()
 	void OnRep_LastBuildFailure();

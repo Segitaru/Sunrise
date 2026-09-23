@@ -28,11 +28,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Survival|Selection")
 	ASurvivalBuilding* GetSelectedBuilding() const { return SelectedBuilding.Get(); }
 
+	/** Returns true when Survival UI or placement consumed the current primary click. */
+	bool HandlePrimaryClick();
+
 private:
 	ASunrisePlayerController* GetController() const;
 	ASunriseUnit* FindSelectedWorker() const;
-	void HandlePrimaryClick();
-	bool HandleCommandPanelClick(const FVector2D& MousePosition, float ViewportHeight);
+	bool HandleCommandPanelClick(const FVector2D& MousePosition, const FVector2D& ViewportSize);
 	void BeginPlacement(const FSurvivalBuildOption& Option, ASunriseUnit* Builder);
 	void UpdatePlacementPreview();
 	void EndPlacement();
@@ -41,7 +43,6 @@ private:
 
 	TWeakObjectPtr<ASurvivalBuilding> SelectedBuilding;
 	TWeakObjectPtr<ASunriseUnit> PendingBuilder;
-	TWeakObjectPtr<ASunriseUnit> LastSelectedWorker;
 	FGameplayTag PendingBuildingId;
 	FVector PendingPlacementExtent = FVector::ZeroVector;
 
@@ -51,6 +52,6 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<USunriseEndScreenWidget> EndScreen;
 
-	bool bPrimaryButtonWasDown = false;
-	bool bSecondaryButtonWasDown = false;
+	uint64 LastPrimaryClickFrame = MAX_uint64;
+	bool bLastPrimaryClickHandled = false;
 };

@@ -77,11 +77,9 @@ void USurvivalBuildComponent::ServerRequestBuild_Implementation(FGameplayTag Bui
 		return;
 	}
 
-	FActorSpawnParameters Parameters;
-	Parameters.Owner = GetPlayerState<APlayerState>();
-	Parameters.Instigator = Builder;
-	Parameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	ASurvivalBuilding* const Building = GetWorld()->SpawnActor<ASurvivalBuilding>(Option->BuildingClass, Transform, Parameters);
+	APlayerState* PlayerState = GetPlayerState<APlayerState>();
+	ASurvivalBuilding* const Building = GetWorld()->SpawnActorDeferred<ASurvivalBuilding>(
+		Option->BuildingClass, Transform, PlayerState, Builder, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	if (!Building)
 	{
 		Economy->AddResources(Option->Cost);
@@ -89,12 +87,28 @@ void USurvivalBuildComponent::ServerRequestBuild_Implementation(FGameplayTag Bui
 		return;
 	}
 
-	if (const IModularTeamAgentInterface* const TeamAgent = Cast<IModularTeamAgentInterface>(GetPlayerState<APlayerState>()))
+	Building->InitializeConstructionSite();
+	if (const IModularTeamAgentInterface* const TeamAgent = Cast<IModularTeamAgentInterface>(PlayerState))
 	{
 		IModularTeamAgentInterface* const BuildingTeamAgent = Cast<IModularTeamAgentInterface>(Building);
 		BuildingTeamAgent->SetGenericTeamId(TeamAgent->GetGenericTeamId());
 	}
-	Building->SetBuildingMode();
+	Building->FinishSpawning(Transform);
+
+	USurvivalWorkerComponent* WorkerComponent = Builder->FindComponentByClass<USurvivalWorkerComponent>();
+	if (!WorkerComponent)
+	{
+		WorkerComponent = NewObject<USurvivalWorkerComponent>(Builder, TEXT("SurvivalWorker"));
+		Builder->AddInstanceComponent(WorkerComponent);
+		WorkerComponent->RegisterComponent();
+	}
+	if (!WorkerComponent->StartBuildOrder(Building))
+	{
+		Building->Destroy();
+		Economy->AddResources(Option->Cost);
+		SetBuildResult(ESurvivalBuildFailure::InvalidBuilder);
+		return;
+	}
 	SetBuildResult(ESurvivalBuildFailure::None);
 }
 
@@ -127,13 +141,10 @@ ESurvivalBuildFailure USurvivalBuildComponent::ValidateRequest(
 	{
 		return ESurvivalBuildFailure::InvalidBuilder;
 	}
-	if (Transform.ContainsNaN() || !Transform.GetScale3D().Equals(FVector::OneVector, KINDA_SMALL_NUMBER))
+	if (Transform.ContainsNaN() || Transform.GetLocation().GetAbsMax() > HALF_WORLD_MAX ||
+		!Transform.GetScale3D().Equals(FVector::OneVector, KINDA_SMALL_NUMBER))
 	{
 		return ESurvivalBuildFailure::InvalidTransform;
-	}
-	if (FVector::DistSquared(Builder->GetActorLocation(), Transform.GetLocation()) > FMath::Square(MaxBuildDistance))
-	{
-		return ESurvivalBuildFailure::OutOfRange;
 	}
 
 	int32 ExistingCount = 0;

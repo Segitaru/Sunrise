@@ -103,7 +103,7 @@ int32 USurvivalGameMatchComponent::GetAliveMainBaseCount() const
 	int32 Count = 0;
 	for (const ASurvivalBuilding* Base : MainBases)
 	{
-		Count += IsValid(Base) && Base->IsAlive() && Base->GetHealth() > 0.0f ? 1 : 0;
+		Count += IsValid(Base) && Base->IsAlive() && Base->GetHealth() > 0.0f && Base->IsConstructionComplete() ? 1 : 0;
 	}
 	return Count;
 }
@@ -469,8 +469,19 @@ bool USurvivalGameMatchComponent::HasRecoveryPath() const
 	{
 		const IModularTeamAgentInterface* TeamAgent = Cast<IModularTeamAgentInterface>(PlayerState);
 		const USurvivalEconomyComponent* Economy = PlayerState ? PlayerState->FindComponentByClass<USurvivalEconomyComponent>() : nullptr;
-		if (TeamAgent && Economy && HasLivingWorkerForTeam(GenericTeamIdToInteger(TeamAgent->GetGenericTeamId())) &&
-			Economy->CanAfford(BaseDefaults->GetConstructionCost()))
+		const bool bHasWorker = TeamAgent && HasLivingWorkerForTeam(GenericTeamIdToInteger(TeamAgent->GetGenericTeamId()));
+		if (!bHasWorker)
+		{
+			continue;
+		}
+		for (const ASurvivalBuilding* Base : MainBases)
+		{
+			if (IsValid(Base) && Base->GetOwner() == PlayerState && Base->IsAlive() && !Base->IsConstructionComplete())
+			{
+				return true;
+			}
+		}
+		if (Economy && Economy->CanAfford(BaseDefaults->GetConstructionCost()))
 		{
 			return true;
 		}

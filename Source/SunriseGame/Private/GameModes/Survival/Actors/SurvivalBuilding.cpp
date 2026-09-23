@@ -1,10 +1,13 @@
 #include "GameModes/Survival/Actors/SurvivalBuilding.h"
 
 #include "Components/StaticMeshComponent.h"
+#include "Components/WidgetComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "GameModes/Survival/Components/SurvivalEconomyComponent.h"
 #include "GameModes/Survival/Components/SurvivalProductionComponent.h"
 #include "GameModes/Survival/SurvivalGameMatchComponent.h"
+#include "GameModes/Survival/UI/SurvivalProductionQueueWidget.h"
+#include "Net/UnrealNetwork.h"
 #include "UObject/ConstructorHelpers.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SurvivalBuilding)
@@ -15,25 +18,53 @@ ASurvivalBuilding::ASurvivalBuilding()
 	BuildingMesh->SetupAttachment(GetPlacementComponent());
 	BuildingMesh->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	BuildingMesh->SetCanEverAffectNavigation(true);
+
+	ProductionQueueWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("ProductionQueueWidget"));
+	ProductionQueueWidget->SetupAttachment(GetPlacementComponent());
+	ProductionQueueWidget->SetWidgetClass(USurvivalProductionQueueWidget::StaticClass());
+	ProductionQueueWidget->SetWidgetSpace(EWidgetSpace::Screen);
+	ProductionQueueWidget->SetDrawAtDesiredSize(true);
+	ProductionQueueWidget->SetDrawSize(FVector2D(300.0f, 160.0f));
+	ProductionQueueWidget->SetPivot(FVector2D(0.5f, 1.0f));
+	ProductionQueueWidget->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ProductionQueueWidget->SetVisibility(false);
+
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
 	if (CubeMesh.Succeeded())
 	{
 		BuildingMesh->SetStaticMesh(CubeMesh.Object);
 	}
-	ConstructionStages.Add(0.0f, FConstructionParameters());
+
+	FConstructionParameters ConstructionStage;
+	ConstructionStage.bRequireBuild = true;
+	ConstructionStage.bAutoConstruction = false;
+	ConstructionStage.ConstructionTime = ConstructionDuration;
+	ConstructionStages.Add(0.0f, ConstructionStage);
 }
 
 void ASurvivalBuilding::BeginPlay()
 {
 	Super::BeginPlay();
+
+	FullBuildingMeshScale = BuildingMesh->GetRelativeScale3D();
+	UpdateConstructionPresentation();
+
+	if (USurvivalProductionComponent* Production = FindComponentByClass<USurvivalProductionComponent>())
+	{
+		ProductionQueueWidget->InitWidget();
+		if (USurvivalProductionQueueWidget* QueueWidget =
+				Cast<USurvivalProductionQueueWidget>(ProductionQueueWidget->GetUserWidgetObject()))
+		{
+			QueueWidget->SetProductionComponent(Production);
+		}
+		const FBox MeshBounds = BuildingMesh->Bounds.GetBox();
+		ProductionQueueWidget->SetWorldLocation(FVector(MeshBounds.GetCenter().X, MeshBounds.GetCenter().Y, MeshBounds.Max.Z + 50.0f));
+	}
+
+	ApplyOperationalState();
 	VitalityComponent->OnVitalityStateChanged.AddDynamic(this, &ThisClass::HandleBuildingVitalityStateChanged);
 	if (HasAuthority())
 	{
-		if (USurvivalEconomyComponent* Economy = USurvivalEconomyComponent::Find(GetOwner()))
-		{
-			Economy->AddPopulationCapacity(PopulationCapacity);
-			bEconomyCapacityApplied = true;
-		}
 		if (USurvivalGameMatchComponent* Match = USurvivalGameMatchComponent::Find(this))
 		{
 			Match->RegisterBuilding(this);
@@ -60,6 +91,79 @@ void ASurvivalBuilding::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	}
 	Super::EndPlay(EndPlayReason);
 }
+
+void ASurvivalBuilding::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ThisClass, bUnderConstruction);
+	DOREPLIFETIME(ThisClass, SurvivalConstructionProgress);
+}
+
+void ASurvivalBuilding::InitializeConstructionSite()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	bUnderConstruction = true;
+	SurvivalConstructionProgress = 0.0f;
+}
+
+bool ASurvivalBuilding::ApplyConstructionWork(float WorkSeconds)
+{
+	if (!HasAuthority() || !bUnderConstruction || !IsAlive() || !FMath::IsFinite(WorkSeconds) || WorkSeconds <= 0.0f)
+	{
+		return false;
+	}
+
+	SurvivalConstructionProgress =
+		FMath::Clamp(SurvivalConstructionProgress + WorkSeconds / FMath::Max(0.1f, ConstructionDuration), 0.0f, 1.0f);
+	if (SurvivalConstructionProgress >= 1.0f)
+	{
+		bUnderConstruction = false;
+		ApplyOperationalState();
+		FinishBuilding();
+	}
+	UpdateConstructionPresentation();
+	ForceNetUpdate();
+	return !bUnderConstruction;
+}
+
+void ASurvivalBuilding::ApplyOperationalState()
+{
+	const USurvivalProductionComponent* Production = FindComponentByClass<USurvivalProductionComponent>();
+	ProductionQueueWidget->SetVisibility(!bUnderConstruction && Production && !Production->GetProductionOptions().IsEmpty());
+
+	if (HasAuthority() && !bUnderConstruction && !bEconomyCapacityApplied)
+	{
+		if (USurvivalEconomyComponent* Economy = USurvivalEconomyComponent::Find(GetOwner()))
+		{
+			Economy->AddPopulationCapacity(PopulationCapacity);
+			bEconomyCapacityApplied = true;
+		}
+	}
+}
+
+void ASurvivalBuilding::UpdateConstructionPresentation()
+{
+	if (!BuildingMesh)
+	{
+		return;
+	}
+	FVector DisplayScale = FullBuildingMeshScale;
+	if (bUnderConstruction)
+	{
+		DisplayScale.Z *= FMath::Lerp(0.15f, 1.0f, SurvivalConstructionProgress);
+	}
+	BuildingMesh->SetRelativeScale3D(DisplayScale);
+}
+
+void ASurvivalBuilding::OnRep_ConstructionState()
+{
+	UpdateConstructionPresentation();
+	ApplyOperationalState();
+}
+
 void ASurvivalBuilding::HandleBuildingVitalityStateChanged(AActor*, EVitalityState, EVitalityState NewState)
 {
 	if (!HasAuthority() || NewState == EVitalityState::Healthy)
@@ -79,7 +183,6 @@ void ASurvivalBuilding::HandleBuildingVitalityStateChanged(AActor*, EVitalitySta
 		bEconomyCapacityApplied = false;
 	}
 }
-
 
 void ASurvivalBuilding::SetLocallySelected(bool bSelected)
 {
