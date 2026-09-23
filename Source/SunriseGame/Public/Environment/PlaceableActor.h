@@ -37,10 +37,13 @@ public:
 protected:
 	UFUNCTION()
 	void HandleVitalityStateChanged(AActor* OwningActor, EVitalityState OldState, EVitalityState NewState);
+
 	UFUNCTION(BlueprintImplementableEvent, Category = "Sunrise|Presentation")
 	void BP_VitalityStateChanged(EVitalityState OldState, EVitalityState NewState);
+
 	UFUNCTION()
 	void OnRep_TeamId(FGenericTeamId OldTeamId);
+
 	UFUNCTION()
 	void OnRep_ControllingAgent(AActor* OldAgent);
 
@@ -87,6 +90,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Vitality", meta = (ClampMin = "1"))
 	float InitialMaxHealth = 500.0f;
+
+	UPROPERTY(BlueprintReadOnly)
+	float CurrentLevel = 0;
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_ControllingAgent)
