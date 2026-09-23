@@ -81,6 +81,15 @@ void ASurvivalBuilding::HandleBuildingVitalityStateChanged(AActor*, EVitalitySta
 }
 
 
+void ASurvivalBuilding::SetLocallySelected(bool bSelected)
+{
+	if (BuildingMesh)
+	{
+		BuildingMesh->SetRenderCustomDepth(bSelected);
+		BuildingMesh->SetCustomDepthStencilValue(bSelected ? 1 : 0);
+	}
+}
+
 void ASurvivalBuilding::ConfigureBasicShape(
 	const FVector& RelativeScale, ESurvivalBuildingRole InRole, float MaxHealth, int32 InPopulationCapacity)
 {
@@ -92,6 +101,7 @@ void ASurvivalBuilding::ConfigureBasicShape(
 
 ASurvivalMainBase::ASurvivalMainBase()
 {
+	ProductionComponent = CreateDefaultSubobject<USurvivalProductionComponent>(TEXT("SurvivalProduction"));
 	ConfigureBasicShape(FVector(4.0f, 4.0f, 2.2f), ESurvivalBuildingRole::MainBase, 2500.0f, 10);
 	ConstructionCost.Wood = 400.0f;
 	ConstructionCost.Stone = 250.0f;

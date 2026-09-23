@@ -5,6 +5,7 @@
 #include "AbilitySystemComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
 #include "Engine/EngineTypes.h"
+#include "Environment/Resources/SunriseResourceNode.h"
 #include "GameModes/Overload/Interfaces/OverloadHackable.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
@@ -92,7 +93,8 @@ void USunriseOrderCommandAbility::ActivateAbility(FGameplayAbilitySpecHandle Han
 				}
 			}
 		}
-		if (IsValid(TargetUnit) && TargetUnit->IsAlive())
+		const ASunriseResourceNode* ResourceNode = Cast<ASunriseResourceNode>(Target);
+		if ((IsValid(TargetUnit) && TargetUnit->IsAlive()) || (IsValid(ResourceNode) && ResourceNode->GetRemainingAmount() > 0))
 		{
 			OrderTag = SunriseOrders::Target;
 		}

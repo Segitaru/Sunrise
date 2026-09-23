@@ -2,6 +2,7 @@
 
 #include "Abilities/GameplayAbilityTargetTypes.h"
 #include "Abilities/SunriseUnitOrderAbility.h"
+#include "Environment/Resources/SunriseResourceNode.h"
 #include "GameModes/Overload/Components/OverloadInteractorComponent.h"
 #include "GameModes/Overload/Interfaces/OverloadHackable.h"
 #include "Units/SunriseUnit.h"
@@ -52,8 +53,12 @@ bool USunriseUnitOrderExecutionAbility::ExecuteOrder(const FGameplayEventData& E
 
 	AActor* TargetActor = const_cast<AActor*>(Event.Target.Get());
 	ASunriseUnit* TargetUnit = Cast<ASunriseUnit>(TargetActor);
-	if (Event.EventTag == SunriseOrders::Target &&
-		(!IsValid(TargetUnit) || TargetUnit == Unit || TargetUnit->GetWorld() != GetWorld() || !TargetUnit->IsAlive()))
+	const ASunriseResourceNode* ResourceNode = Cast<ASunriseResourceNode>(TargetActor);
+	const bool bValidUnitTarget =
+		IsValid(TargetUnit) && TargetUnit != Unit && TargetUnit->GetWorld() == GetWorld() && TargetUnit->IsAlive();
+	const bool bValidResourceTarget =
+		IsValid(ResourceNode) && ResourceNode->GetWorld() == GetWorld() && ResourceNode->GetRemainingAmount() > 0;
+	if (Event.EventTag == SunriseOrders::Target && !bValidUnitTarget && !bValidResourceTarget)
 	{
 		return false;
 	}
@@ -70,9 +75,9 @@ bool USunriseUnitOrderExecutionAbility::ExecuteOrder(const FGameplayEventData& E
 	}
 	if (Event.EventTag == SunriseOrders::Target)
 	{
-		if (!Unit->HasPawnTag(SunrisePawnTags::Class_Healer) || Unit->CanTargetWithWeapon(TargetUnit))
+		if (ResourceNode || !Unit->HasPawnTag(SunrisePawnTags::Class_Healer) || Unit->CanTargetWithWeapon(TargetUnit))
 		{
-			ISunriseOrderReceiver::Execute_IssueTargetOrder(Unit, TargetUnit);
+			ISunriseOrderReceiver::Execute_IssueTargetOrder(Unit, TargetActor);
 		}
 		else
 		{

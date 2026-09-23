@@ -31,6 +31,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Survival|Building")
 	int32 GetPopulationCapacity() const { return PopulationCapacity; }
 
+	UStaticMeshComponent* GetBuildingMeshComponent() const { return BuildingMesh; }
+	void SetLocallySelected(bool bSelected);
+
 protected:
 	void ConfigureBasicShape(const FVector& RelativeScale, ESurvivalBuildingRole InRole, float MaxHealth, int32 InPopulationCapacity);
 	UFUNCTION()
@@ -59,6 +62,10 @@ class SUNRISEGAME_API ASurvivalMainBase : public ASurvivalBuilding
 	GENERATED_BODY()
 public:
 	ASurvivalMainBase();
+
+protected:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Survival|Production")
+	TObjectPtr<USurvivalProductionComponent> ProductionComponent;
 };
 
 UCLASS(Blueprintable)

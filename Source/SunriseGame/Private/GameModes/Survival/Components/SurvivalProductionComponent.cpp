@@ -1,11 +1,15 @@
 #include "GameModes/Survival/Components/SurvivalProductionComponent.h"
 
+#include "ControllableEntities/ControllableComponent.h"
+#include "ControllableEntities/ControllableEntitiesManager.h"
 #include "GameFramework/Controller.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
 #include "GameModes/Survival/Actors/SurvivalBuilding.h"
 #include "GameModes/Survival/Components/SurvivalEconomyComponent.h"
+#include "GameModes/Survival/Components/SurvivalWorkerComponent.h"
 #include "GameModes/Survival/SurvivalGameMatchComponent.h"
+#include "GameModes/Survival/SurvivalGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 #include "Pawn/ModularPawnData.h"
 #include "TimerManager.h"
@@ -22,6 +26,22 @@ USurvivalProductionComponent::USurvivalProductionComponent()
 void USurvivalProductionComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	const ASurvivalBuilding* Building = Cast<ASurvivalBuilding>(GetOwner());
+	if (Building && Building->IsMainBase() && !FindOption(SurvivalGameplayTags::Unit_Worker))
+	{
+		const USurvivalGameMatchComponent* Match = USurvivalGameMatchComponent::Find(this);
+		const TSoftObjectPtr<UModularPawnData> WorkerDefinition =
+			Match ? Match->GetStartingWorkerDefinition() : TSoftObjectPtr<UModularPawnData>();
+		if (!WorkerDefinition.IsNull())
+		{
+			FSurvivalProductionOption WorkerOption;
+			WorkerOption.UnitId = SurvivalGameplayTags::Unit_Worker;
+			WorkerOption.UnitDefinition = WorkerDefinition;
+			WorkerOption.Cost.Food = 50.0f;
+			WorkerOption.ProductionTime = 5.0f;
+			ProductionOptions.Add(WorkerOption);
+		}
+	}
 	if (GetOwner() && GetOwner()->HasAuthority())
 	{
 		if (USunriseUnitManagerComponent* UnitManager = USunriseUnitManagerComponent::Find(this))
@@ -58,8 +78,10 @@ void USurvivalProductionComponent::ServerQueueUnit_Implementation(FGameplayTag U
 	USurvivalGameMatchComponent* Match = USurvivalGameMatchComponent::Find(this);
 	APlayerState* PlayerState = Barracks ? Cast<APlayerState>(Barracks->GetOwner()) : nullptr;
 	USurvivalEconomyComponent* Economy = PlayerState ? PlayerState->FindComponentByClass<USurvivalEconomyComponent>() : nullptr;
-	if (!Barracks || !Barracks->HasAuthority() || !Barracks->IsAlive() || Barracks->GetBuildingRole() != ESurvivalBuildingRole::Barracks ||
-		!Option || Option->UnitDefinition.IsNull() || Queue.Num() >= MaxQueueSize || !Match ||
+	const ESurvivalBuildingRole ProducerRole = Barracks ? Barracks->GetBuildingRole() : ESurvivalBuildingRole::Generic;
+	if (!Barracks || !Barracks->HasAuthority() || !Barracks->IsAlive() ||
+		(ProducerRole != ESurvivalBuildingRole::Barracks && ProducerRole != ESurvivalBuildingRole::MainBase) || !Option ||
+		Option->UnitDefinition.IsNull() || Queue.Num() >= MaxQueueSize || !Match ||
 		Match->GetSurvivalMatchState() != ESurvivalMatchState::InProgress || !Economy)
 	{
 		return;
@@ -125,6 +147,27 @@ void USurvivalProductionComponent::FinishCurrentProduction()
 	if (Unit && Option)
 	{
 		ProducedPopulation.Add(Unit, FMath::Max(1, Option->PopulationCost));
+		if (Option->UnitId == SurvivalGameplayTags::Unit_Worker)
+		{
+			if (!Unit->FindComponentByClass<USurvivalWorkerComponent>())
+			{
+				USurvivalWorkerComponent* WorkerComponent = NewObject<USurvivalWorkerComponent>(Unit, TEXT("SurvivalWorker"));
+				Unit->AddInstanceComponent(WorkerComponent);
+				WorkerComponent->RegisterComponent();
+			}
+			if (UControllableComponent* Controllable = UControllableComponent::FindControllableComponent(Unit))
+			{
+				Controllable->SetPlayerControllable(true);
+			}
+			if (UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(Controller))
+			{
+				Manager->RegisterControlledEntity(Unit);
+			}
+			if (USurvivalGameMatchComponent* Match = USurvivalGameMatchComponent::Find(this))
+			{
+				Match->RegisterProducedWorker(Unit);
+			}
+		}
 	}
 	else if (Economy && Option)
 	{

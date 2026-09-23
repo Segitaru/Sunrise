@@ -9,7 +9,7 @@ class ASurvivalBuilding;
 class ASunriseResourceNode;
 class FLifetimeProperty;
 
-/** Server gather/carry/deposit mechanics called by a GameplayAbility or BT task. */
+/** Server-owned gather, carry, return and deposit loop for a Survival worker. */
 UCLASS(Blueprintable, BlueprintType, meta = (BlueprintSpawnableComponent))
 class SUNRISEGAME_API USurvivalWorkerComponent : public UActorComponent
 {
@@ -17,6 +17,7 @@ class SUNRISEGAME_API USurvivalWorkerComponent : public UActorComponent
 
 public:
 	USurvivalWorkerComponent();
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Survival|Worker")
@@ -25,6 +26,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Survival|Worker")
 	bool DepositAt(ASurvivalBuilding* Building);
 
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Survival|Worker")
+	bool StartGatherOrder(ASunriseResourceNode* Node);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Survival|Worker")
+	void CancelWorkerOrder();
+
 	UFUNCTION(BlueprintPure, Category = "Survival|Worker")
 	int32 GetCargoAmount() const { return CargoAmount; }
 
@@ -32,6 +39,9 @@ public:
 	ESurvivalResourceType GetCargoType() const { return CargoType; }
 
 protected:
+	ASurvivalBuilding* FindClosestDepositBuilding() const;
+	void MoveOwnerTo(AActor* Target);
+
 	UPROPERTY(EditDefaultsOnly, Category = "Survival|Worker", meta = (ClampMin = "1"))
 	int32 CarryCapacity = 20;
 
@@ -42,9 +52,21 @@ protected:
 	float InteractionRange = 250.0f;
 
 private:
+	enum class EWorkerOrderState : uint8
+	{
+		None,
+		Gathering,
+		Returning
+	};
+
 	UPROPERTY(Replicated)
 	ESurvivalResourceType CargoType = ESurvivalResourceType::Food;
 
 	UPROPERTY(Replicated)
 	int32 CargoAmount = 0;
+
+	TWeakObjectPtr<ASunriseResourceNode> TargetNode;
+	TWeakObjectPtr<ASurvivalBuilding> TargetDeposit;
+	EWorkerOrderState WorkerOrderState = EWorkerOrderState::None;
+	float MoveRefreshRemaining = 0.0f;
 };

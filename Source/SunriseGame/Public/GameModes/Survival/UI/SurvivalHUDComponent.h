@@ -1,17 +1,56 @@
 #pragma once
 
+#include "GameplayTagContainer.h"
 #include "UI/Components/SunriseHUDComponent.h"
 
 #include "SurvivalHUDComponent.generated.h"
 
 class ASunriseHUD;
+class ASunrisePlayerController;
+class ASunriseUnit;
+class ASurvivalBuilding;
+class ASurvivalBuildingPlacementPreview;
+class USunriseEndScreenWidget;
+struct FSurvivalBuildOption;
 
-/** Asset-independent HUD for the Survival vertical slice. */
+/** Asset-independent Survival HUD, building selection and fallback command panel. */
 UCLASS(Blueprintable, BlueprintType, meta = (BlueprintSpawnableComponent))
 class SUNRISEGAME_API USurvivalHUDComponent : public USunriseHUDComponent
 {
 	GENERATED_BODY()
 
 public:
+	USurvivalHUDComponent();
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void DrawHUD(ASunriseHUD* HUD) override;
+
+	UFUNCTION(BlueprintPure, Category = "Survival|Selection")
+	ASurvivalBuilding* GetSelectedBuilding() const { return SelectedBuilding.Get(); }
+
+private:
+	ASunrisePlayerController* GetController() const;
+	ASunriseUnit* FindSelectedWorker() const;
+	void HandlePrimaryClick();
+	bool HandleCommandPanelClick(const FVector2D& MousePosition, float ViewportHeight);
+	void BeginPlacement(const FSurvivalBuildOption& Option, ASunriseUnit* Builder);
+	void UpdatePlacementPreview();
+	void EndPlacement();
+	void ShowEndScreen();
+	void SelectBuilding(ASurvivalBuilding* Building);
+
+	TWeakObjectPtr<ASurvivalBuilding> SelectedBuilding;
+	TWeakObjectPtr<ASunriseUnit> PendingBuilder;
+	TWeakObjectPtr<ASunriseUnit> LastSelectedWorker;
+	FGameplayTag PendingBuildingId;
+	FVector PendingPlacementExtent = FVector::ZeroVector;
+
+	UPROPERTY(Transient)
+	TObjectPtr<ASurvivalBuildingPlacementPreview> PlacementPreview;
+
+	UPROPERTY(Transient)
+	TObjectPtr<USunriseEndScreenWidget> EndScreen;
+
+	bool bPrimaryButtonWasDown = false;
+	bool bSecondaryButtonWasDown = false;
 };

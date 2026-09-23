@@ -2,6 +2,8 @@
 
 #include <Engine/DamageEvents.h>
 
+#include "ControllableEntities/ControllableComponent.h"
+#include "ControllableEntities/ControllableEntitiesManager.h"
 #include "EngineUtils.h"
 #include "GameFeatures/Components/ExperienceManagerComponent.h"
 #include "GameFeatures/ExperienceDefinition.h"
@@ -14,6 +16,7 @@
 #include "GameModes/Survival/SurvivalGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 #include "Pawn/ModularPawnData.h"
+#include "Player/SunrisePlayerController.h"
 #include "Teams/System/ModularTeamAgentInterface.h"
 #include "TimerManager.h"
 #include "Units/Components/SunriseUnitManagerComponent.h"
@@ -85,6 +88,7 @@ void USurvivalGameMatchComponent::UnregisterBuilding(ASurvivalBuilding* Building
 	if (HasAuthority())
 	{
 		MainBases.Remove(Building);
+		EvaluateDefeatCondition();
 	}
 }
 
@@ -99,7 +103,7 @@ int32 USurvivalGameMatchComponent::GetAliveMainBaseCount() const
 	int32 Count = 0;
 	for (const ASurvivalBuilding* Base : MainBases)
 	{
-		Count += IsValid(Base) && Base->IsAlive() ? 1 : 0;
+		Count += IsValid(Base) && Base->IsAlive() && Base->GetHealth() > 0.0f ? 1 : 0;
 	}
 	return Count;
 }
@@ -141,6 +145,7 @@ void USurvivalGameMatchComponent::InitializeMode()
 		return;
 	}
 
+	ResolvedEnemyTeamId = ResolveEnemyTeamId();
 	int32 PlayerIndex = 0;
 	for (APlayerState* PlayerState : GameState->PlayerArray)
 	{
@@ -221,7 +226,16 @@ void USurvivalGameMatchComponent::InitializePlayer(APlayerState* PlayerState, in
 			Worker->AddInstanceComponent(WorkerComponent);
 			WorkerComponent->RegisterComponent();
 		}
+		if (UControllableComponent* Controllable = UControllableComponent::FindControllableComponent(Worker))
+		{
+			Controllable->SetPlayerControllable(true);
+		}
+		if (UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(Controller))
+		{
+			Manager->RegisterControlledEntity(Worker);
+		}
 		Workers.Add(Worker);
+		StartingPopulationWorkers.Add(Worker);
 		Economy->TryReservePopulation(1);
 	}
 }
@@ -267,7 +281,7 @@ void USurvivalGameMatchComponent::StartNextWave()
 			ASunriseUnit* Unit = USunriseUnitManagerComponent::SpawnUnit(PawnData, FTransform(Location), GetOwner());
 			if (Unit)
 			{
-				Unit->SetTeamId(EnemyTeamId);
+				Unit->SetTeamId(ResolvedEnemyTeamId);
 				if (ASurvivalBuilding* Base = FindClosestLivingBase(Location))
 				{
 					Unit->IssueAutonomousMoveOrder(Base->GetActorLocation());
@@ -286,9 +300,9 @@ void USurvivalGameMatchComponent::UpdateMatch()
 	{
 		return;
 	}
-	if (GetAliveMainBaseCount() == 0 && !HasRecoveryPath())
+	EvaluateDefeatCondition();
+	if (MatchState != ESurvivalMatchState::InProgress)
 	{
-		SetMatchState(ESurvivalMatchState::Defeat);
 		return;
 	}
 
@@ -349,18 +363,78 @@ void USurvivalGameMatchComponent::SetMatchState(ESurvivalMatchState NewState)
 	{
 		NextWaveServerTime = -1.0f;
 		GetWorld()->GetTimerManager().ClearTimer(UpdateTimer);
+		if (const AGameStateBase* GameState = GetWorld()->GetGameState())
+		{
+			for (APlayerState* PlayerState : GameState->PlayerArray)
+			{
+				if (ASunrisePlayerController* Controller = PlayerState ? Cast<ASunrisePlayerController>(PlayerState->GetOwner()) : nullptr)
+				{
+					Controller->SetCommandsEnabled(false);
+				}
+			}
+		}
 	}
 }
 
 void USurvivalGameMatchComponent::HandleUnitDied(ASunriseUnit* Unit)
 {
-	if (Workers.Contains(Unit))
+	if (StartingPopulationWorkers.Remove(TWeakObjectPtr<ASunriseUnit>(Unit)) > 0)
 	{
 		if (USurvivalEconomyComponent* Economy = USurvivalEconomyComponent::Find(Unit))
 		{
 			Economy->ReleasePopulation(1);
 		}
 	}
+	EvaluateDefeatCondition();
+}
+
+void USurvivalGameMatchComponent::RegisterProducedWorker(ASunriseUnit* Worker)
+{
+	if (HasAuthority() && IsValid(Worker))
+	{
+		Workers.AddUnique(Worker);
+	}
+}
+
+void USurvivalGameMatchComponent::EvaluateDefeatCondition()
+{
+	if (MatchState == ESurvivalMatchState::InProgress && GetAliveMainBaseCount() == 0 && !HasRecoveryPath())
+	{
+		SetMatchState(ESurvivalMatchState::Defeat);
+	}
+}
+
+ASurvivalBuilding* USurvivalGameMatchComponent::GetClosestLivingMainBase(const FVector& Location) const
+{
+	return FindClosestLivingBase(Location);
+}
+
+int32 USurvivalGameMatchComponent::ResolveEnemyTeamId() const
+{
+	TSet<int32> PlayerTeams;
+	const AGameStateBase* GameState = GetWorld() ? GetWorld()->GetGameState() : nullptr;
+	if (GameState)
+	{
+		for (const APlayerState* PlayerState : GameState->PlayerArray)
+		{
+			if (const IModularTeamAgentInterface* TeamAgent = Cast<IModularTeamAgentInterface>(PlayerState))
+			{
+				PlayerTeams.Add(GenericTeamIdToInteger(TeamAgent->GetGenericTeamId()));
+			}
+		}
+	}
+	int32 Candidate = FMath::Clamp(EnemyTeamId, 0, 254);
+	while (Candidate < 254 && PlayerTeams.Contains(Candidate))
+	{
+		++Candidate;
+	}
+	if (PlayerTeams.Contains(Candidate))
+	{
+		for (Candidate = 0; Candidate < 255 && PlayerTeams.Contains(Candidate); ++Candidate)
+		{
+		}
+	}
+	return Candidate < 255 ? Candidate : 254;
 }
 
 ASurvivalBuilding* USurvivalGameMatchComponent::FindClosestLivingBase(const FVector& Location) const
@@ -369,7 +443,7 @@ ASurvivalBuilding* USurvivalGameMatchComponent::FindClosestLivingBase(const FVec
 	float BestDistance = TNumericLimits<float>::Max();
 	for (ASurvivalBuilding* Base : MainBases)
 	{
-		if (!IsValid(Base) || !Base->IsAlive())
+		if (!IsValid(Base) || !Base->IsAlive() || Base->GetHealth() <= 0.0f)
 		{
 			continue;
 		}

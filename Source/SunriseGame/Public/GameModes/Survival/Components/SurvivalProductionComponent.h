@@ -31,7 +31,7 @@ struct FSurvivalProductionOption
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnSurvivalProductionChanged);
 
-/** Server-authoritative production queue for a Survival barracks. */
+/** Server-authoritative production queue for a Survival production building. */
 UCLASS(Blueprintable, BlueprintType, meta = (BlueprintSpawnableComponent))
 class SUNRISEGAME_API USurvivalProductionComponent : public UActorComponent
 {
@@ -48,6 +48,9 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Survival|Production")
 	const TArray<FGameplayTag>& GetQueue() const { return Queue; }
+
+	UFUNCTION(BlueprintPure, Category = "Survival|Production")
+	const TArray<FSurvivalProductionOption>& GetProductionOptions() const { return ProductionOptions; }
 
 	UFUNCTION(BlueprintPure, Category = "Survival|Production")
 	float GetCurrentCompletionServerTime() const { return CurrentCompletionServerTime; }

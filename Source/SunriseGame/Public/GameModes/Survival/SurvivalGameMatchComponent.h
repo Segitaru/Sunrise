@@ -53,6 +53,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Survival")
 	int32 GetAliveWaveEnemyCount() const;
 
+	UFUNCTION(BlueprintPure, Category = "Survival")
+	ASurvivalBuilding* GetClosestLivingMainBase(const FVector& Location) const;
+
+	TSoftObjectPtr<UModularPawnData> GetStartingWorkerDefinition() const { return StartingWorkerDefinition; }
+	void RegisterProducedWorker(ASunriseUnit* Worker);
+
 	UPROPERTY(BlueprintAssignable, Category = "Survival")
 	FOnSurvivalMatchStateChanged OnMatchStateChanged;
 
@@ -63,9 +69,11 @@ protected:
 	void StartNextWave();
 	void UpdateMatch();
 	void SetMatchState(ESurvivalMatchState NewState);
+	void EvaluateDefeatCondition();
 	void HandleUnitDied(ASunriseUnit* Unit);
 	ASurvivalBuilding* FindClosestLivingBase(const FVector& Location) const;
 	bool HasRecoveryPath() const;
+	int32 ResolveEnemyTeamId() const;
 	bool HasLivingWorkerForTeam(int32 TeamId) const;
 	USunriseUnitManagerComponent* GetUnitManager() const;
 
@@ -121,10 +129,13 @@ private:
 	UPROPERTY()
 	TArray<TObjectPtr<ASunriseUnit>> Workers;
 
+	TSet<TWeakObjectPtr<ASunriseUnit>> StartingPopulationWorkers;
+
 	UPROPERTY()
 	TArray<TObjectPtr<ASunriseUnit>> ActiveWaveUnits;
 
 	FTimerHandle InitializationTimer;
 	FTimerHandle UpdateTimer;
 	bool bPlayersInitialized = false;
+	int32 ResolvedEnemyTeamId = INDEX_NONE;
 };

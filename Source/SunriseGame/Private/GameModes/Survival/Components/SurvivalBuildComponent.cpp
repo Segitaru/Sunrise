@@ -122,7 +122,7 @@ ESurvivalBuildFailure USurvivalBuildComponent::ValidateRequest(
 		return ESurvivalBuildFailure::MatchEnded;
 	}
 	if (!IsValid(Builder) || !Builder->IsAlive() || !Controller || Builder->GetControllingAgent().GetObject() != Controller ||
-		!Builder->FindComponentByClass<USurvivalWorkerComponent>())
+		(!Builder->FindComponentByClass<USurvivalWorkerComponent>() && !Builder->HasPawnTag(SurvivalGameplayTags::Unit_Worker)))
 	{
 		return ESurvivalBuildFailure::InvalidBuilder;
 	}
@@ -138,7 +138,7 @@ ESurvivalBuildFailure USurvivalBuildComponent::ValidateRequest(
 	int32 ExistingCount = 0;
 	for (TActorIterator<ASurvivalBuilding> It(GetWorld()); It; ++It)
 	{
-		if (It->GetOwner() == PlayerState && It->IsA(Option.BuildingClass))
+		if (It->GetOwner() == PlayerState && It->IsA(Option.BuildingClass) && It->IsAlive() && It->GetHealth() > 0.0f)
 		{
 			++ExistingCount;
 		}
@@ -149,8 +149,14 @@ ESurvivalBuildFailure USurvivalBuildComponent::ValidateRequest(
 	}
 
 	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(SurvivalBuildingPlacement), false, Builder);
-	if (GetWorld()->OverlapBlockingTestByChannel(Transform.GetLocation(), Transform.GetRotation(), ECC_WorldStatic,
-			FCollisionShape::MakeBox(Option.PlacementExtent), QueryParams))
+	const FVector TestExtent(FMath::Max(1.0f, Option.PlacementExtent.X - 5.0f), FMath::Max(1.0f, Option.PlacementExtent.Y - 5.0f),
+		FMath::Max(1.0f, Option.PlacementExtent.Z - 5.0f));
+	const FVector TestLocation = Transform.GetLocation() + FVector(0.0f, 0.0f, 6.0f);
+	FCollisionObjectQueryParams ObjectQuery;
+	ObjectQuery.AddObjectTypesToQuery(ECC_WorldStatic);
+	ObjectQuery.AddObjectTypesToQuery(ECC_WorldDynamic);
+	if (GetWorld()->OverlapBlockingTestByObjectType(
+			TestLocation, Transform.GetRotation(), ObjectQuery, FCollisionShape::MakeBox(TestExtent), QueryParams))
 	{
 		return ESurvivalBuildFailure::Blocked;
 	}
