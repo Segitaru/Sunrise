@@ -30,9 +30,20 @@ public:
 	APlaceableActor();
 	virtual void PostInitializeComponents() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual float TakeDamage(
+		float DamageAmount, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Placement")
 	USceneComponent* GetPlacementComponent() const { return PlacementComponent; }
+
+	UFUNCTION(BlueprintPure, Category = "Sunrise|Vitality")
+	float GetHealth() const;
+
+	UFUNCTION(BlueprintPure, Category = "Sunrise|Vitality")
+	float GetMaxHealth() const;
+
+	UFUNCTION(BlueprintPure, Category = "Sunrise|Vitality")
+	bool IsAlive() const;
 
 protected:
 	UFUNCTION()
