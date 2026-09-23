@@ -116,20 +116,28 @@ bool USurvivalWorkerComponent::StartGatherOrder(ASunriseResourceNode* Node)
 	{
 		return false;
 	}
-	if (CargoAmount > 0 && CargoType != Node->GetResourceType())
+	ASurvivalBuilding* Deposit = CargoAmount > 0 ? FindClosestDepositBuilding() : nullptr;
+	if (CargoAmount > 0 && !Deposit)
 	{
 		return false;
 	}
 	TargetNode = Node;
-	TargetDeposit.Reset();
+	TargetDeposit = Deposit;
 	TargetBuilding.Reset();
-	WorkerOrderState = EWorkerOrderState::Gathering;
+	WorkerOrderState = CargoAmount > 0 ? EWorkerOrderState::Returning : EWorkerOrderState::Gathering;
 	if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(Worker->GetController()))
 	{
 		AI->StopOrders();
 	}
 	Worker->SetExternalInteractionActive(true);
-	MoveOwnerTo(Node);
+	if (Deposit)
+	{
+		MoveOwnerTo(Deposit);
+	}
+	else
+	{
+		MoveOwnerTo(Node);
+	}
 	SetComponentTickEnabled(true);
 	return true;
 }
