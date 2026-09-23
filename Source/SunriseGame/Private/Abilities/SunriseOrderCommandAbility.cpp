@@ -93,7 +93,27 @@ void USunriseOrderCommandAbility::ActivateAbility(FGameplayAbilitySpecHandle Han
 				}
 			}
 		}
-		const ASunriseResourceNode* ResourceNode = Cast<ASunriseResourceNode>(Target);
+		ASunriseResourceNode* ResourceNode = Cast<ASunriseResourceNode>(Target);
+		if (!ResourceNode)
+		{
+			TArray<TEnumAsByte<EObjectTypeQuery>> ResourceObjectTypes;
+			ResourceObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+			ResourceObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldDynamic));
+			FHitResult ResourceHit;
+			if (PC->GetHitResultUnderCursorForObjects(ResourceObjectTypes, true, ResourceHit))
+			{
+				ResourceNode = Cast<ASunriseResourceNode>(ResourceHit.GetActor());
+				if (!ResourceNode && IsValid(ResourceHit.GetComponent()))
+				{
+					ResourceNode = Cast<ASunriseResourceNode>(ResourceHit.GetComponent()->GetOwner());
+				}
+				if (ResourceNode)
+				{
+					Target = ResourceNode;
+					Hit = ResourceHit;
+				}
+			}
+		}
 		if ((IsValid(TargetUnit) && TargetUnit->IsAlive()) || (IsValid(ResourceNode) && ResourceNode->GetRemainingAmount() > 0))
 		{
 			OrderTag = SunriseOrders::Target;

@@ -1,5 +1,6 @@
 #include "GameModes/Survival/Components/SurvivalProductionComponent.h"
 
+#include "Components/CapsuleComponent.h"
 #include "ControllableEntities/ControllableComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
 #include "GameFramework/Controller.h"
@@ -10,6 +11,7 @@
 #include "GameModes/Survival/Components/SurvivalWorkerComponent.h"
 #include "GameModes/Survival/SurvivalGameMatchComponent.h"
 #include "GameModes/Survival/SurvivalGameplayTags.h"
+#include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
 #include "Pawn/ModularPawnData.h"
 #include "TimerManager.h"
@@ -17,6 +19,57 @@
 #include "Units/SunriseUnit.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SurvivalProductionComponent)
+
+namespace
+{
+	ASunriseUnit* SpawnProducedUnit(ASurvivalBuilding* Producer, UModularPawnData* PawnData, AController* Controller)
+	{
+		if (!Producer || !PawnData || !Controller)
+		{
+			return nullptr;
+		}
+		UClass* PawnClass = PawnData->PawnClass.LoadSynchronous();
+		const ASunriseUnit* UnitDefaults =
+			PawnClass && PawnClass->IsChildOf(ASunriseUnit::StaticClass()) ? PawnClass->GetDefaultObject<ASunriseUnit>() : nullptr;
+		const UCapsuleComponent* Capsule = UnitDefaults ? UnitDefaults->GetCapsuleComponent() : nullptr;
+		UWorld* World = Producer->GetWorld();
+		UNavigationSystemV1* Navigation = World ? FNavigationSystem::GetCurrent<UNavigationSystemV1>(World) : nullptr;
+		if (!UnitDefaults || !Capsule || !Navigation)
+		{
+			return nullptr;
+		}
+
+		const FVector ProducerExtent = Producer->GetComponentsBoundingBox(true).GetExtent();
+		const float CapsuleRadius = Capsule->GetScaledCapsuleRadius();
+		const float CapsuleHalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+		const float InitialRadius = FMath::Max(ProducerExtent.GetMax() + CapsuleRadius + 100.0f, 300.0f);
+		constexpr int32 SlotsPerRing = 12;
+		constexpr int32 RingCount = 3;
+		for (int32 Ring = 0; Ring < RingCount; ++Ring)
+		{
+			const float Radius = InitialRadius + Ring * (CapsuleRadius * 2.0f + 100.0f);
+			for (int32 Slot = 0; Slot < SlotsPerRing; ++Slot)
+			{
+				const float Angle = UE_TWO_PI * static_cast<float>(Slot) / static_cast<float>(SlotsPerRing);
+				const FVector LocalDirection(FMath::Cos(Angle), FMath::Sin(Angle), 0.0f);
+				const FVector Candidate = Producer->GetActorLocation() + Producer->GetActorRotation().RotateVector(LocalDirection) * Radius;
+				FNavLocation NavLocation;
+				if (!Navigation->ProjectPointToNavigation(
+						Candidate, NavLocation, FVector(CapsuleRadius * 2.0f, CapsuleRadius * 2.0f, 500.0f)))
+				{
+					continue;
+				}
+				const FVector SpawnLocation = NavLocation.Location + FVector(0.0f, 0.0f, CapsuleHalfHeight + 2.0f);
+				if (ASunriseUnit* Unit = USunriseUnitManagerComponent::SpawnUnit(
+						PawnData, FTransform(Producer->GetActorRotation(), SpawnLocation), Controller))
+				{
+					return Unit;
+				}
+			}
+		}
+		return nullptr;
+	}
+} // namespace
 
 USurvivalProductionComponent::USurvivalProductionComponent()
 {
@@ -141,12 +194,19 @@ void USurvivalProductionComponent::FinishCurrentProduction()
 	ASunriseUnit* Unit = nullptr;
 	if (Barracks && Barracks->IsAlive() && Option && Controller && UnitManager && PawnData)
 	{
-		Unit = USunriseUnitManagerComponent::SpawnUnit(
-			PawnData, FTransform(Barracks->GetActorRotation(), Barracks->GetActorTransform().TransformPosition(SpawnOffset)), Controller);
+		Unit = SpawnProducedUnit(Barracks, PawnData, Controller);
 	}
 	if (Unit && Option)
 	{
 		ProducedPopulation.Add(Unit, FMath::Max(1, Option->PopulationCost));
+		if (UControllableComponent* Controllable = UControllableComponent::FindControllableComponent(Unit))
+		{
+			Controllable->SetPlayerControllable(true);
+		}
+		if (UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(Controller))
+		{
+			Manager->RegisterControlledEntity(Unit);
+		}
 		if (Option->UnitId == SurvivalGameplayTags::Unit_Worker)
 		{
 			if (!Unit->FindComponentByClass<USurvivalWorkerComponent>())
@@ -154,14 +214,6 @@ void USurvivalProductionComponent::FinishCurrentProduction()
 				USurvivalWorkerComponent* WorkerComponent = NewObject<USurvivalWorkerComponent>(Unit, TEXT("SurvivalWorker"));
 				Unit->AddInstanceComponent(WorkerComponent);
 				WorkerComponent->RegisterComponent();
-			}
-			if (UControllableComponent* Controllable = UControllableComponent::FindControllableComponent(Unit))
-			{
-				Controllable->SetPlayerControllable(true);
-			}
-			if (UControllableEntitiesManager* Manager = UControllableEntitiesManager::FindControllableEntitiesManager(Controller))
-			{
-				Manager->RegisterControlledEntity(Unit);
 			}
 			if (USurvivalGameMatchComponent* Match = USurvivalGameMatchComponent::Find(this))
 			{

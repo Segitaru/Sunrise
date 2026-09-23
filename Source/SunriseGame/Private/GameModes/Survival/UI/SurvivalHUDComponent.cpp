@@ -190,7 +190,7 @@ void USurvivalHUDComponent::HandlePrimaryClick()
 	}
 
 	FHitResult Hit;
-	if (!Controller->GetHitResultUnderCursorByChannel(UEngineTypes::ConvertToTraceType(ECC_Visibility), false, Hit))
+	if (!Controller->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit))
 	{
 		return;
 	}
@@ -290,7 +290,7 @@ void USurvivalHUDComponent::UpdatePlacementPreview()
 		return;
 	}
 	FHitResult Hit;
-	if (Controller->GetHitResultUnderCursorByChannel(UEngineTypes::ConvertToTraceType(ECC_Visibility), false, Hit))
+	if (Controller->GetHitResultUnderCursorByChannel(TraceTypeQuery1, false, Hit))
 	{
 		PlacementPreview->SetActorLocation(Hit.ImpactPoint + FVector(0.0f, 0.0f, PendingPlacementExtent.Z));
 	}

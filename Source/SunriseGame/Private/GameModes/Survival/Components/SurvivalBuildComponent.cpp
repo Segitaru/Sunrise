@@ -121,7 +121,8 @@ ESurvivalBuildFailure USurvivalBuildComponent::ValidateRequest(
 	{
 		return ESurvivalBuildFailure::MatchEnded;
 	}
-	if (!IsValid(Builder) || !Builder->IsAlive() || !Controller || Builder->GetControllingAgent().GetObject() != Controller ||
+	const UObject* ControllingAgent = IsValid(Builder) ? Builder->GetControllingAgent().GetObject() : nullptr;
+	if (!IsValid(Builder) || !Builder->IsAlive() || !Controller || (ControllingAgent != Controller && ControllingAgent != PlayerState) ||
 		(!Builder->FindComponentByClass<USurvivalWorkerComponent>() && !Builder->HasPawnTag(SurvivalGameplayTags::Unit_Worker)))
 	{
 		return ESurvivalBuildFailure::InvalidBuilder;
@@ -155,8 +156,8 @@ ESurvivalBuildFailure USurvivalBuildComponent::ValidateRequest(
 	FCollisionObjectQueryParams ObjectQuery;
 	ObjectQuery.AddObjectTypesToQuery(ECC_WorldStatic);
 	ObjectQuery.AddObjectTypesToQuery(ECC_WorldDynamic);
-	if (GetWorld()->OverlapBlockingTestByObjectType(
-			TestLocation, Transform.GetRotation(), ObjectQuery, FCollisionShape::MakeBox(TestExtent), QueryParams))
+	if (GetWorld()->OverlapBlockingTestByChannel(
+			TestLocation, Transform.GetRotation(), ECC_WorldStatic, FCollisionShape::MakeBox(TestExtent), QueryParams))
 	{
 		return ESurvivalBuildFailure::Blocked;
 	}

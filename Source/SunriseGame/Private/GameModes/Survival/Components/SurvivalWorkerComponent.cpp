@@ -6,11 +6,43 @@
 #include "GameFramework/PlayerState.h"
 #include "GameModes/Survival/Actors/SurvivalBuilding.h"
 #include "GameModes/Survival/Components/SurvivalEconomyComponent.h"
+#include "NavigationSystem.h"
 #include "Net/UnrealNetwork.h"
 #include "Units/AI/SunriseUnitAIController.h"
 #include "Units/SunriseUnit.h"
 
 #include UE_INLINE_GENERATED_CPP_BY_NAME(SurvivalWorkerComponent)
+
+namespace
+{
+	bool IsWithinInteractionRange(const AActor* Worker, const AActor* Target, float Range)
+	{
+		if (!Worker || !Target)
+		{
+			return false;
+		}
+		const FBox Bounds = Target->GetComponentsBoundingBox(true);
+		const FVector Location = Worker->GetActorLocation();
+		const FVector ClosestPoint(FMath::Clamp(Location.X, Bounds.Min.X, Bounds.Max.X),
+			FMath::Clamp(Location.Y, Bounds.Min.Y, Bounds.Max.Y), FMath::Clamp(Location.Z, Bounds.Min.Z, Bounds.Max.Z));
+		return FVector::DistSquared(Location, ClosestPoint) <= FMath::Square(Range);
+	}
+
+	FVector GetInteractionApproachLocation(const AActor* Worker, const AActor* Target, float Range)
+	{
+		const FBox Bounds = Target->GetComponentsBoundingBox(true);
+		FVector Direction = Worker->GetActorLocation() - Bounds.GetCenter();
+		Direction.Z = 0.0f;
+		Direction = Direction.GetSafeNormal();
+		if (Direction.IsNearlyZero())
+		{
+			Direction = -Target->GetActorForwardVector().GetSafeNormal2D();
+		}
+		const FVector Extent = Bounds.GetExtent();
+		const float BoundsRadius = FMath::Abs(Direction.X) * Extent.X + FMath::Abs(Direction.Y) * Extent.Y;
+		return Bounds.GetCenter() + Direction * (BoundsRadius + Range * 0.5f);
+	}
+} // namespace
 
 USurvivalWorkerComponent::USurvivalWorkerComponent()
 {
@@ -30,8 +62,7 @@ void USurvivalWorkerComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProper
 int32 USurvivalWorkerComponent::GatherFrom(ASunriseResourceNode* Node)
 {
 	AActor* Worker = GetOwner();
-	if (!Worker || !Worker->HasAuthority() || !IsValid(Node) ||
-		FVector::DistSquared(Worker->GetActorLocation(), Node->GetActorLocation()) > FMath::Square(InteractionRange) ||
+	if (!Worker || !Worker->HasAuthority() || !IsValid(Node) || !IsWithinInteractionRange(Worker, Node, InteractionRange) ||
 		(CargoAmount > 0 && CargoType != Node->GetResourceType()))
 	{
 		return 0;
@@ -46,7 +77,7 @@ bool USurvivalWorkerComponent::DepositAt(ASurvivalBuilding* Building)
 {
 	AActor* Worker = GetOwner();
 	if (!Worker || !Worker->HasAuthority() || !IsValid(Building) || !Building->IsAlive() || CargoAmount <= 0 ||
-		FVector::DistSquared(Worker->GetActorLocation(), Building->GetActorLocation()) > FMath::Square(InteractionRange) ||
+		!IsWithinInteractionRange(Worker, Building, InteractionRange) ||
 		(Building->GetBuildingRole() != ESurvivalBuildingRole::MainBase &&
 			Building->GetBuildingRole() != ESurvivalBuildingRole::Storehouse))
 	{
@@ -138,7 +169,7 @@ void USurvivalWorkerComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 			CancelWorkerOrder();
 			return;
 		}
-		if (FVector::DistSquared(Worker->GetActorLocation(), Node->GetActorLocation()) > FMath::Square(InteractionRange))
+		if (!IsWithinInteractionRange(Worker, Node, InteractionRange))
 		{
 			if (MoveRefreshRemaining <= 0.0f)
 			{
@@ -173,7 +204,7 @@ void USurvivalWorkerComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 		CancelWorkerOrder();
 		return;
 	}
-	if (FVector::DistSquared(Worker->GetActorLocation(), Deposit->GetActorLocation()) > FMath::Square(InteractionRange))
+	if (!IsWithinInteractionRange(Worker, Deposit, InteractionRange))
 	{
 		if (MoveRefreshRemaining <= 0.0f)
 		{
@@ -196,8 +227,9 @@ void USurvivalWorkerComponent::TickComponent(float DeltaTime, ELevelTick TickTyp
 ASurvivalBuilding* USurvivalWorkerComponent::FindClosestDepositBuilding() const
 {
 	ASunriseUnit* Worker = Cast<ASunriseUnit>(GetOwner());
-	const AController* Controller = Worker ? Cast<AController>(Worker->GetControllingAgent().GetObject()) : nullptr;
-	const APlayerState* PlayerState = Controller ? Controller->PlayerState : nullptr;
+	UObject* ControllingAgent = Worker ? Worker->GetControllingAgent().GetObject() : nullptr;
+	const AController* Controller = Cast<AController>(ControllingAgent);
+	const APlayerState* PlayerState = IsValid(Controller) ? Controller->PlayerState.Get() : Cast<APlayerState>(ControllingAgent);
 	ASurvivalBuilding* Result = nullptr;
 	float BestDistance = TNumericLimits<float>::Max();
 	for (TActorIterator<ASurvivalBuilding> It(GetWorld()); It; ++It)
@@ -225,7 +257,16 @@ void USurvivalWorkerComponent::MoveOwnerTo(AActor* Target)
 	AAIController* AI = Worker ? Cast<AAIController>(Worker->GetController()) : nullptr;
 	if (AI && Target)
 	{
-		AI->MoveToActor(Target, InteractionRange * 0.8f, true, true, true, nullptr, true);
+		FVector Destination = GetInteractionApproachLocation(Worker, Target, InteractionRange);
+		if (UNavigationSystemV1* Navigation = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld()))
+		{
+			FNavLocation ProjectedLocation;
+			if (Navigation->ProjectPointToNavigation(Destination, ProjectedLocation, FVector(InteractionRange, InteractionRange, 500.0f)))
+			{
+				Destination = ProjectedLocation.Location;
+			}
+		}
+		AI->MoveToLocation(Destination, 25.0f, true, true, false, true, nullptr, true);
 		MoveRefreshRemaining = 1.0f;
 	}
 }
