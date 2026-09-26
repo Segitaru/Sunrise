@@ -10,6 +10,7 @@
 
 class USunriseUI;
 class USunriseHUDComponent;
+class USunriseHeroAbilityHUDComponent;
 class ASunriseUnit;
 class UCanvas;
 
@@ -20,6 +21,7 @@ class SUNRISEGAME_API ASunriseHUD : public AHUD
 	GENERATED_BODY()
 
 public:
+	ASunriseHUD(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	virtual void PreInitializeComponents() override;
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -33,6 +35,9 @@ public:
 protected:
 	void DrawUnitOverlays();
 	void DrawMatchPanel();
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI")
+	TObjectPtr<USunriseHeroAbilityHUDComponent> HeroAbilityHUDComponent;
 
 	UPROPERTY(Transient)
 	TObjectPtr<USunriseUI> UIWidget;

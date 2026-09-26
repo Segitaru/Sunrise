@@ -19,6 +19,7 @@
 #include "Pawn/ModularPawnData.h"
 #include "Player/SunrisePlayerController.h"
 #include "UI/Components/SunriseHUDComponent.h"
+#include "UI/Components/SunriseHeroAbilityHUDComponent.h"
 #include "UI/SunriseUI.h"
 #include "Units/SunrisePawn.h"
 #include "Units/SunriseUnit.h"
@@ -110,6 +111,12 @@ namespace SunriseHUDInput
 			});
 	}
 } // namespace SunriseHUDInput
+
+ASunriseHUD::ASunriseHUD(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	HeroAbilityHUDComponent = CreateDefaultSubobject<USunriseHeroAbilityHUDComponent>(TEXT("HeroAbilityHUD"));
+}
 
 void ASunriseHUD::PreInitializeComponents()
 {

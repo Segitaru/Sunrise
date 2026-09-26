@@ -30,17 +30,31 @@ public:
 	APlaceableActor();
 	virtual void PostInitializeComponents() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual float TakeDamage(
+		float DamageAmount, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 	UFUNCTION(BlueprintPure, Category = "Sunrise|Placement")
 	USceneComponent* GetPlacementComponent() const { return PlacementComponent; }
 
+	UFUNCTION(BlueprintPure, Category = "Sunrise|Vitality")
+	float GetHealth() const;
+
+	UFUNCTION(BlueprintPure, Category = "Sunrise|Vitality")
+	float GetMaxHealth() const;
+
+	UFUNCTION(BlueprintPure, Category = "Sunrise|Vitality")
+	bool IsAlive() const;
+
 protected:
 	UFUNCTION()
 	void HandleVitalityStateChanged(AActor* OwningActor, EVitalityState OldState, EVitalityState NewState);
+
 	UFUNCTION(BlueprintImplementableEvent, Category = "Sunrise|Presentation")
 	void BP_VitalityStateChanged(EVitalityState OldState, EVitalityState NewState);
+
 	UFUNCTION()
 	void OnRep_TeamId(FGenericTeamId OldTeamId);
+
 	UFUNCTION()
 	void OnRep_ControllingAgent(AActor* OldAgent);
 
@@ -87,6 +101,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Sunrise|Vitality", meta = (ClampMin = "1"))
 	float InitialMaxHealth = 500.0f;
+
+	UPROPERTY(BlueprintReadOnly)
+	float CurrentLevel = 0;
 
 private:
 	UPROPERTY(ReplicatedUsing = OnRep_ControllingAgent)

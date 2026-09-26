@@ -41,7 +41,7 @@ namespace SunriseWidgets
 	static void OpenMenu(UObject* Context)
 	{
 		UGameplayStatics::SetGamePaused(Context, false);
-		UGameplayStatics::OpenLevel(Context, FName(TEXT("/Game/Sunrise/Maps/Test/L_MainMenu")), true);
+		UGameplayStatics::OpenLevel(Context, FName(TEXT("/Game/Sunrise/Maps/MainMenu/L_MainMenu")), true);
 	}
 } // namespace SunriseWidgets
 

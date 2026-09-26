@@ -73,7 +73,7 @@ int32 USunriseGameMatchComponent::GetEnemyAlive() const
 
 void USunriseGameMatchComponent::ReturnToMainMenu()
 {
-	UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Sunrise/Maps/Test/L_MainMenu")), true);
+	UGameplayStatics::OpenLevel(this, FName(TEXT("/Game/Sunrise/Maps/MainMenu/L_MainMenu")), true);
 }
 
 void USunriseGameMatchComponent::HandleExperienceLoaded(const UExperienceDefinition* CurrentExperience)

@@ -5,7 +5,9 @@
 #include "AbilitySystemComponent.h"
 #include "ControllableEntities/ControllableEntitiesManager.h"
 #include "Engine/EngineTypes.h"
+#include "Environment/Resources/SunriseResourceNode.h"
 #include "GameModes/Overload/Interfaces/OverloadHackable.h"
+#include "GameModes/Survival/Actors/SurvivalBuilding.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
 #include "Player/SunrisePlayerController.h"
@@ -66,6 +68,15 @@ void USunriseOrderCommandAbility::ActivateAbility(FGameplayAbilitySpecHandle Han
 	{
 		Target = Hit.GetActor();
 		ASunriseUnit* TargetUnit = Cast<ASunriseUnit>(Target);
+		ASurvivalBuilding* ConstructionSite = Cast<ASurvivalBuilding>(Target);
+		if (!ConstructionSite && IsValid(Hit.GetComponent()))
+		{
+			ConstructionSite = Cast<ASurvivalBuilding>(Hit.GetComponent()->GetOwner());
+			if (ConstructionSite)
+			{
+				Target = ConstructionSite;
+			}
+		}
 		if (!TargetUnit && IsValid(Hit.GetComponent()))
 		{
 			TargetUnit = Cast<ASunriseUnit>(Hit.GetComponent()->GetOwner());
@@ -74,7 +85,7 @@ void USunriseOrderCommandAbility::ActivateAbility(FGameplayAbilitySpecHandle Han
 				Target = TargetUnit;
 			}
 		}
-		if (!TargetUnit)
+		if (!TargetUnit && !ConstructionSite)
 		{
 			TArray<TEnumAsByte<EObjectTypeQuery>> PawnObjectTypes;
 			PawnObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_Pawn));
@@ -92,7 +103,29 @@ void USunriseOrderCommandAbility::ActivateAbility(FGameplayAbilitySpecHandle Han
 				}
 			}
 		}
-		if (IsValid(TargetUnit) && TargetUnit->IsAlive())
+		ASunriseResourceNode* ResourceNode = Cast<ASunriseResourceNode>(Target);
+		if (!ResourceNode && !ConstructionSite)
+		{
+			TArray<TEnumAsByte<EObjectTypeQuery>> ResourceObjectTypes;
+			ResourceObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldStatic));
+			ResourceObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_WorldDynamic));
+			FHitResult ResourceHit;
+			if (PC->GetHitResultUnderCursorForObjects(ResourceObjectTypes, true, ResourceHit))
+			{
+				ResourceNode = Cast<ASunriseResourceNode>(ResourceHit.GetActor());
+				if (!ResourceNode && IsValid(ResourceHit.GetComponent()))
+				{
+					ResourceNode = Cast<ASunriseResourceNode>(ResourceHit.GetComponent()->GetOwner());
+				}
+				if (ResourceNode)
+				{
+					Target = ResourceNode;
+					Hit = ResourceHit;
+				}
+			}
+		}
+		if ((IsValid(TargetUnit) && TargetUnit->IsAlive()) || (IsValid(ResourceNode) && ResourceNode->GetRemainingAmount() > 0) ||
+			(IsValid(ConstructionSite) && !ConstructionSite->IsConstructionComplete()))
 		{
 			OrderTag = SunriseOrders::Target;
 		}

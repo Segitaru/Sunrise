@@ -1,5 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
+using System.IO;
 using UnrealBuildTool;
 
 public class SunriseGame : ModuleRules
@@ -9,7 +10,9 @@ public class SunriseGame : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
 		PublicIncludePaths.AddRange(new string[] {
-			"SunriseGame"
+			"SunriseGame",
+			Path.Combine(ModuleDirectory, "Public/Environment"),
+			Path.Combine(ModuleDirectory, "Public/Environment/Buildings"),
 		});
 		
 		PublicDependencyModuleNames.AddRange(new string[] {

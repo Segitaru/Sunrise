@@ -15,9 +15,13 @@
 #include "ControllableEntities/ControllableEntitiesManager.h"
 #include "Engine/TargetPoint.h"
 #include "EngineUtils.h"
+#include "Environment/Resources/SunriseResourceNode.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
+#include "GameModes/Survival/Actors/SurvivalBuilding.h"
+#include "GameModes/Survival/Components/SurvivalWorkerComponent.h"
+#include "GameModes/Survival/SurvivalGameplayTags.h"
 #include "NPC_Optimizator/Public/OptimizationComponent.h"
 #include "Navigation/CrowdFollowingComponent.h"
 #include "Net/UnrealNetwork.h"
@@ -211,14 +215,70 @@ void ASunriseUnit::SetSunriseSelected_Implementation(bool bInSelected)
 
 void ASunriseUnit::IssueMoveOrder_Implementation(const FVector& Destination)
 {
+	if (!HasAuthority() || !IsAlive() || Destination.ContainsNaN())
+	{
+		return;
+	}
+	if (USurvivalWorkerComponent* Worker = FindComponentByClass<USurvivalWorkerComponent>())
+	{
+		Worker->CancelWorkerOrder();
+	}
 	if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController()))
 	{
-		AI->IssueMoveOrder(Destination, true);
+		if (!AI->IssueMoveOrder(Destination, true))
+		{
+			AI->MoveToLocation(Destination, 25.0f, true, true, true, true, nullptr, true);
+		}
 	}
 }
 
 void ASunriseUnit::IssueTargetOrder_Implementation(AActor* InTargetActor)
 {
+	if (!HasAuthority() || !IsAlive() || !IsValid(InTargetActor) || InTargetActor->GetWorld() != GetWorld())
+	{
+		return;
+	}
+	if (ASurvivalBuilding* ConstructionSite = Cast<ASurvivalBuilding>(InTargetActor))
+	{
+		if (!ConstructionSite->IsConstructionComplete())
+		{
+			USurvivalWorkerComponent* Worker = FindComponentByClass<USurvivalWorkerComponent>();
+			if (!Worker && HasPawnTag(SurvivalGameplayTags::Unit_Worker))
+			{
+				Worker = NewObject<USurvivalWorkerComponent>(this, TEXT("SurvivalWorker"));
+				AddInstanceComponent(Worker);
+				Worker->RegisterComponent();
+			}
+			if (Worker)
+			{
+				Worker->StartBuildOrder(ConstructionSite);
+			}
+		}
+		return;
+	}
+	if (ASunriseResourceNode* ResourceNode = Cast<ASunriseResourceNode>(InTargetActor))
+	{
+		USurvivalWorkerComponent* Worker = FindComponentByClass<USurvivalWorkerComponent>();
+		if (!Worker && HasPawnTag(SurvivalGameplayTags::Unit_Worker))
+		{
+			Worker = NewObject<USurvivalWorkerComponent>(this, TEXT("SurvivalWorker"));
+			AddInstanceComponent(Worker);
+			Worker->RegisterComponent();
+		}
+		if (Worker)
+		{
+			Worker->StartGatherOrder(ResourceNode);
+		}
+		else
+		{
+			IssueMoveOrder_Implementation(ResourceNode->GetActorLocation());
+		}
+		return;
+	}
+	if (USurvivalWorkerComponent* Worker = FindComponentByClass<USurvivalWorkerComponent>())
+	{
+		Worker->CancelWorkerOrder();
+	}
 	if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController()))
 	{
 		AI->IssueTargetOrder(Cast<ASunriseUnit>(InTargetActor), true);
@@ -230,6 +290,10 @@ void ASunriseUnit::StopOrder_Implementation()
 	if (!HasAuthority())
 	{
 		return;
+	}
+	if (USurvivalWorkerComponent* Worker = FindComponentByClass<USurvivalWorkerComponent>())
+	{
+		Worker->CancelWorkerOrder();
 	}
 	if (ASunriseUnitAIController* AI = Cast<ASunriseUnitAIController>(GetController()))
 	{
@@ -694,7 +758,11 @@ void ASunriseUnit::OnRep_ControllingAgent(AActor* OldAgentActor)
 
 void ASunriseUnit::HandleTeamChanged(UObject* TeamAgent, int32 PreviousTeamId, int32 NewTeamId)
 {
-	if (GetTeamId() != 0 && bSelected)
+	const AController* Agent = Cast<AController>(GetControllingAgent().GetObject());
+	const IModularTeamAgentInterface* AgentTeam =
+		Agent && Agent->PlayerState ? Cast<IModularTeamAgentInterface>(Agent->PlayerState) : Cast<IModularTeamAgentInterface>(Agent);
+	const bool bStillOwnedByAgent = AgentTeam && AgentTeam->GetGenericTeamId() == GetGenericTeamId();
+	if (!bStillOwnedByAgent && bSelected)
 	{
 		ISunriseSelectable::Execute_SetSunriseSelected(this, false);
 	}

@@ -5,6 +5,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Vitality/Attributes/SunriseCombatSet.h"
 #include "Vitality/Attributes/SunriseHealthSet.h"
+#include "Weapons/Effects/SunriseWeaponEffects.h"
 
 APlaceableActor::APlaceableActor()
 {
@@ -50,6 +51,39 @@ void APlaceableActor::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 	DOREPLIFETIME(APlaceableActor, ControllingAgentActor);
 }
 
+
+float APlaceableActor::TakeDamage(float DamageAmount, const FDamageEvent&, AController*, AActor* DamageCauser)
+{
+	if (!HasAuthority() || !IsAlive() || !FMath::IsFinite(DamageAmount) || DamageAmount <= 0.0f || !AbilitySystemComponent)
+	{
+		return 0.0f;
+	}
+	const float Before = GetHealth();
+	FGameplayEffectContextHandle Context = AbilitySystemComponent->MakeEffectContext();
+	Context.AddSourceObject(DamageCauser);
+	FGameplayEffectSpecHandle Handle = AbilitySystemComponent->MakeOutgoingSpec(USunriseDamageEffect::StaticClass(), 1.0f, Context);
+	if (FGameplayEffectSpec* Spec = Handle.Data.Get())
+	{
+		Spec->SetSetByCallerMagnitude(USunriseDamageEffect::GetMagnitudeDataName(), -DamageAmount);
+		AbilitySystemComponent->ApplyGameplayEffectSpecToSelf(*Spec);
+	}
+	return Before - GetHealth();
+}
+
+float APlaceableActor::GetHealth() const
+{
+	return HealthSet ? HealthSet->GetHealth() : 0.0f;
+}
+
+float APlaceableActor::GetMaxHealth() const
+{
+	return HealthSet ? HealthSet->GetMaxHealth() : 0.0f;
+}
+
+bool APlaceableActor::IsAlive() const
+{
+	return VitalityComponent && VitalityComponent->IsHealthy();
+}
 void APlaceableActor::HandleVitalityStateChanged(AActor*, EVitalityState OldState, EVitalityState NewState)
 {
 	if (NewState == EVitalityState::Dying && HasAuthority())
